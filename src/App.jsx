@@ -1,6 +1,13 @@
+import LandingPage from "./pages/Landing-Page";
 
-export default function App() {
+function App() {
   return (
-    <div>Hello,  MediLink!</div>
-  )
+    <div dir="rtl" className="bg-base w-full">
+      <div className="max-w-8xl mx-auto bg-white md:mx-25">
+        <LandingPage />
+      </div>
+    </div>
+  );
 }
+
+export default App;
