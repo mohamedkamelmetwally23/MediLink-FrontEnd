@@ -6,6 +6,9 @@ import Specialties from "../components/Specialties";
 import Doctors from "../components/Doctors";
 import AiAgent from "../components/AiAgent";
 import AssistantButton from "../components/AssistantButton";
+import BenefitsOfWeb from "../components/BenefitsOfWeb";
+import FAQ from "../components/Questions";
+import Footer from "../components/Footer";
 
 export default function LandingPage() {
   return (
@@ -20,6 +23,9 @@ export default function LandingPage() {
       <Doctors/>
       <AiAgent/>
       <AssistantButton/>
+      <BenefitsOfWeb/>
+      <FAQ/>
+      <Footer/>
 
     </div>
   );

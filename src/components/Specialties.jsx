@@ -23,7 +23,7 @@ export default function Specialties() {
     <section className="py-16 px-6 lg:px-12">
       <h2 className="text-center text-4xl font-bold mb-10">التخصصات</h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-7  gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-7 cursor-pointer gap-4">
         {specialties.map((item, index) => (
           <div key={item} className="card bg-base shadow-md flex flex-col justify-center items-center">
             <img src={images[index]} className="w-[50px] h-[50px]" alt="" />

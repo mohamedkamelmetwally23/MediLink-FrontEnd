@@ -60,7 +60,7 @@ export default function Doctors() {
   ];
 
   return (
-    <section className="py-3 px-6 lg:px-12 shadow-sm">
+    <section className="py-3 px-6 lg:px-12 ">
       <h2 className="text-center text-4xl font-bold mb-5">الأطباء</h2>
       <p className="text-center mb-3 text-[#6D6D6D]">
         فريق من أفضل الأطباء المتخصصين لخدمتكم
