@@ -16,7 +16,7 @@ export default function AiAgent() {
           className="input w-full focus:border-none focus:outline-none py-5"
         />
         <div className="flex justify-between">
-          <div className="p-4">
+          <div className="p-4 cursor-pointer">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -34,7 +34,7 @@ export default function AiAgent() {
           </div>
 
           <div className="flex gap-5 items-center px-5 ">
-            <div className="relative">
+            <div className="relative cursor-pointer">
               <div className="bg-red-600 h-[35px] w-[35px] bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] rounded-md"></div>
               <div className="absolute top-2 right-1.5">
                 <svg
@@ -60,7 +60,7 @@ export default function AiAgent() {
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
                 stroke="currentColor"
-                className="size-6"
+                className="size-6 cursor-pointer"
               >
                 <path
                   strokeLinecap="round"
