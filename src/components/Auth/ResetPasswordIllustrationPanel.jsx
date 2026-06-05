@@ -28,25 +28,6 @@ export default function ResetPasswordIllustrationPanel() {
 
       {/* Illustration */}
       <div className="relative h-[560px] w-[480px]">
-        {/* Big cyan circle */}
-        <div className="absolute right-10 top-28 z-0 h-64 w-64 rounded-full bg-gradient-to-b from-[#05ADE8] to-[#6CCCC8]" />
-
-        {/* Small blue circle */}
-        <div className="absolute left-12 top-32 z-10 h-14 w-14 rounded-full bg-[#1F5FAF]" />
-
-        {/* Bottom cyan circle */}
-        <div className="absolute bottom-10 left-12 z-0 h-44 w-44 rounded-full bg-[#6CCCC8]/75" />
-
-        {/* Small white circle */}
-        <div className="absolute right-4 top-80 z-20 h-8 w-8 rounded-full bg-white" />
-
-        {/* White abstract shape */}
-        <div className="absolute bottom-40 left-4 z-30 flex h-36 w-36 items-center justify-center rounded-t-full rounded-br-full bg-white">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-base-200">
-          </div>
-        </div>
-
-        {/* Doctor image */}
         <img
           src={doctorImage}
           alt="Doctor"

@@ -1,34 +1,40 @@
-import img12 from "../assets/landingPage/lets-icons_tooth-light.png"
-import img13 from "../assets/landingPage/healthicons_stomach-outline.png"
-import img14 from "../assets/landingPage/hugeicons_kid.png"
-import img15 from "../assets/landingPage/streamline-ultimate_hair-skin.png"
-import img16 from "../assets/landingPage/healthicons_nose-outline.png"
-import img17 from "../assets/landingPage/Vector.png"
-import img18 from "../assets/landingPage/vaadin_eye.png"
-
-const images = [img12, img13, img14, img15, img16, img17, img18]
+import { toast } from "react-toastify";
+import img12 from "../assets/landingPage/lets-icons_tooth-light.png";
+import img13 from "../assets/landingPage/healthicons_stomach-outline.png";
+import img14 from "../assets/landingPage/hugeicons_kid.png";
+import img15 from "../assets/landingPage/streamline-ultimate_hair-skin.png";
+import img16 from "../assets/landingPage/healthicons_nose-outline.png";
+import img17 from "../assets/landingPage/Vector.png";
+import img18 from "../assets/landingPage/vaadin_eye.png";
 
 const specialties = [
-  "الفم والأسنان",
-  "الباطنة",
-  "الأطفال",
-  "الجلدية والتجميل",
-  "أنف وأذن",
-  "المخ والأعصاب",
-  "العيون",
+  { label: "الفم والأسنان", image: img12 },
+  { label: "الباطنة", image: img13 },
+  { label: "الأطفال", image: img14 },
+  { label: "الجلدية والتجميل", image: img15 },
+  { label: "أنف وأذن", image: img16 },
+  { label: "المخ والأعصاب", image: img17 },
+  { label: "العيون", image: img18 },
 ];
 
 export default function Specialties() {
   return (
-    <section className="py-16 px-6 lg:px-12">
-      <h2 className="text-center text-4xl font-bold mb-10 dark:text-[#F0F0F0]">التخصصات</h2>
+    <section id="specialties" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <h2 className="mb-8 text-center text-3xl font-bold dark:text-[#F0F0F0] sm:text-4xl">
+        التخصصات
+      </h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-7 cursor-pointer gap-4">
-        {specialties.map((item, index) => (
-          <div key={item} className="card bg-base dark:shadow-[#414040] shadow-md flex flex-col justify-center items-center">
-            <img src={images[index]} className="w-[50px] h-[50px]" alt="" />
-            <div className="card-body items-center text-center dark:text-[#F0F0F0]">{item}</div>
-          </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
+        {specialties.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => toast.info(`تم اختيار تخصص ${item.label}`)}
+            className="flex min-h-36 flex-col items-center justify-center rounded-xl bg-white p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:bg-[#252525] dark:shadow-[#414040]"
+          >
+            <img src={item.image} className="mb-3 h-[50px] w-[50px]" alt="" />
+            <span className="text-sm font-semibold dark:text-[#F0F0F0]">{item.label}</span>
+          </button>
         ))}
       </div>
     </section>

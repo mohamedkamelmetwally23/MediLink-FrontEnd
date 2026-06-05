@@ -26,16 +26,6 @@ export default function AuthIllustrationPanel() {
 </Link>
       {/* Illustration */}
       <div className="relative h-[560px] w-[480px]">
-        <div className="absolute right-8 top-24 z-0 h-72 w-72 rounded-full bg-gradient-to-b from-[#05ADE8] to-[#6CCCC8]" />
-        <div className="absolute left-12 top-28 z-10 h-14 w-14 rounded-full bg-[#1F5FAF]" />
-        <div className="absolute bottom-2 left-8 z-0 h-48 w-48 rounded-full bg-[#6CCCC8]/75" />
-        <div className="absolute right-0 top-80 z-20 h-8 w-8 rounded-full bg-white" />
-        <div className="absolute bottom-36 left-0 z-30 flex h-36 w-36 items-center justify-center rounded-t-full rounded-br-full bg-white">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-base-200">
-          </div>
-        </div>
-
-        {/* Doctor image */}
         <img
           src={doctorImage}
           alt="Doctor"

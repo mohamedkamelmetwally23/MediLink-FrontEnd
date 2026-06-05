@@ -1,11 +1,24 @@
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+
+const links = [
+  { href: "#home", label: "الرئيسية" },
+  { href: "#features", label: "المميزات" },
+  { href: "#specialties", label: "التخصصات" },
+  { href: "#doctors", label: "الأطباء" },
+  { href: "#contact", label: "تواصل معنا" },
+];
 
 export default function Navbar() {
+  const handleNavClick = (label) => {
+    toast.info(`تم الانتقال إلى ${label}`, { autoClose: 1200 });
+  };
+
   return (
-    <div className="navbar px-1 md:px-6">
-      <div className="navbar-start">
-        <div className="dropdown md:hidden">
-          <label tabIndex={0} className="btn btn-ghost">
+    <header className="navbar mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
+      <div className="navbar-start min-w-0">
+        <div className="dropdown lg:hidden">
+          <button tabIndex={0} className="btn btn-ghost btn-square" aria-label="فتح القائمة">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -20,70 +33,51 @@ export default function Navbar() {
                 d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
               />
             </svg>
-          </label>
+          </button>
 
           <ul
             tabIndex={0}
-            className="menu dropdown-content mt-3 z-[1001] p-1 shadow bg-white dark:bg-black dark:text-[#F0F0F0] rounded-box w-52"
+            className="menu dropdown-content z-[1001] mt-3 w-56 rounded-box bg-white p-2 text-sm shadow dark:bg-[#252525] dark:text-[#F0F0F0]"
           >
-            <li>
-              <a href="#home">الرئيسية</a>
-            </li>
-            <li>
-              <a href="#features">المميزات</a>
-            </li>
-            <li>
-              <a href="#specialties">التخصصات</a>
-            </li>
-            <li>
-              <a href="#about">من نحن</a>
-            </li>
-            <li>
-              <a href="#contact">تواصل معنا</a>
-            </li>
+            {links.map((link) => (
+              <li key={link.href}>
+                <a href={link.href} onClick={() => handleNavClick(link.label)}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
           </ul>
         </div>
 
-        <Link to="/" className="text-2xl font-bold text-sky-600">
+        <Link to="/" className="truncate text-xl font-bold text-sky-600 sm:text-2xl">
           MediLink
         </Link>
       </div>
 
-      <div className="navbar-center hidden md:flex">
-        <ul className="menu menu-horizontal font-semibold md:text-xl px-1 gap-1">
-          <li>
-            <a href="#home">الرئيسية</a>
-          </li>
-          <li>
-            <a href="#features">المميزات</a>
-          </li>
-          <li>
-            <a href="#specialties">التخصصات</a>
-          </li>
-          <li>
-            <a href="#about">من نحن</a>
-          </li>
-          <li>
-            <a href="#contact">تواصل معنا</a>
-          </li>
+      <nav className="navbar-center hidden lg:flex">
+        <ul className="menu menu-horizontal gap-1 px-1 text-base font-semibold xl:text-lg">
+          {links.map((link) => (
+            <li key={link.href}>
+              <a href={link.href} onClick={() => handleNavClick(link.label)}>
+                {link.label}
+              </a>
+            </li>
+          ))}
         </ul>
-      </div>
+      </nav>
 
       <div className="navbar-end gap-2">
         <Link
           to="/register"
-          className="btn bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm border-none text-white dark:text-black outline-none md:btn-md"
+          className="btn btn-sm border-none bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white outline-none dark:text-black sm:px-5 md:btn-md"
         >
           حساب جديد
         </Link>
 
-        <Link
-          to="/login"
-          className="btn btn-outline btn-info btn-sm md:btn-md"
-        >
-          تسجيل دخول
+        <Link to="/login" className="btn btn-outline btn-info btn-sm sm:px-5 md:btn-md">
+          دخول
         </Link>
       </div>
-    </div>
+    </header>
   );
 }

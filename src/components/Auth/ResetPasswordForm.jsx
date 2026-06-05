@@ -1,36 +1,34 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
 
-export default function ResetPasswordForm() {
+export default function ResetPasswordForm({ onOtpRequested }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
-  const [isSent, setIsSent] = useState(false);
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
     if (!phoneNumber.trim()) {
       setError("رقم الهاتف مطلوب");
+      toast.error("رقم الهاتف مطلوب");
       return;
     }
 
     if (!/^01[0-9]{9}$/.test(phoneNumber)) {
       setError("رقم الهاتف غير صحيح");
+      toast.error("رقم الهاتف غير صحيح");
       return;
     }
 
     setError("");
-    setIsSent(true);
-
-    console.log("Reset password phone:", phoneNumber);
-
-    // هنا بعدين هنربط API إرسال كود إعادة التعيين
+    onOtpRequested?.(phoneNumber);
   };
 
   return (
-    <section className="flex w-1/2 items-center justify-center bg-white px-10">
+    <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[430px] text-right"
@@ -38,12 +36,12 @@ export default function ResetPasswordForm() {
         autoComplete="off"
       >
         <div className="mb-10 text-center">
-          <h1 className="mb-2 text-3xl font-semibold text-gray-900">
+          <h1 className="mb-2 text-3xl font-semibold text-gray-900 dark:text-[#F0F0F0]">
             نسيت كلمة المرور؟
           </h1>
 
-          <p className="mx-auto max-w-[330px] text-sm leading-6 text-gray-500">
-            أدخل رقم الهاتف لاستعادة كلمة المرور الخاصة بك
+          <p className="mx-auto max-w-[330px] text-sm leading-6 text-gray-500 dark:text-[#D2D2D2]">
+            أدخل رقم الهاتف لإرسال كود استعادة كلمة المرور
           </p>
         </div>
 
@@ -58,22 +56,15 @@ export default function ResetPasswordForm() {
             onChange={(event) => {
               setPhoneNumber(event.target.value);
               setError("");
-              setIsSent(false);
             }}
             autoComplete="tel"
             error={error}
           />
         </div>
 
-        {isSent && (
-          <p className="mb-5 text-center text-sm font-medium text-[#05ADE8]">
-            تم إرسال رابط استعادة كلمة المرور إلى رقم الهاتف
-          </p>
-        )}
+        <PrimaryButton disabled={false}>إرسال كود التحقق</PrimaryButton>
 
-        <PrimaryButton disabled={false}>إرسال رقم الهاتف</PrimaryButton>
-
-        <p className="mt-5 text-center text-sm text-gray-900">
+        <p className="mt-5 text-center text-sm text-gray-900 dark:text-[#F0F0F0]">
           هل تذكرت كلمة المرور؟{" "}
           <Link to="/login" className="font-semibold underline">
             تسجيل الدخول

@@ -1,77 +1,66 @@
-export default function AiAgent() {
-  return (
-    <div className="flex flex-col gap-3 justify-center items-center mt-10 mb-10 px-5 md:w-1/2 md:mx-auto">
-      <h1 className="text-4xl text-center font-semiboldbold dark:text-[#F0F0F0]">
-        <span className="text-[#05ADE8]"> مساعدك الذكي </span>للرعاية
-        الصحية{" "}
-      </h1>
-      <p className="text-center dark:text-[#D2D2D2] text-[#6D6D6D] md:w-1/2">
-        اسأل عن الأعراض, التخصصات, الأطباء أو احجز موعدك بسهولة.مساعد AI متاح
-        على مدار الساعة لمساعدتك
-      </p>
-      <div className="w-full border-4 border-[#05ADE8] rounded-xl">
-        <input
-          type="text"
-          placeholder="أكتب رسالتك هنا ..."
-          className="input w-full focus:border-none bg-(--bg-primary) focus:outline-none py-5"
-        />
-        <div className="flex justify-between">
-          <div className="p-4 cursor-pointer">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="size-7 dark:text-white"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-          </div>
+import { useState } from "react";
+import { toast } from "react-toastify";
 
-          <div className="flex gap-5 items-center px-5 ">
-            <div className="relative cursor-pointer">
-              <div className="bg-red-600 h-[35px] w-[35px] bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] rounded-md"></div>
-              <div className="absolute top-2 right-1.5">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="size-6 text-white dark:text-black"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="size-6 cursor-pointer dark:text-white"
+export default function AiAgent() {
+  const [message, setMessage] = useState("");
+
+  const handleSend = () => {
+    if (!message.trim()) {
+      toast.warning("اكتب رسالتك أولًا");
+      return;
+    }
+
+    toast.success("تم إرسال الرسالة للمساعد الذكي");
+    setMessage("");
+  };
+
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <h2 className="text-3xl font-semibold dark:text-[#F0F0F0] sm:text-4xl">
+          <span className="text-[#05ADE8]">مساعدك الذكي</span> للرعاية الصحية
+        </h2>
+        <p className="max-w-2xl leading-7 text-[#6D6D6D] dark:text-[#D2D2D2]">
+          اسأل عن الأعراض أو التخصصات أو الأطباء، والمساعد الذكي يساعدك في
+          الوصول للخدمة المناسبة بسرعة.
+        </p>
+
+        <div className="mt-4 w-full rounded-xl border-4 border-[#05ADE8] bg-white dark:bg-[#252525]">
+          <textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="اكتب رسالتك هنا..."
+            className="min-h-28 w-full resize-none bg-transparent p-4 text-right outline-none placeholder:text-gray-400 dark:text-[#F0F0F0]"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-100 p-3 dark:border-[#3C3C3C]">
+            <button
+              type="button"
+              onClick={() => toast.info("رفع الملفات سيكون متاحًا قريبًا")}
+              className="btn btn-ghost btn-sm"
+            >
+              إضافة ملف
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => toast.info("التسجيل الصوتي سيكون متاحًا قريبًا")}
+                className="btn btn-ghost btn-sm"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
-                />
-              </svg>
+                تسجيل صوتي
+              </button>
+              <button
+                type="button"
+                onClick={handleSend}
+                className="btn btn-sm border-none bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-6 text-white dark:text-black"
+              >
+                إرسال
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

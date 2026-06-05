@@ -1,71 +1,57 @@
-import img8 from "../assets/landingPage/8.png"
-import img9 from "../assets/landingPage/9.png"
-import img10 from "../assets/landingPage/10.png"
-import img11 from "../assets/landingPage/11.png"
-import rowdown from "../assets/landingPage/rowdown.png"
-import rowup from "../assets/landingPage/rowdup.png"
+import img8 from "../assets/landingPage/8.png";
+import img9 from "../assets/landingPage/9.png";
+import img10 from "../assets/landingPage/10.png";
+import img11 from "../assets/landingPage/11.png";
+
+const features = [
+  {
+    image: img8,
+    title: "أطباء متخصصون",
+    description:
+      "فريق من الأطباء والاستشاريين في مختلف التخصصات الطبية لتقديم رعاية صحية موثوقة.",
+  },
+  {
+    image: img9,
+    title: "حجز مواعيد بسهولة",
+    description:
+      "احجز موعدك في دقائق قليلة من خلال منصة سهلة الاستخدام دون الحاجة إلى الاتصالات الهاتفية.",
+  },
+  {
+    image: img10,
+    title: "مساعد مدعوم بالذكاء الاصطناعي",
+    description:
+      "يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات مبنية على الأعراض والاحتياجات الطبية.",
+  },
+  {
+    image: img11,
+    title: "تجربة آمنة ومريحة",
+    description:
+      "نحافظ على خصوصية بيانات المرضى ونوفر تجربة رقمية سلسة وآمنة على جميع الأجهزة.",
+  },
+];
 
 export default function Features() {
   return (
-    <section className="py-5 px-6 lg:px-12">
-      <h2 className="text-center text-4xl font-bold mb-12">
-        لماذا <span className="text-[#05ADE8]"> ميدلينك؟</span>
+    <section id="features" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <h2 className="mb-10 text-center text-3xl font-bold sm:text-4xl">
+        لماذا <span className="text-[#05ADE8]">ميدلينك؟</span>
       </h2>
 
-      <div className="grid grid-cols-1 md:flex dark:text-white  gap-6 md:h-[350px]">
-        <div>
-            <div className="flex justify-between items-center md:flex-col md:justify-center md:items-center">
-                <img src={img8} alt="image" />
-                <div>
-                    <p className="font-bold md:text-center mb-2">أطباء متخصصون</p>
-                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">فريق من الأطباء والاستشاريين في مختلف التخصصات الطبية لتقديم رعاية صحية موثوقة.</p>
-                </div>
-            </div>
-        </div>
-
-        <div className="hidden md:flex md:self-center h-1/2 w-100">
-            <img src={rowdown} alt="image" />
-        </div>
-
-        <div className="md:self-end">
-            <div className="flex justify-between items-center md:flex-col">
-                <img src={img9} alt="image" />
-                <div>
-                    <p className="font-bold md:text-center mb-2">حجز مواعيد بسهولة</p>
-                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">احجز موعدك في دقائق قليلة من خلال منصة سهلة الاستخدام دون الحاجة إلى الاتصالات الهاتفية.</p>
-                </div>
-            </div>
-        </div>
-
-         <div className="hidden md:flex md:self-center h-1/2 w-100">
-            <img src={rowup} alt="image" />
-        </div>
-
-        <div>
-            <div className="flex justify-between items-center md:flex-col">
-                <img src={img10} alt="image" />
-                <div>
-                    <p className="font-bold md:text-center mb-2">مساعد مدعوم بالذكاء الاصطناعي</p>
-                   <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات ذكية مبنية على الأعراض والاحتياجات الطبية.</p>
-                </div>
-            </div>
-        </div>
-
-         <div className="hidden md:flex md:self-center h-1/2 w-100">
-            <img src={rowdown} alt="image" />
-        </div>
-
-        <div className="md:self-end">
-            <div className="flex justify-between items-center md:flex-col">
-                <img src={img11} alt="image" />
-                <div>
-                    <p className="font-bold mb-2 md:text-center">تجربة آمنة ومريحة</p>
-                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">نحافظ على خصوصية بيانات المرضى ونوفر تجربة رقمية سلسة وآمنة على جميع الأجهزة.</p>
-                  
-                </div>
-            </div>
-        </div>
-        
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {features.map((feature) => (
+          <article
+            key={feature.title}
+            className="flex h-full flex-col items-center rounded-xl bg-white p-5 text-center shadow-sm dark:bg-[#252525]"
+          >
+            <img src={feature.image} alt="" className="mb-4 h-20 w-20 object-contain" />
+            <h3 className="mb-2 text-lg font-bold text-gray-900 dark:text-[#F0F0F0]">
+              {feature.title}
+            </h3>
+            <p className="text-sm leading-7 text-[#636363] dark:text-[#D2D2D2]">
+              {feature.description}
+            </p>
+          </article>
+        ))}
       </div>
     </section>
   );
