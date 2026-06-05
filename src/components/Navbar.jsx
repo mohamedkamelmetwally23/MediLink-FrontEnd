@@ -12,7 +12,7 @@ export default function Navbar() {
               viewBox="0 0 24 24"
               strokeWidth={1.5}
               stroke="currentColor"
-              className="size-6"
+              className="size-6 text-black dark:text-white"
             >
               <path
                 strokeLinecap="round"
@@ -24,7 +24,7 @@ export default function Navbar() {
 
           <ul
             tabIndex={0}
-            className="menu dropdown-content mt-3 z-[1001] p-1 shadow bg-base-100 rounded-box w-52"
+            className="menu dropdown-content mt-3 z-[1001] p-1 shadow bg-white dark:bg-black dark:text-[#F0F0F0] rounded-box w-52"
           >
             <li>
               <a href="#home">الرئيسية</a>
@@ -72,7 +72,7 @@ export default function Navbar() {
       <div className="navbar-end gap-2">
         <Link
           to="/register"
-          className="btn bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm text-white md:btn-md"
+          className="btn bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm border-none text-white dark:text-black outline-none md:btn-md"
         >
           حساب جديد
         </Link>
