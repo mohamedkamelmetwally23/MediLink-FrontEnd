@@ -66,7 +66,7 @@ export default function Navbar() {
       </div>
 
       <div className="navbar-end gap-2 ">
-        <button className="btn  bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm  border-none dark:text-[black] outline-none md:btn-md">
+        <button className="btn  bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm  border-none text-white dark:text-[black] outline-none md:btn-md">
           حساب جديد
         </button>
         <button className="btn btn-outline btn-info btn-sm md:btn-md">

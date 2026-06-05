@@ -27,7 +27,7 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button className="btn bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] dark:text-black outline-none border-0 px-10 md:w-70">
+              <button className="btn bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] dark:text-black text-white outline-none border-0 px-10 md:w-70">
                 تسجيل دخول
               </button>
 

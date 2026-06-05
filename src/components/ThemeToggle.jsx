@@ -7,9 +7,9 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="btn btn-circle w-12.5 h-12.5 text-(--text-primary) bg-(--bg-primary) fixed left-5 bottom-5"
+      className="btn btn-circle w-14 h-14 text-(--text-primary) bg-(--bg-primary) border-3 fixed left-5 bottom-5"
     >
-      {dark ? <FaSun /> : <FaMoon />}
+      {dark ? <FaSun size={24}/> : <FaMoon size={24} />}
     </button>
   );
 }
