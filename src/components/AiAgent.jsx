@@ -1,11 +1,11 @@
 export default function AiAgent() {
   return (
     <div className="flex flex-col gap-3 justify-center items-center mt-10 mb-10 px-5 md:w-1/2 md:mx-auto">
-      <h1 className="text-4xl text-center font-semiboldbold">
+      <h1 className="text-4xl text-center font-semiboldbold dark:text-[#F0F0F0]">
         <span className="text-[#05ADE8]"> مساعدك الذكي </span>للرعاية
         الصحية{" "}
       </h1>
-      <p className="text-center text-[#6D6D6D] md:w-1/2">
+      <p className="text-center dark:text-[#D2D2D2] text-[#6D6D6D] md:w-1/2">
         اسأل عن الأعراض, التخصصات, الأطباء أو احجز موعدك بسهولة.مساعد AI متاح
         على مدار الساعة لمساعدتك
       </p>
@@ -13,7 +13,7 @@ export default function AiAgent() {
         <input
           type="text"
           placeholder="أكتب رسالتك هنا ..."
-          className="input w-full focus:border-none focus:outline-none py-5"
+          className="input w-full focus:border-none bg-(--bg-primary) focus:outline-none py-5"
         />
         <div className="flex justify-between">
           <div className="p-4 cursor-pointer">
@@ -23,7 +23,7 @@ export default function AiAgent() {
               viewBox="0 0 24 24"
               strokeWidth={1.5}
               stroke="currentColor"
-              className="size-7"
+              className="size-7 dark:text-white"
             >
               <path
                 strokeLinecap="round"
@@ -43,7 +43,7 @@ export default function AiAgent() {
                   viewBox="0 0 24 24"
                   strokeWidth={1.5}
                   stroke="currentColor"
-                  className="size-6 text-white"
+                  className="size-6 text-white dark:text-black"
                 >
                   <path
                     strokeLinecap="round"
@@ -60,7 +60,7 @@ export default function AiAgent() {
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
                 stroke="currentColor"
-                className="size-6 cursor-pointer"
+                className="size-6 cursor-pointer dark:text-white"
               >
                 <path
                   strokeLinecap="round"

@@ -61,19 +61,19 @@ export default function Doctors() {
 
   return (
     <section className="py-3 px-6 lg:px-12 ">
-      <h2 className="text-center text-4xl font-bold mb-5">الأطباء</h2>
-      <p className="text-center mb-3 text-[#6D6D6D]">
+      <h2 className="text-center dark:text-[#F0F0F0] text-4xl font-bold mb-5">الأطباء</h2>
+      <p className="text-center mb-3 text-[#6D6D6D] dark:text-[#D2D2D2]">
         فريق من أفضل الأطباء المتخصصين لخدمتكم
       </p>
       <div className="flex  gap-4 overflow-x-auto pb-4">
         {doctors.map((doctor) => (
           <div
             key={doctor.id}
-            className="min-w-[193px] flex flex-col items-center bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF]  rounded-xl shadow-md p-4"
+            className="min-w-[193px] flex flex-col items-center bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] dark:bg-linear-to-b dark:from-[#3C3C4399] dark:to-[#3C3C434D]  rounded-xl shadow-md p-4"
           >
             <img src={doctor.image} alt="image" className="self-center" />
-            <p>{doctor.name}</p>
-            <p className="text-[#6D6D6D] text-xs">{doctor.specialty}</p>
+            <p className="dark:text-[#D1D1D1]">{doctor.name}</p>
+            <p className="text-[#6D6D6D] dark:text-[#8A8A8A] text-xs">{doctor.specialty}</p>
 
             <div className="flex gap-1 text-yellow-400">
               {[1, 2, 3, 4, 5].map((star) => {

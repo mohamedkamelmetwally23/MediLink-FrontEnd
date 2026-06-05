@@ -12,13 +12,13 @@ export default function Features() {
         لماذا <span className="text-[#05ADE8]"> ميدلينك؟</span>
       </h2>
 
-      <div className="grid grid-cols-1 md:flex  gap-6 md:h-[350px]">
+      <div className="grid grid-cols-1 md:flex dark:text-white  gap-6 md:h-[350px]">
         <div>
             <div className="flex justify-between items-center md:flex-col md:justify-center md:items-center">
                 <img src={img8} alt="image" />
                 <div>
-                    <p className="font-bold md:text-center">أطباء متخصصون</p>
-                    <p className="text-[#636363] md:text-center">فريق من الأطباء والاستشاريين في مختلف التخصصات الطبية لتقديم رعاية صحية موثوقة.</p>
+                    <p className="font-bold md:text-center mb-2">أطباء متخصصون</p>
+                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">فريق من الأطباء والاستشاريين في مختلف التخصصات الطبية لتقديم رعاية صحية موثوقة.</p>
                 </div>
             </div>
         </div>
@@ -31,8 +31,8 @@ export default function Features() {
             <div className="flex justify-between items-center md:flex-col">
                 <img src={img9} alt="image" />
                 <div>
-                    <p className="font-bold md:text-center">حجز مواعيد بسهولة</p>
-                    <p className="text-[#636363] md:text-center">احجز موعدك في دقائق قليلة من خلال منصة سهلة الاستخدام دون الحاجة إلى الاتصالات الهاتفية.</p>
+                    <p className="font-bold md:text-center mb-2">حجز مواعيد بسهولة</p>
+                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">احجز موعدك في دقائق قليلة من خلال منصة سهلة الاستخدام دون الحاجة إلى الاتصالات الهاتفية.</p>
                 </div>
             </div>
         </div>
@@ -45,8 +45,8 @@ export default function Features() {
             <div className="flex justify-between items-center md:flex-col">
                 <img src={img10} alt="image" />
                 <div>
-                    <p className="font-bold md:text-center">مساعد مدعوم بالذكاء الاصطناعي</p>
-                   <p className="text-[#636363] md:text-center">يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات ذكية مبنية على الأعراض والاحتياجات الطبية.</p>
+                    <p className="font-bold md:text-center mb-2">مساعد مدعوم بالذكاء الاصطناعي</p>
+                   <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات ذكية مبنية على الأعراض والاحتياجات الطبية.</p>
                 </div>
             </div>
         </div>
@@ -59,8 +59,8 @@ export default function Features() {
             <div className="flex justify-between items-center md:flex-col">
                 <img src={img11} alt="image" />
                 <div>
-                    <p className="font-bold nd:text-center">تجربة آمنة ومريحة</p>
-                    <p className="text-[#636363] md:text-center">نحافظ على خصوصية بيانات المرضى ونوفر تجربة رقمية سلسة وآمنة على جميع الأجهزة.</p>
+                    <p className="font-bold mb-2 md:text-center">تجربة آمنة ومريحة</p>
+                    <p className="text-[#636363] dark:text-[#D2D2D2] md:text-center">نحافظ على خصوصية بيانات المرضى ونوفر تجربة رقمية سلسة وآمنة على جميع الأجهزة.</p>
                   
                 </div>
             </div>

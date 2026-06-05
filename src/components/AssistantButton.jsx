@@ -17,7 +17,7 @@ export default function AssistantButton() {
           cursor-pointer
         "
       >
-        <div className="w-14 flex justify-center items-center shrink-0">
+        <div className="w-14 flex justify-center dark:text-[#2E2E2E] items-center shrink-0">
           <FaRobot size={24} />
         </div>
 
@@ -28,6 +28,7 @@ export default function AssistantButton() {
             group-hover:opacity-100
             transition-opacity duration-300
             pr-2
+            dark:text-black
           "
         >
           تحدث مع المساعد الشخصي

@@ -1,0 +1,15 @@
+import { FaMoon, FaSun } from "react-icons/fa";
+import { useTheme } from "../context/ThemeContext";
+
+export default function ThemeToggle() {
+  const { dark, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="btn btn-circle w-12.5 h-12.5 text-(--text-primary) bg-(--bg-primary) fixed left-5 bottom-5"
+    >
+      {dark ? <FaSun /> : <FaMoon />}
+    </button>
+  );
+}

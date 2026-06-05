@@ -24,7 +24,7 @@ export default function Footer() {
               />
             </div>
 
-            <p className="text-gray-700 leading-8 text-[18px] ">
+            <p className="text-gray-700 leading-8 dark:text-[#F0F0F0] text-[18px] ">
               نظام متكامل لإدارة العيادات والمراكز الطبية وتقديم أفضل تجربة
               للمرضى والأطباء
             </p>
@@ -41,7 +41,7 @@ export default function Footer() {
           <div className="text-right">
             <h3 className="font-bold text-xl mb-8">روابط سريعة</h3>
 
-            <ul className="space-y-5 text-gray-700">
+            <ul className="space-y-5 text-gray-700 dark:text-[#F0F0F0]">
               <li>الرئيسية</li>
               <li>من نحن</li>
               <li>خدماتنا</li>
@@ -54,7 +54,7 @@ export default function Footer() {
           <div className="text-right">
             <h3 className="font-bold text-xl mb-8">خدماتنا</h3>
 
-            <ul className="space-y-5 text-gray-700">
+            <ul className="space-y-5 text-gray-700 dark:text-[#F0F0F0]">
               <li>حجز موعد</li>
               <li>الاستشارات</li>
               <li>الملفات الطبية</li>
@@ -67,7 +67,7 @@ export default function Footer() {
           <div className="text-right">
             <h3 className="font-bold text-xl mb-8">التخصصات</h3>
 
-            <ul className="space-y-5 text-gray-700">
+            <ul className="space-y-5 text-gray-700 dark:text-[#F0F0F0]">
               <li>الباطنة</li>
               <li>الأطفال</li>
               <li>الجلدية</li>
@@ -80,7 +80,7 @@ export default function Footer() {
           <div className="text-right">
             <h3 className="font-bold text-xl mb-8">تواصل معنا</h3>
 
-            <ul className="space-y-6 text-gray-700">
+            <ul className="space-y-6 text-gray-700 dark:text-[#F0F0F0]">
               <li className="flex items-center justify-start gap-3">
                 <FaPhoneAlt />
                 <span>015 5677 3899</span>

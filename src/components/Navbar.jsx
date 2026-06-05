@@ -10,7 +10,7 @@ export default function Navbar() {
               viewBox="0 0 24 24"
               strokeWidth={1.5}
               stroke="currentColor"
-              className="size-6"
+              className="size-6 text-black dark:text-white"
             >
               <path
                 strokeLinecap="round"
@@ -22,7 +22,7 @@ export default function Navbar() {
 
           <ul
             tabIndex={0}
-            className="menu dropdown-content mt-3 z-1001 p-1 shadow bg-base-100 rounded-box w-52"
+            className="menu dropdown-content mt-3 z-1001 p-1 shadow bg-white  dark:text-[#F0F0F0] dark:bg-black rounded-box w-52 "
           >
             <li>
               <a>الرئيسية</a>
@@ -46,7 +46,7 @@ export default function Navbar() {
       </div>
 
       <div className="navbar-center hidden md:flex">
-        <ul className="menu menu-horizontal  font-semibold md:text-xl px-1 gap-1">
+        <ul className="menu menu-horizontal font-semibold md:text-xl px-1 gap-1">
           <li>
             <a>الرئيسية</a>
           </li>
@@ -65,8 +65,8 @@ export default function Navbar() {
         </ul>
       </div>
 
-      <div className="navbar-end gap-2">
-        <button className="btn  bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm text-white md:btn-md">
+      <div className="navbar-end gap-2 ">
+        <button className="btn  bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] btn-sm  border-none dark:text-[black] outline-none md:btn-md">
           حساب جديد
         </button>
         <button className="btn btn-outline btn-info btn-sm md:btn-md">
