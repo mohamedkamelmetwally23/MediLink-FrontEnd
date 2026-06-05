@@ -1,7 +1,11 @@
-export default function PrimaryButton({ children, disabled = false }) {
+export default function PrimaryButton({
+  children,
+  disabled = false,
+  type = "submit",
+}) {
   return (
     <button
-      type="submit"
+      type={type}
       disabled={disabled}
       className={
         disabled

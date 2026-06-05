@@ -8,7 +8,6 @@ export default function LoginForm() {
     phoneNumber: "",
     password: "",
   });
-
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -19,7 +18,6 @@ export default function LoginForm() {
       ...prev,
       [name]: value,
     }));
-
     setErrors({});
   };
 
@@ -41,7 +39,6 @@ export default function LoginForm() {
       return;
     }
 
-    // Test error مؤقتاً
     if (
       formData.phoneNumber !== "0155646677" ||
       formData.password !== "12345678"
@@ -58,12 +55,10 @@ export default function LoginForm() {
       ...formData,
       rememberMe,
     });
-
-    // هنا بعدين هنربط API تسجيل الدخول
   };
 
   return (
-    <section className="flex w-1/2 items-center justify-center bg-white px-10">
+    <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[430px] text-right"
@@ -71,12 +66,12 @@ export default function LoginForm() {
         autoComplete="off"
       >
         <div className="mb-10 text-center">
-          <h1 className="mb-2 text-3xl font-semibold text-gray-900">
+          <h1 className="mb-2 text-3xl font-semibold text-gray-900 dark:text-[#F0F0F0]">
             تسجيل دخول
           </h1>
 
-          <p className="text-sm text-gray-500">
-            مرحباً بعودتك، سجل دخولك للوصول إلى حسابك
+          <p className="text-sm text-gray-500 dark:text-[#D2D2D2]">
+            مرحبًا بعودتك، سجل دخولك للوصول إلى حسابك
           </p>
         </div>
 
@@ -111,12 +106,12 @@ export default function LoginForm() {
         <div className="mb-8 flex items-center justify-between">
           <Link
             to="/forgot-password"
-            className="text-xs font-semibold text-gray-900 underline"
+            className="text-xs font-semibold text-gray-900 underline dark:text-[#F0F0F0]"
           >
             نسيت كلمة المرور؟
           </Link>
 
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-900">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-900 dark:text-[#F0F0F0]">
             <input
               type="checkbox"
               checked={rememberMe}
@@ -135,7 +130,7 @@ export default function LoginForm() {
 
         <PrimaryButton disabled={false}>تسجيل دخول</PrimaryButton>
 
-        <p className="mt-5 text-center text-sm text-gray-900">
+        <p className="mt-5 text-center text-sm text-gray-900 dark:text-[#F0F0F0]">
           ليس لديك حساب؟{" "}
           <Link to="/register" className="font-semibold underline">
             إنشاء حساب

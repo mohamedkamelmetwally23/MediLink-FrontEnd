@@ -22,7 +22,7 @@ export default function FormInput({
         <label
           htmlFor={id}
           className={`mb-2 block text-sm font-medium ${
-            error ? "text-[#C51F26]" : "text-gray-900"
+            error ? "text-[#C51F26]" : "text-gray-900 dark:text-[#F0F0F0]"
           }`}
         >
           {label}
@@ -39,10 +39,10 @@ export default function FormInput({
           inputMode={type === "tel" ? "numeric" : undefined}
           value={value}
           onChange={onChange}
-          className={`input h-12 w-full rounded-lg border px-4 text-right text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none ${
+          className={`input h-12 w-full rounded-lg border px-4 text-right text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none dark:text-[#F0F0F0] dark:placeholder:text-[#8A8A8A] ${
             error
-              ? "border-[#C51F26] bg-white focus:ring-1 focus:ring-[#C51F26]"
-              : "border-transparent bg-base-200 focus:ring-1 focus:ring-[#05ADE8]"
+              ? "border-[#C51F26] bg-white focus:ring-1 focus:ring-[#C51F26] dark:bg-[#303030]"
+              : "border-transparent bg-base-200 focus:ring-1 focus:ring-[#05ADE8] dark:bg-[#303030]"
           }`}
         />
 
@@ -50,7 +50,7 @@ export default function FormInput({
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#F0F0F0]"
             aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
           >
             {showPassword ? (

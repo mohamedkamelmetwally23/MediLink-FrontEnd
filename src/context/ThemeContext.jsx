@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-
-const ThemeContext = createContext();
+import { useEffect, useState } from "react";
+import { ThemeContext } from "./themeContextValue";
 
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(false);
@@ -38,6 +37,10 @@ export function ThemeProvider({ children }) {
 
     const applyTheme = (isDark) => {
       setDark(isDark);
+      document.documentElement.setAttribute(
+        "data-theme",
+        isDark ? "dark" : "light",
+      );
 
       if (isDark) {
         document.documentElement.classList.add("dark");
@@ -77,6 +80,10 @@ export function ThemeProvider({ children }) {
       document.documentElement.classList.remove("dark");
     }
 
+    document.documentElement.setAttribute(
+      "data-theme",
+      newDark ? "dark" : "light",
+    );
     localStorage.setItem("theme", newDark ? "dark" : "light");
   };
 
@@ -85,8 +92,4 @@ export function ThemeProvider({ children }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }

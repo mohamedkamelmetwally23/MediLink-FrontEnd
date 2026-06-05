@@ -1,91 +1,80 @@
 import { useState } from "react";
-import { FiPlus, FiMinus } from "react-icons/fi";
+import { FiMinus, FiPlus } from "react-icons/fi";
 import img from "../assets/landingPage/question.png";
 import imgDark from "../assets/landingPage/question-dark.png";
-import {useTheme} from "../context/ThemeContext"
+import { useTheme } from "../hooks/useTheme";
+
+const faqs = [
+  {
+    question: "هل يمكنني حجز موعد دون الاتصال بالعيادة؟",
+    answer:
+      "نعم، يمكنك حجز موعدك بالكامل عبر المنصة واختيار الطبيب والتوقيت المناسب لك بكل سهولة.",
+  },
+  {
+    question: "هل يمكنني إلغاء أو تعديل موعدي؟",
+    answer:
+      "نعم، يمكنك تعديل أو إلغاء الموعد من خلال حسابك الشخصي قبل موعد الزيارة.",
+  },
+  {
+    question: "هل بياناتي ومعلوماتي الطبية آمنة؟",
+    answer:
+      "جميع البيانات محمية بمعايير أمان وخصوصية مصممة للحفاظ على معلوماتك.",
+  },
+  {
+    question: "هل يمكنني التواصل مع الطبيب مباشرة؟",
+    answer:
+      "يمكنك التواصل مع الطبيب من خلال وسائل التواصل المتاحة داخل المنصة.",
+  },
+];
 
 export default function FAQ() {
   const [openIndex, setOpenIndex] = useState(0);
-  const {dark} = useTheme()
-
-  const faqs = [
-    {
-      question: "هل يمكنني حجز موعد دون الاتصال بالعيادة؟",
-      answer:
-        "نعم، يمكنك حجز موعدك بالكامل عبر المنصة واختيار الطبيب والتوقيت المناسب لك بكل سهولة.",
-    },
-    {
-      question: "هل يمكنني إلغاء أو تعديل موعدي؟",
-      answer:
-        "نعم، يمكنك تعديل أو إلغاء الموعد من خلال حسابك الشخصي قبل موعد الزيارة.",
-    },
-    {
-      question: "هل بياناتي ومعلوماتي الطبية آمنة؟",
-      answer:
-        "جميع البيانات محمية بأحدث معايير الأمان والخصوصية لضمان سلامة معلوماتك.",
-    },
-    {
-      question: "هل يمكنني التواصل مع الطبيب مباشرة؟",
-      answer:
-        "يمكنك التواصل مع الطبيب من خلال وسائل التواصل المتاحة داخل المنصة.",
-    },
-  ];
-
-  const toggleItem = (index) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
+  const { dark } = useTheme();
 
   return (
-    <section className="py-16 px-6 ">
-      <div className="grid md:grid-cols-3 gap-8">
-        {/* Side Card */}
-        <div className="rounded-2xl bg-linear-to-b from-[#05ADE8] dark:from-[#05ADE8] to-[#6CCCC8] dark:to-[#6CCCC8] text-white p-8 flex flex-col items-center justify-center text-center">
-          <img src={dark ? imgDark : img} alt="image" />
-
-          <h3 className="text-3xl font-bold mb-4 dark:text-[#2E2E2E]">الأسئلة الأكثر شيوعاً</h3>
-
-          <p className="text-lg leading-8 dark:text-[#2E2E2E]">
-            اعرف أكثر عن منصة الطبي وخدمات ومميزات الرعاية الصحية عن بعد لفهم
-            كيفية استخدام خدماتنا بكل سهولة ويسر.
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <aside className="flex flex-col items-center justify-center rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] p-6 text-center text-white lg:p-8">
+          <img src={dark ? imgDark : img} alt="" className="mb-4 max-h-52 object-contain" />
+          <h3 className="mb-3 text-2xl font-bold dark:text-[#2E2E2E]">
+            الأسئلة الأكثر شيوعًا
+          </h3>
+          <p className="leading-8 dark:text-[#2E2E2E]">
+            تعرف أكثر على منصة ميدلينك وخدمات الرعاية الصحية الرقمية.
           </p>
-        </div>
+        </aside>
 
-        {/* FAQ */}
-        <div className="md:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           {faqs.map((faq, index) => (
-            <div
-              key={index}
-              className={`rounded-2xl border-2 border-cyan-500 overflow-hidden transition-all duration-300 ${
+            <article
+              key={faq.question}
+              className={`overflow-hidden rounded-xl border-2 border-cyan-500 transition-all duration-300 ${
                 openIndex === index
                   ? "bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white dark:text-[#2E2E2E]"
-                  : "bg-(--bg-primary) text-[#05ADE8]"
+                  : "bg-white text-[#05ADE8] dark:bg-[#252525]"
               }`}
             >
               <button
-                onClick={() => toggleItem(index)}
-                className="w-full flex items-center justify-between p-6 text-right"
+                type="button"
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                className="flex w-full items-center justify-between gap-4 p-4 text-right sm:p-5"
               >
-                <span className="text-xl font-bold">
+                <span className="text-base font-bold leading-7 sm:text-lg">
                   {index + 1}- {faq.question}
                 </span>
-
-                {openIndex === index ? (
-                  <FiMinus size={28} />
-                ) : (
-                  <FiPlus size={28} />
-                )}
+                <span className="shrink-0">
+                  {openIndex === index ? <FiMinus size={26} /> : <FiPlus size={26} />}
+                </span>
               </button>
 
               <div
-                className={`transition-all duration-300 overflow-hidden ${
-                  openIndex === index
-                    ? "max-h-40 opacity-100 pb-6 px-6"
-                    : "max-h-0 opacity-0"
+                className={`overflow-hidden transition-all duration-300 ${
+                  openIndex === index ? "max-h-48 px-4 pb-5 opacity-100 sm:px-5" : "max-h-0 opacity-0"
                 }`}
               >
-                <p className="text-lg">{faq.answer}</p>
+                <p className="text-sm leading-7 sm:text-base">{faq.answer}</p>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>
