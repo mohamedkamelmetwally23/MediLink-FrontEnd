@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
+import FormSelect from "../ui/FormSelect";
 import PrimaryButton from "../ui/PrimaryButton";
-import RegisterErrorModal from "./RegisterErrorModal";
-import TermsCheckbox from "./TermsCheckbox";
+import { validateStrongPassword } from "../../utils/passwordValidation";
 
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 const months = [
@@ -22,6 +22,12 @@ const months = [
   "ديسمبر",
 ];
 const years = Array.from({ length: 60 }, (_, i) => 2025 - i);
+const dayOptions = days.map((day) => ({ value: String(day), label: day }));
+const monthOptions = months.map((month, index) => ({
+  value: String(index + 1),
+  label: month,
+}));
+const yearOptions = years.map((year) => ({ value: String(year), label: year }));
 
 export default function RegisterForm({ onOtpRequested }) {
   const [formData, setFormData] = useState({
@@ -37,7 +43,7 @@ export default function RegisterForm({ onOtpRequested }) {
     terms: false,
   });
   const [errors, setErrors] = useState({});
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -49,7 +55,7 @@ export default function RegisterForm({ onOtpRequested }) {
     setErrors({});
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const newErrors = {};
@@ -76,10 +82,10 @@ export default function RegisterForm({ onOtpRequested }) {
       newErrors.phoneNumber = "رقم الهاتف غير صحيح";
     }
 
-    if (!formData.password) {
-      newErrors.password = "كلمة المرور مطلوبة";
-    } else if (formData.password.length < 8) {
-      newErrors.password = "كلمة المرور يجب ألا تقل عن 8 أحرف";
+    const passwordError = validateStrongPassword(formData.password);
+
+    if (passwordError) {
+      newErrors.password = passwordError;
     }
 
     if (!formData.confirmPassword) {
@@ -98,13 +104,26 @@ export default function RegisterForm({ onOtpRequested }) {
       return;
     }
 
-    if (formData.phoneNumber === "0155646677") {
-      setShowDuplicateModal(true);
-      toast.warning("هذا الرقم مسجل بالفعل");
-      return;
-    }
+    const signupPayload = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      gender: formData.gender,
+      phone: formData.phoneNumber.trim(),
+      password: formData.password,
+      confirmpassword: formData.confirmPassword,
+      day: Number(formData.birthDay),
+      month: Number(formData.birthMonth),
+      year: Number(formData.birthYear),
+    };
 
-    onOtpRequested?.(formData);
+    setIsSubmitting(true);
+    try {
+      await onOtpRequested?.(signupPayload);
+    } catch (error) {
+      toast.error(error.message || "تعذر إنشاء الحساب");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -154,47 +173,35 @@ export default function RegisterForm({ onOtpRequested }) {
           </label>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <select
+            <FormSelect
+              id="birthDay"
               name="birthDay"
               value={formData.birthDay}
               onChange={handleChange}
-              className="input h-12 w-full rounded-lg border border-transparent bg-base-200 px-4 text-right text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#05ADE8] dark:bg-[#303030] dark:text-[#F0F0F0]"
-            >
-              <option value="">اليوم</option>
-              {days.map((day) => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
+              placeholder="اليوم"
+              options={dayOptions}
+              error={errors.birthDate}
+            />
 
-            <select
+            <FormSelect
+              id="birthMonth"
               name="birthMonth"
               value={formData.birthMonth}
               onChange={handleChange}
-              className="input h-12 w-full rounded-lg border border-transparent bg-base-200 px-4 text-right text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#05ADE8] dark:bg-[#303030] dark:text-[#F0F0F0]"
-            >
-              <option value="">الشهر</option>
-              {months.map((month) => (
-                <option key={month} value={month}>
-                  {month}
-                </option>
-              ))}
-            </select>
+              placeholder="الشهر"
+              options={monthOptions}
+              error={errors.birthDate}
+            />
 
-            <select
+            <FormSelect
+              id="birthYear"
               name="birthYear"
               value={formData.birthYear}
               onChange={handleChange}
-              className="input h-12 w-full rounded-lg border border-transparent bg-base-200 px-4 text-right text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#05ADE8] dark:bg-[#303030] dark:text-[#F0F0F0]"
-            >
-              <option value="">السنة</option>
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+              placeholder="السنة"
+              options={yearOptions}
+              error={errors.birthDate}
+            />
           </div>
 
           {errors.birthDate && (
@@ -252,7 +259,7 @@ export default function RegisterForm({ onOtpRequested }) {
             name="password"
             label="كلمة المرور"
             type="password"
-            placeholder="أدخل كلمة المرور"
+            placeholder="مثال: Password1"
             value={formData.password}
             onChange={handleChange}
             autoComplete="new-password"
@@ -289,7 +296,9 @@ export default function RegisterForm({ onOtpRequested }) {
         </div>
 
         <div className="mt-7">
-          <PrimaryButton disabled={false}>إنشاء حساب</PrimaryButton>
+          <PrimaryButton disabled={isSubmitting}>
+            {isSubmitting ? "جاري إنشاء الحساب..." : "إنشاء حساب"}
+          </PrimaryButton>
         </div>
 
         <p className="mt-5 text-center text-sm text-gray-900 dark:text-[#F0F0F0]">
@@ -300,10 +309,6 @@ export default function RegisterForm({ onOtpRequested }) {
         </p>
       </form>
 
-      <RegisterErrorModal
-        isOpen={showDuplicateModal}
-        onClose={() => setShowDuplicateModal(false)}
-      />
     </section>
   );
 }

@@ -5,19 +5,30 @@ import AuthSkeleton from "../../components/Auth/AuthSkeleton";
 import AuthSuccess from "../../components/Auth/AuthSuccess";
 import OtpForm from "../../components/Auth/OtpForm";
 import RegisterForm from "../../components/Auth/RegisterForm";
+import { extractOtp, signupUser, verifyOtp } from "../../services/authApi";
 
 export default function RegisterPage() {
   const [step, setStep] = useState("form");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpHint, setOtpHint] = useState("");
 
-  const handleOtpRequested = (formData) => {
-    setPhoneNumber(formData.phoneNumber);
-    setStep("loading");
+  const handleOtpRequested = async (signupPayload) => {
+    const signupResponse = await signupUser(signupPayload);
+    const nextOtpHint = extractOtp(signupResponse);
 
-    window.setTimeout(() => {
-      toast.info("تم إرسال كود التحقق. كود التجربة هو 123456");
-      setStep("otp");
-    }, 700);
+    setPhoneNumber(signupPayload.phone);
+    setOtpHint(nextOtpHint);
+    toast.success(
+      nextOtpHint
+        ? "تم إنشاء الحساب، استخدم كود التحقق الظاهر أمامك"
+        : "تم إنشاء الحساب، راجع response للحصول على كود التحقق"
+    );
+    setStep("otp");
+  };
+
+  const handleOtpVerified = async (otp) => {
+    await verifyOtp({ phone: phoneNumber, otp });
+    setStep("success");
   };
 
   const renderContent = () => {
@@ -31,9 +42,10 @@ export default function RegisterPage() {
           phoneNumber={phoneNumber}
           title="تأكيد رقم الهاتف"
           description="أدخل كود التحقق المرسل إلى رقم الهاتف"
+          otpHint={otpHint}
           submitText="تأكيد الحساب"
           onBack={() => setStep("form")}
-          onVerified={() => setStep("success")}
+          onVerified={handleOtpVerified}
         />
       );
     }

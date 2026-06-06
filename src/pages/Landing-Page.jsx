@@ -5,7 +5,6 @@ import Hero2 from "../components/Hero2";
 import Features from "../components/Features";
 import Specialties from "../components/Specialties";
 import Doctors from "../components/Doctors";
-import AiAgent from "../components/AiAgent";
 import AssistantButton from "../components/AssistantButton";
 import BenefitsOfWeb from "../components/BenefitsOfWeb";
 import FAQ from "../components/Questions";
@@ -36,7 +35,6 @@ export default function LandingPage() {
       <Features />
       <Specialties />
       <Doctors />
-      <AiAgent />
       <AssistantButton />
       <BenefitsOfWeb />
       <FAQ />
