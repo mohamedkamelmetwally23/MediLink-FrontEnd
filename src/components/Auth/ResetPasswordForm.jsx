@@ -31,7 +31,7 @@ export default function ResetPasswordForm({ onOtpRequested }) {
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
       <Link
         to="/"
-        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
         aria-label="Back to home"
       >
         <svg

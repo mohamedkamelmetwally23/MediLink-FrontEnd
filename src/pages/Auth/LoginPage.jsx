@@ -7,7 +7,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen relative w-full items-center justify-center bg-[#D3E0E4] p-4 dark:bg-[#151515]">
       <Link
         to="/"
-        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary)  text-[#05ADE8] shadow-sm hover:bg-white"
         aria-label="Back to home"
       >
         <svg
