@@ -2,35 +2,9 @@ import { useEffect, useState } from "react";
 import { ThemeContext } from "./themeContextValue";
 
 export function ThemeProvider({ children }) {
-  const [dark, setDark] = useState(false);
-
-  //   useEffect(() => {
-  //     const savedTheme = localStorage.getItem("theme");
-
-  //     if (savedTheme) {
-  //       const isDark = savedTheme === "dark";
-
-  //       setDark(isDark);
-
-  //       if (isDark) {
-  //         document.documentElement.classList.add("dark");
-  //       } else {
-  //         document.documentElement.classList.remove("dark");
-  //       }
-  //     } else {
-  //       const media = window.matchMedia("(prefers-color-scheme: dark)");
-
-  //       const isDark = media.matches;
-
-  //       setDark(isDark);
-
-  //       if (isDark) {
-  //         document.documentElement.classList.add("dark");
-  //       } else {
-  //         document.documentElement.classList.remove("dark");
-  //       }
-  //     }
-  //   }, []);
+  const [dark, setDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -49,13 +23,6 @@ export function ThemeProvider({ children }) {
       }
     };
 
-    const savedTheme = localStorage.getItem("theme");
-
-    if (savedTheme) {
-      applyTheme(savedTheme === "dark");
-      return;
-    }
-
     applyTheme(media.matches);
 
     const handleChange = (e) => {
@@ -70,21 +37,22 @@ export function ThemeProvider({ children }) {
   }, []);
 
   const toggleTheme = () => {
-    const newDark = !dark;
+    setDark((currentDark) => {
+      const newDark = !currentDark;
 
-    setDark(newDark);
+      document.documentElement.setAttribute(
+        "data-theme",
+        newDark ? "dark" : "light",
+      );
 
-    if (newDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+      if (newDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
 
-    document.documentElement.setAttribute(
-      "data-theme",
-      newDark ? "dark" : "light",
-    );
-    localStorage.setItem("theme", newDark ? "dark" : "light");
+      return newDark;
+    });
   };
 
   return (
