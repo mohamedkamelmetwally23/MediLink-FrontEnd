@@ -13,11 +13,11 @@ import {useTheme} from "../../hooks/useTheme"
 export default function ResetPasswordIllustrationPanel() {
   const {dark} = useTheme()
   return (
-    <section className="relative flex w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-base-200">
+    <section className="relative flex w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-(--bg-primary)">
       {/* Back Button */}
       <Link
         to="/login"
-        className="btn btn-circle btn-sm absolute left-8 top-8 z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white"
+        className="btn btn-circle btn-sm absolute left-4 top-8 z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white"
         aria-label="Back to login"
       >
         <svg
