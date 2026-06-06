@@ -17,7 +17,7 @@ export default function ResetPasswordIllustrationPanel() {
       {/* Back Button */}
       <Link
         to="/login"
-        className="btn btn-circle btn-sm absolute left-4 top-8 z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white"
+        className="btn btn-circle btn-sm absolute left-4 top-8 z-40 border-none bg-[#F0F0F0] dark:bg-[#3C3C3C] text-[#05ADE8] shadow-sm hover:bg-white"
         aria-label="Back to login"
       >
         <svg
