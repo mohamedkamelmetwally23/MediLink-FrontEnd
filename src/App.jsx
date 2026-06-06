@@ -6,6 +6,7 @@ import RegisterPage from "./pages/Auth/RegisterPage";
 import LoginPage from "./pages/Auth/LoginPage";
 import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 import { useTheme } from "./hooks/useTheme";
+import ThemeToggle from "./components/ThemeToggle";
 
 function App() {
   const { dark } = useTheme();
@@ -34,6 +35,7 @@ function App() {
         rtl
         theme={dark ? "dark" : "light"}
       />
+      <ThemeToggle />
     </div>
   );
 }
