@@ -3,12 +3,12 @@ import { toast } from "react-toastify";
 import PrimaryButton from "../ui/PrimaryButton";
 
 const OTP_LENGTH = 6;
-const DEMO_OTP = "123456";
 
 export default function OtpForm({
   phoneNumber,
   title = "تأكيد رقم الهاتف",
   description = "أدخل كود التحقق المرسل إلى رقم الهاتف",
+  otpHint = "",
   submitText = "تأكيد",
   onVerified,
   onBack,
@@ -59,7 +59,7 @@ export default function OtpForm({
     inputsRef.current[Math.min(pasted.length, OTP_LENGTH) - 1]?.focus();
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (otpValue.length !== OTP_LENGTH) {
@@ -69,23 +69,19 @@ export default function OtpForm({
     }
 
     setIsChecking(true);
-
-    window.setTimeout(() => {
-      setIsChecking(false);
-
-      if (otpValue !== DEMO_OTP) {
-        setError("كود التحقق غير صحيح");
-        toast.error("كود التحقق غير صحيح");
-        return;
-      }
-
+    try {
+      await onVerified?.(otpValue);
       toast.success("تم تأكيد الكود بنجاح");
-      onVerified?.();
-    }, 650);
+    } catch (error) {
+      setError(error.message || "كود التحقق غير صحيح");
+      toast.error(error.message || "كود التحقق غير صحيح");
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const handleResend = () => {
-    toast.info("تم إرسال كود جديد. كود التجربة هو 123456");
+    toast.info("إعادة إرسال الكود ستكون متاحة قريبًا");
   };
 
   return (
@@ -109,6 +105,21 @@ export default function OtpForm({
               </span>
             ) : null}
           </p>
+
+          {otpHint ? (
+            <div className="mx-auto mt-4 max-w-[260px] rounded-lg border border-[#05ADE8]/30 bg-[#EAF8FC] px-4 py-3 text-center text-sm text-gray-800 dark:bg-[#303030] dark:text-[#F0F0F0]">
+              <span className="block text-xs text-gray-500 dark:text-[#D2D2D2]">
+                كود التحقق للتجربة
+              </span>
+              <strong className="mt-1 block text-xl tracking-[0.35em] text-[#05ADE8]" dir="ltr">
+                {otpHint}
+              </strong>
+            </div>
+          ) : (
+            <p className="mx-auto mt-3 max-w-[330px] text-xs leading-5 text-gray-400">
+              خدمة الرسائل غير مفعلة حاليًا، افتح Network response الخاص بالتسجيل لمعرفة الكود.
+            </p>
+          )}
         </div>
 
         <div className="mb-4 grid grid-cols-6 gap-2" dir="ltr">
@@ -162,10 +173,6 @@ export default function OtpForm({
             </button>
           ) : null}
         </div>
-
-        <p className="mt-4 text-center text-xs text-gray-400">
-          كود التجربة: 123456
-        </p>
       </form>
     </section>
   );

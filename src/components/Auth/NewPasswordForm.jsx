@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
+import { validateStrongPassword } from "../../utils/passwordValidation";
 
 export default function NewPasswordForm({ onSuccess }) {
   const [formData, setFormData] = useState({
@@ -26,10 +27,10 @@ export default function NewPasswordForm({ onSuccess }) {
 
     const nextErrors = {};
 
-    if (!formData.password) {
-      nextErrors.password = "كلمة المرور مطلوبة";
-    } else if (formData.password.length < 8) {
-      nextErrors.password = "كلمة المرور يجب ألا تقل عن 8 أحرف";
+    const passwordError = validateStrongPassword(formData.password);
+
+    if (passwordError) {
+      nextErrors.password = passwordError;
     }
 
     if (!formData.confirmPassword) {
@@ -76,7 +77,7 @@ export default function NewPasswordForm({ onSuccess }) {
             name="password"
             label="كلمة المرور الجديدة"
             type="password"
-            placeholder="أدخل كلمة المرور الجديدة"
+            placeholder="مثال: Password1"
             value={formData.password}
             onChange={handleChange}
             autoComplete="new-password"

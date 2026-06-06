@@ -16,7 +16,7 @@ export default function ResetPasswordPage() {
     setStep("loading");
 
     window.setTimeout(() => {
-      toast.info("تم إرسال كود الاستعادة. كود التجربة هو 123456");
+      toast.info("تم إرسال كود الاستعادة");
       setStep("otp");
     }, 700);
   };

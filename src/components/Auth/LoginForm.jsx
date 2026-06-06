@@ -1,15 +1,19 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
+import { loginUser, saveAuthSession } from "../../services/authApi";
 
 export default function LoginForm() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     phoneNumber: "",
     password: "",
   });
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -21,13 +25,15 @@ export default function LoginForm() {
     setErrors({});
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const newErrors = {};
 
     if (!formData.phoneNumber) {
       newErrors.phoneNumber = "رقم الهاتف مطلوب";
+    } else if (!/^01[0-9]{9}$/.test(formData.phoneNumber)) {
+      newErrors.phoneNumber = "رقم الهاتف غير صحيح";
     }
 
     if (!formData.password) {
@@ -39,22 +45,25 @@ export default function LoginForm() {
       return;
     }
 
-    if (
-      formData.phoneNumber !== "0155646677" ||
-      formData.password !== "12345678"
-    ) {
+    setIsSubmitting(true);
+    try {
+      const data = await loginUser({
+        phone: formData.phoneNumber.trim(),
+        password: formData.password,
+      });
+
+      saveAuthSession(data);
+      toast.success("تم تسجيل الدخول بنجاح");
+      navigate("/");
+    } catch (error) {
       setErrors({
         phoneNumber: " ",
         password: " ",
-        general: "رقم الهاتف أو كلمة المرور غير صحيحة",
+        general: error.message || "رقم الهاتف أو كلمة المرور غير صحيحة",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    console.log("Login data:", {
-      ...formData,
-      rememberMe,
-    });
   };
 
   return (
@@ -128,7 +137,9 @@ export default function LoginForm() {
           </p>
         )}
 
-        <PrimaryButton disabled={false}>تسجيل دخول</PrimaryButton>
+        <PrimaryButton disabled={isSubmitting}>
+          {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل دخول"}
+        </PrimaryButton>
 
         <p className="mt-5 text-center text-sm text-gray-900 dark:text-[#F0F0F0]">
           ليس لديك حساب؟{" "}
