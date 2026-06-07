@@ -7,6 +7,7 @@ import LoginPage from "./pages/Auth/LoginPage";
 import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 import { useTheme } from "./hooks/useTheme";
 import ThemeToggle from "./components/ThemeToggle";
+import Dashboard from "./pages/admin/Dashbord";
 
 function App() {
   const { dark } = useTheme();
@@ -21,6 +22,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
+        <Route path="/admin" element={<Dashboard />} />
       </Routes>
 
       <ToastContainer
