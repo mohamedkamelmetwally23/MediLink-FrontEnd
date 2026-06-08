@@ -7,6 +7,7 @@ import PrimaryButton from "../ui/PrimaryButton";
 import { validateStrongPassword } from "../../utils/passwordValidation";
 
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
+const maxBirthYear = 2015;
 const months = [
   "يناير",
   "فبراير",
@@ -21,38 +22,56 @@ const months = [
   "نوفمبر",
   "ديسمبر",
 ];
-const years = Array.from({ length: 60 }, (_, i) => 2025 - i);
+const years = Array.from({ length: 60 }, (_, i) => maxBirthYear - i);
 const dayOptions = days.map((day) => ({ value: String(day), label: day }));
 const monthOptions = months.map((month, index) => ({
   value: String(index + 1),
   label: month,
 }));
 const yearOptions = years.map((year) => ({ value: String(year), label: year }));
+const registerErrorToastId = "register-error";
+const initialRegisterFormData = {
+  firstName: "",
+  lastName: "",
+  birthDay: "",
+  birthMonth: "",
+  birthYear: "",
+  gender: "",
+  phoneNumber: "",
+  password: "",
+  confirmPassword: "",
+  terms: false,
+};
 
-export default function RegisterForm({ onOtpRequested }) {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    birthDay: "",
-    birthMonth: "",
-    birthYear: "",
-    gender: "",
-    phoneNumber: "",
-    password: "",
-    confirmPassword: "",
-    terms: false,
-  });
+function showRegisterError(message) {
+  toast.error(message, { toastId: registerErrorToastId });
+}
+
+export default function RegisterForm({
+  onOtpRequested,
+  initialData = initialRegisterFormData,
+  onDataChange,
+}) {
+  const [formData, setFormData] = useState(() => ({
+    ...initialRegisterFormData,
+    ...initialData,
+  }));
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const updateFormData = (nextFormData) => {
+    setFormData(nextFormData);
+    onDataChange?.(nextFormData);
+    setErrors({});
+  };
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
 
-    setFormData((prev) => ({
-      ...prev,
+    updateFormData({
+      ...formData,
       [name]: type === "checkbox" ? checked : value,
-    }));
-    setErrors({});
+    });
   };
 
   const handleSubmit = async (event) => {
@@ -70,6 +89,8 @@ export default function RegisterForm({ onOtpRequested }) {
 
     if (!formData.birthDay || !formData.birthMonth || !formData.birthYear) {
       newErrors.birthDate = "تاريخ الميلاد مطلوب";
+    } else if (Number(formData.birthYear) > maxBirthYear) {
+      newErrors.birthDate = "تاريخ الميلاد يجب أن يكون من سنة 2015 أو قبلها";
     }
 
     if (!formData.gender) {
@@ -100,7 +121,7 @@ export default function RegisterForm({ onOtpRequested }) {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast.error("راجع بيانات التسجيل");
+      showRegisterError("راجع بيانات التسجيل");
       return;
     }
 
@@ -120,7 +141,7 @@ export default function RegisterForm({ onOtpRequested }) {
     try {
       await onOtpRequested?.(signupPayload);
     } catch (error) {
-      toast.error(error.message || "تعذر إنشاء الحساب");
+      showRegisterError(error.message || "تعذر إنشاء الحساب");
     } finally {
       setIsSubmitting(false);
     }
@@ -128,26 +149,6 @@ export default function RegisterForm({ onOtpRequested }) {
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
-      <Link
-        to="/"
-        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
-        aria-label="Back to home"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          className="h-5 w-5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
-          />
-        </svg>
-      </Link>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[520px] text-right"
@@ -242,8 +243,7 @@ export default function RegisterForm({ onOtpRequested }) {
                 key={option.value}
                 type="button"
                 onClick={() => {
-                  setFormData((prev) => ({ ...prev, gender: option.value }));
-                  setErrors({});
+                  updateFormData({ ...formData, gender: option.value });
                 }}
                 className={
                   formData.gender === option.value
@@ -279,7 +279,7 @@ export default function RegisterForm({ onOtpRequested }) {
             name="password"
             label="كلمة المرور"
             type="password"
-            placeholder="مثال: Password1"
+            placeholder="مثال: Password1!"
             value={formData.password}
             onChange={handleChange}
             autoComplete="new-password"

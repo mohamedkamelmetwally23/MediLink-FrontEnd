@@ -4,6 +4,20 @@ import PrimaryButton from "../ui/PrimaryButton";
 
 const OTP_LENGTH = 6;
 
+function maskPhoneNumber(phoneNumber = "") {
+  const digits = String(phoneNumber).replace(/\D/g, "");
+
+  if (digits.length <= 4) {
+    return digits.replace(/\d/g, "#");
+  }
+
+  const visibleStart = digits.slice(0, 3);
+  const visibleEnd = digits.slice(-2);
+  const hiddenLength = Math.max(digits.length - visibleStart.length - visibleEnd.length, 3);
+
+  return `${visibleStart}${"#".repeat(hiddenLength)}${visibleEnd}`;
+}
+
 export default function OtpForm({
   phoneNumber,
   title = "تأكيد رقم الهاتف",
@@ -12,11 +26,13 @@ export default function OtpForm({
   submitText = "تأكيد",
   onVerified,
   onBack,
+  onResend,
 }) {
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const inputsRef = useRef([]);
+  const maskedPhoneNumber = maskPhoneNumber(phoneNumber);
 
   useEffect(() => {
     inputsRef.current[0]?.focus();
@@ -80,8 +96,16 @@ export default function OtpForm({
     }
   };
 
-  const handleResend = () => {
-    toast.info("إعادة إرسال الكود ستكون متاحة قريبًا");
+  const handleResend = async () => {
+    if (!onResend) {
+      toast.info("إعادة إرسال الكود ستكون متاحة قريبًا");
+      return;
+    }
+
+    await onResend();
+    setDigits(Array(OTP_LENGTH).fill(""));
+    setError("");
+    inputsRef.current[0]?.focus();
   };
 
   return (
@@ -99,9 +123,9 @@ export default function OtpForm({
 
           <p className="mx-auto max-w-[330px] text-sm leading-6 text-gray-500 dark:text-[#D2D2D2]">
             {description}
-            {phoneNumber ? (
+            {maskedPhoneNumber ? (
               <span className="mt-1 block font-semibold text-gray-800 dark:text-[#F0F0F0]">
-                {phoneNumber}
+                {maskedPhoneNumber}
               </span>
             ) : null}
           </p>

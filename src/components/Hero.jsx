@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { toast } from "react-toastify";
 import doctor from "../assets/landingPage/doctor1.png";
 import img1 from "../assets/landingPage/1.png";
 import img2 from "../assets/landingPage/2.png";
@@ -11,6 +10,13 @@ import { useTheme } from "../hooks/useTheme";
 
 export default function Hero() {
   const { dark } = useTheme();
+  const handleBrowseDoctors = () => {
+    document.getElementById("doctors")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   const badges = [
     { icon: dark ? img1Dark : img1, label: "آمن وموثوق" },
     { icon: dark ? img2Dark : img2, label: "سهل الاستخدام" },
@@ -42,7 +48,7 @@ export default function Hero() {
 
             <button
               type="button"
-              onClick={() => toast.info("قائمة الأطباء التجريبية بالأسفل")}
+              onClick={handleBrowseDoctors}
               className="btn btn-outline btn-info h-12 rounded-lg px-10"
             >
               تصفح الأطباء

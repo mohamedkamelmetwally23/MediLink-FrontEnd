@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
-import { loginUser, saveAuthSession } from "../../services/authApi";
+import { isAdminAccount, loginUser, saveAuthSession } from "../../services/authApi";
 
 export default function LoginForm() {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ export default function LoginForm() {
 
       saveAuthSession(data);
       toast.success("تم تسجيل الدخول بنجاح");
-      navigate("/");
+      navigate(isAdminAccount(data) ? "/admin/dashboard" : "/");
     } catch (error) {
       setErrors({
         phoneNumber: " ",
