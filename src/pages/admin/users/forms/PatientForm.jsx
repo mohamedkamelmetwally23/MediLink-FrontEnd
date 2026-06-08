@@ -1,0 +1,118 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { userStatuses } from "../usersData";
+import { validatePatient } from "../validation";
+import { Field, SelectInput, TextInput } from "./FormFields";
+import UserFormShell from "./UserFormShell";
+
+const initialValues = {
+  firstName: "",
+  lastName: "",
+  gender: "male",
+  role: "patient",
+  phone: "",
+  status: "active",
+};
+
+export default function PatientForm({ initialData, onSubmit }) {
+  const navigate = useNavigate();
+  const [values, setValues] = useState({ ...initialValues, ...initialData });
+  const [errors, setErrors] = useState({});
+
+  const setField = (name, value) => {
+    setValues((current) => ({ ...current, [name]: value }));
+    setErrors((current) => ({ ...current, [name]: undefined }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const nextErrors = validatePatient(values);
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length === 0) {
+      onSubmit?.(values);
+      navigate("/admin/users");
+    }
+  };
+
+  return (
+    <UserFormShell
+      title="تعديل بيانات مستخدم"
+      subtitle="عدل بيانات المستخدم الأساسية."
+    >
+      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
+        <Field label="الاسم الأول" error={errors.firstName}>
+          <TextInput
+            value={values.firstName}
+            error={errors.firstName}
+            onChange={(event) => setField("firstName", event.target.value)}
+          />
+        </Field>
+
+        <Field label="الاسم الأخير" error={errors.lastName}>
+          <TextInput
+            value={values.lastName}
+            error={errors.lastName}
+            onChange={(event) => setField("lastName", event.target.value)}
+          />
+        </Field>
+
+        <Field label="الجنس" error={errors.gender}>
+          <SelectInput
+            value={values.gender}
+            error={errors.gender}
+            onChange={(event) => setField("gender", event.target.value)}
+          >
+            <option value="male">ذكر</option>
+            <option value="female">أنثى</option>
+          </SelectInput>
+        </Field>
+
+        <Field label="الدور">
+          <SelectInput value={values.role} disabled>
+            <option value="patient">مريض</option>
+          </SelectInput>
+        </Field>
+
+        <Field label="رقم الهاتف" error={errors.phone}>
+          <TextInput
+            value={values.phone}
+            error={errors.phone}
+            inputMode="numeric"
+            onChange={(event) => setField("phone", event.target.value)}
+          />
+        </Field>
+
+        <Field label="الحالة" error={errors.status}>
+          <SelectInput
+            value={values.status}
+            error={errors.status}
+            onChange={(event) => setField("status", event.target.value)}
+          >
+            {Object.entries(userStatuses).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+
+        <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2">
+          <button
+            type="submit"
+            className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
+          >
+            حفظ التعديلات
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/users")}
+            className="h-[54px] rounded-xl border-2 border-cyan-400 font-semibold text-cyan-500"
+          >
+            إلغاء
+          </button>
+        </div>
+      </form>
+    </UserFormShell>
+  );
+}

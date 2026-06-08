@@ -8,6 +8,10 @@ import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 import { useTheme } from "./hooks/useTheme";
 import ThemeToggle from "./components/ThemeToggle";
 import Dashboard from "./pages/admin/Dashbord";
+import AdminLayout from "./pages/admin/layout/AdminLayout";
+import UsersPage from "./pages/admin/users/UsersPage";
+import AddUserPage from "./pages/admin/users/AddUserPage";
+import EditUserPage from "./pages/admin/users/EditUserPage";
 
 function App() {
   const { dark } = useTheme();
@@ -23,6 +27,11 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
         <Route path="/admin" element={<Dashboard />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="users" element={<UsersPage />} />
+          <Route path="users/new" element={<AddUserPage />} />
+          <Route path="users/:userId/edit" element={<EditUserPage />} />
+        </Route>
       </Routes>
 
       <ToastContainer

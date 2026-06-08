@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import doctor from "../../assets/landingPage/admin.png";
 import {
   Search,
@@ -344,8 +345,8 @@ function Sidebar({ isOpen, onClose }) {
       </div>
 
       <nav className="mt-10 space-y-3 px-8 text-lg font-bold">
-        <SideItem active icon={Home} text="لوحة التحكم" />
-        <SideItem icon={UserCog} text="إدارة المستخدمين" />
+        <SideItem to="/admin" icon={Home} text="لوحة التحكم" />
+        <SideItem to="/admin/users" icon={UserCog} text="المستخدمون" />
         <SideItem icon={Stethoscope} text="الأطباء" />
         <SideItem icon={Users} text="التخصصات" />
         <SideItem icon={Users} text="المواعيد" />
@@ -414,22 +415,34 @@ function SelectButton({ text }) {
   );
 }
 
-function SideItem({ icon: Icon, text, active, danger }) {
-  return (
-    <div
-      className={`relative flex items-center justify-between rounded-xl px-3 py-3 ${
-        active
-          ? "text-cyan-400"
-          : danger
-            ? "text-red-400"
-            : "text-gray-400 dark:text-gray-300"
-      }`}
-    >
-      {active && (
-        <span className="absolute -left-8 h-14 w-2 rounded-r-xl bg-cyan-400" />
+function SideItem({ icon: Icon, text, active, danger, to }) {
+  const baseClass = `relative flex items-center justify-between rounded-xl px-3 py-3 ${
+    danger ? "text-red-400" : "text-gray-400 dark:text-gray-300"
+  }`;
+
+  const content = (isActive = active) => (
+    <>
+      {isActive && (
+        <span className="absolute -right-8 h-14 w-2 rotate-180 rounded-r-xl bg-cyan-400" />
       )}
-      <span>{text}</span>
       <Icon size={26} />
-    </div>
+      <span>{text}</span>
+    </>
   );
+
+  if (to) {
+    return (
+      <NavLink
+        to={to}
+        end={to === "/admin"}
+        className={({ isActive }) =>
+          `${baseClass} ${isActive ? "text-cyan-400" : "hover:text-cyan-500"}`
+        }
+      >
+        {({ isActive }) => content(isActive)}
+      </NavLink>
+    );
+  }
+
+  return <div className={`${baseClass} ${active ? "text-cyan-400" : ""}`}>{content()}</div>;
 }
