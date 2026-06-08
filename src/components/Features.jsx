@@ -38,10 +38,11 @@ export default function Features() {
       </h2>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {features.map((feature) => (
+        {features.map((feature, index) => (
           <article
             key={feature.title}
-            className="flex h-full flex-col items-center rounded-xl bg-white p-5 text-center shadow-sm dark:bg-[#252525]"
+            style={{ "--reveal-delay": `${index * 90}ms` }}
+            className="reveal-item flex h-full flex-col items-center rounded-xl bg-white p-5 text-center shadow-sm dark:bg-[#252525]"
           >
             <img src={feature.image} alt="" className="mb-4 h-20 w-20 object-contain" />
             <h3 className="mb-2 text-lg font-bold text-gray-900 dark:text-[#F0F0F0]">

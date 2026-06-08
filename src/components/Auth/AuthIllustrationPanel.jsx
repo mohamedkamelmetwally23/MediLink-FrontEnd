@@ -8,30 +8,51 @@ import { useTheme } from "../../hooks/useTheme";
 import union from "../../assets/landingPage/Union.png";
 import vector from "../../assets/landingPage/Vector 94.png";
 
-export default function AuthIllustrationPanel() {
+function BackButton({ onBack }) {
+  const className =
+    "btn btn-circle btn-sm absolute left-8 top-8 z-40 border-none bg-white text-[#05ADE8] shadow-sm hover:bg-white";
+  const content = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+      className="h-5 w-5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+      />
+    </svg>
+  );
+
+  if (onBack) {
+    return (
+      <button
+        type="button"
+        onClick={onBack}
+        className={className}
+        aria-label="Back to register form"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link to="/" className={className} aria-label="Back to home">
+      {content}
+    </Link>
+  );
+}
+
+export default function AuthIllustrationPanel({ onBack }) {
   const { dark } = useTheme();
   return (
     <section className="relative flex  w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-(--bg-primary)">
-      <Link
-        to="/"
-        className="btn btn-circle btn-sm absolute lg:left-4 lg:top-8  z-40 border-none bg-[#F0F0F0] dark:bg-[#3C3C3C] text-[#05ADE8] shadow-sm hover:bg-white"
-        aria-label="Back to home"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          className="h-5 w-5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
-          />
-        </svg>
-      </Link>
+      <BackButton onBack={onBack} />
       {/* Illustration */}
       <div className="relative h-full w-full">
         <img

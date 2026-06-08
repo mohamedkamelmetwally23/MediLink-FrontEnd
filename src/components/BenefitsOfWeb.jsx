@@ -28,10 +28,11 @@ export default function BenefitsOfWeb() {
       </h2>
 
       <div className="grid gap-5 md:grid-cols-3">
-        {benefits.map((benefit) => (
+        {benefits.map((benefit, index) => (
           <article
             key={benefit.title}
-            className="flex h-full flex-col items-center rounded-xl bg-white px-5 py-6 text-center shadow-md dark:bg-[#252525] dark:shadow-[#3d3d3d]"
+            style={{ "--reveal-delay": `${index * 100}ms` }}
+            className="reveal-item flex h-full flex-col items-center rounded-xl bg-white px-5 py-6 text-center shadow-md dark:bg-[#252525] dark:shadow-[#3d3d3d]"
           >
             <img src={benefit.image} alt="" className="mb-4 h-28 object-contain" />
             <h3 className="mb-2 text-xl font-bold">{benefit.title}</h3>

@@ -7,18 +7,44 @@ import OtpForm from "../../components/Auth/OtpForm";
 import ResetPasswordForm from "../../components/Auth/ResetPasswordForm";
 import ResetPasswordIllustrationPanel from "../../components/Auth/ResetPasswordIllustrationPanel";
 
+function createDemoOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export default function ResetPasswordPage() {
   const [step, setStep] = useState("form");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpHint, setOtpHint] = useState("");
 
   const handleOtpRequested = (nextPhoneNumber) => {
+    const nextOtpHint = createDemoOtp();
+
     setPhoneNumber(nextPhoneNumber);
+    setOtpHint(nextOtpHint);
     setStep("loading");
 
     window.setTimeout(() => {
       toast.info("تم إرسال كود الاستعادة");
       setStep("otp");
     }, 700);
+  };
+
+  const handleOtpResend = () => {
+    setOtpHint(createDemoOtp());
+    toast.info("تم إرسال كود جديد");
+  };
+
+  const handleOtpVerified = (otp) => {
+    if (otp !== otpHint) {
+      throw new Error("كود التحقق غير صحيح");
+    }
+
+    setStep("new-password");
+  };
+
+  const handleBackToForm = () => {
+    setOtpHint("");
+    setStep("form");
   };
 
   const renderContent = () => {
@@ -32,9 +58,11 @@ export default function ResetPasswordPage() {
           phoneNumber={phoneNumber}
           title="تأكيد رقم الهاتف"
           description="أدخل كود التحقق لاستعادة كلمة المرور"
+          otpHint={otpHint}
           submitText="تأكيد"
-          onBack={() => setStep("form")}
-          onVerified={() => setStep("new-password")}
+          onBack={handleBackToForm}
+          onResend={handleOtpResend}
+          onVerified={handleOtpVerified}
         />
       );
     }

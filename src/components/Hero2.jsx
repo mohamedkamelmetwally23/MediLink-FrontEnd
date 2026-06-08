@@ -17,9 +17,10 @@ export default function Hero2() {
         {stats.map((stat, index) => (
           <div
             key={stat.label}
+            style={{ "--reveal-delay": `${index * 90}ms` }}
             className={`flex min-h-32 flex-col items-center justify-center text-center text-white ${
               index !== stats.length - 1 ? "lg:border-l lg:border-white/70" : ""
-            }`}
+            } reveal-item`}
           >
             <img src={stat.icon} alt="" className="mb-2 h-10 w-10 object-contain" />
             <p className="text-xl font-bold">{stat.value}</p>

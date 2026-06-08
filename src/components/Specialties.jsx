@@ -25,12 +25,13 @@ export default function Specialties() {
       </h2>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-        {specialties.map((item) => (
+        {specialties.map((item, index) => (
           <button
             key={item.label}
             type="button"
+            style={{ "--reveal-delay": `${index * 70}ms` }}
             onClick={() => toast.info(`تم اختيار تخصص ${item.label}`)}
-            className="flex min-h-36 flex-col items-center justify-center rounded-xl bg-white p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:bg-[#252525] dark:shadow-[#414040]"
+            className="reveal-item flex min-h-36 flex-col items-center justify-center rounded-xl bg-white p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:bg-[#252525] dark:shadow-[#414040]"
           >
             <img src={item.image} className="mb-3 h-[50px] w-[50px]" alt="" />
             <span className="text-sm font-semibold dark:text-[#F0F0F0]">{item.label}</span>

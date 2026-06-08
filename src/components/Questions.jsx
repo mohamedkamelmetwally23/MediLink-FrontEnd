@@ -34,7 +34,10 @@ export default function FAQ() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="grid gap-6 lg:grid-cols-3">
-        <aside className="flex flex-col items-center justify-center rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] p-6 text-center text-white lg:p-8">
+        <aside
+          style={{ "--reveal-delay": "0ms" }}
+          className="reveal-item flex flex-col items-center justify-center rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] p-6 text-center text-white lg:p-8"
+        >
           <img src={dark ? imgDark : img} alt="" className="mb-4 max-h-52 object-contain" />
           <h3 className="mb-3 text-2xl font-bold dark:text-[#2E2E2E]">
             الأسئلة الأكثر شيوعًا
@@ -48,6 +51,7 @@ export default function FAQ() {
           {faqs.map((faq, index) => (
             <article
               key={faq.question}
+              style={{ "--reveal-delay": `${(index + 1) * 80}ms` }}
               className={`overflow-hidden rounded-xl border-2 border-cyan-500 transition-all duration-300 ${
                 openIndex === index
                   ? "bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white dark:text-[#2E2E2E]"

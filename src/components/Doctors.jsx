@@ -42,7 +42,7 @@ export default function Doctors() {
   }, []);
 
   return (
-    <section id="doctors" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <section id="doctors" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6 lg:px-8">
       <h2 className="mb-3 text-center text-3xl font-bold dark:text-[#F0F0F0] sm:text-4xl">
         الأطباء
       </h2>
@@ -54,12 +54,13 @@ export default function Doctors() {
         <DoctorsSkeleton />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {doctors.map((doctor) => (
+          {doctors.map((doctor, index) => (
             <button
               type="button"
               key={doctor.id}
+              style={{ "--reveal-delay": `${index * 80}ms` }}
               onClick={() => toast.info(`سيتم فتح ملف ${doctor.name} قريبًا`)}
-              className="flex min-h-[250px] flex-col items-center rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#3C3C4399] dark:to-[#3C3C434D]"
+              className="reveal-item flex min-h-[250px] flex-col items-center rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#3C3C4399] dark:to-[#3C3C434D]"
             >
               <img src={doctor.image} alt={doctor.name} className="h-32 object-contain" />
               <p className="mt-3 font-semibold dark:text-[#D1D1D1]">{doctor.name}</p>
