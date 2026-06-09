@@ -28,34 +28,36 @@ export default function LandingPage() {
 
   return (
     <div className="overflow-x-hidden">
-      <div className="sticky top-0 z-50 bg-white/95 shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1)] backdrop-blur dark:bg-[#2E2E2E]/95">
+      <div className="fixed inset-x-0 top-0 z-50 bg-white/95 shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1)] backdrop-blur dark:bg-[#2E2E2E]/95">
         <Navbar />
       </div>
-      <ScrollReveal>
-        <Hero />
-      </ScrollReveal>
-      <ScrollReveal delay={100}>
-        <Hero2 />
-      </ScrollReveal>
-      <ScrollReveal delay={80}>
-        <Features />
-      </ScrollReveal>
-      <ScrollReveal delay={80}>
-        <Specialties />
-      </ScrollReveal>
-      <ScrollReveal delay={80}>
-        <Doctors />
-      </ScrollReveal>
-      <AssistantButton />
-      <ScrollReveal delay={80}>
-        <BenefitsOfWeb />
-      </ScrollReveal>
-      <ScrollReveal delay={80}>
-        <FAQ />
-      </ScrollReveal>
-      <ScrollReveal delay={80}>
-        <Footer />
-      </ScrollReveal>
+      <main className="pt-[72px]">
+        <ScrollReveal>
+          <Hero />
+        </ScrollReveal>
+        <ScrollReveal delay={100}>
+          <Hero2 />
+        </ScrollReveal>
+        <ScrollReveal delay={80}>
+          <Features />
+        </ScrollReveal>
+        <ScrollReveal delay={80}>
+          <Specialties />
+        </ScrollReveal>
+        <ScrollReveal delay={80}>
+          <Doctors />
+        </ScrollReveal>
+        <AssistantButton />
+        <ScrollReveal delay={80}>
+          <BenefitsOfWeb />
+        </ScrollReveal>
+        <ScrollReveal delay={80}>
+          <FAQ />
+        </ScrollReveal>
+        <ScrollReveal delay={80}>
+          <Footer />
+        </ScrollReveal>
+      </main>
       <ThemeToggle />
     </div>
   );

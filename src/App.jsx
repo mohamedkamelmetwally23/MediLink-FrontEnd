@@ -12,6 +12,9 @@ import AdminLayout from "./pages/admin/layout/AdminLayout";
 import UsersPage from "./pages/admin/users/UsersPage";
 import AddUserPage from "./pages/admin/users/AddUserPage";
 import EditUserPage from "./pages/admin/users/EditUserPage";
+import DoctorsPage from "./pages/admin/doctors/DoctorsPage";
+import AddDoctorPage from "./pages/admin/doctors/AddDoctorPage";
+import EditDoctorPage from "./pages/admin/doctors/EditDoctorPage";
 
 function App() {
   const { dark } = useTheme();
@@ -26,11 +29,14 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
-        <Route path="/admin" element={<Dashboard />} />
         <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Dashboard />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="users/new" element={<AddUserPage />} />
           <Route path="users/:userId/edit" element={<EditUserPage />} />
+          <Route path="doctors" element={<DoctorsPage />} />
+          <Route path="doctors/new" element={<AddDoctorPage />} />
+          <Route path="doctors/:doctorId/edit" element={<EditDoctorPage />} />
         </Route>
       </Routes>
 

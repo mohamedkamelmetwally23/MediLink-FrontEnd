@@ -28,7 +28,14 @@ const initialValues = {
   confirmPassword: "",
 };
 
-export default function DoctorForm({ mode = "create", initialData, onSubmit }) {
+export default function DoctorForm({
+  mode = "create",
+  initialData,
+  onSubmit,
+  returnTo = "/admin/users",
+  title,
+  subtitle,
+}) {
   const navigate = useNavigate();
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
@@ -47,17 +54,18 @@ export default function DoctorForm({ mode = "create", initialData, onSubmit }) {
 
     if (Object.keys(nextErrors).length === 0) {
       onSubmit?.(values);
-      navigate("/admin/users");
+      navigate(returnTo);
     }
   };
 
   return (
     <UserFormShell
-      title={mode === "edit" ? "تعديل بيانات مستخدم" : "إضافة مستخدم"}
+      title={title || (mode === "edit" ? "تعديل بيانات مستخدم" : "إضافة مستخدم")}
       subtitle={
-        mode === "edit"
+        subtitle ||
+        (mode === "edit"
           ? "عدل بيانات المستخدم ودوره ومواعيد العمل."
-          : "أدخل بيانات المستخدم ودوره ومواعيد العمل لإضافته إلى النظام."
+          : "أدخل بيانات المستخدم ودوره ومواعيد العمل لإضافته إلى النظام.")
       }
     >
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
@@ -139,6 +147,7 @@ export default function DoctorForm({ mode = "create", initialData, onSubmit }) {
         <div>
           <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
             ساعات العمل
+            <span className="mr-1 text-red-500">*</span>
           </span>
           <WorkHoursRange
             start={values.workStart}
@@ -197,7 +206,7 @@ export default function DoctorForm({ mode = "create", initialData, onSubmit }) {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/admin/users")}
+            onClick={() => navigate(returnTo)}
             className="h-[54px] rounded-xl border-2 border-cyan-400 font-semibold text-cyan-500"
           >
             إلغاء

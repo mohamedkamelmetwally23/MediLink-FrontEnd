@@ -6,7 +6,15 @@ const STORAGE_KEY = "medilink-admin-users";
 function loadUsers() {
   try {
     const savedUsers = localStorage.getItem(STORAGE_KEY);
-    return savedUsers ? JSON.parse(savedUsers) : initialUsers;
+    if (!savedUsers) {
+      return initialUsers;
+    }
+
+    const parsedUsers = JSON.parse(savedUsers);
+    return parsedUsers.map((user) => {
+      const seedUser = initialUsers.find((item) => item.id === user.id);
+      return seedUser ? { ...seedUser, ...user } : user;
+    });
   } catch {
     return initialUsers;
   }
@@ -71,6 +79,19 @@ export function useUsersStore() {
     );
   };
 
+  const toggleUserStatus = (id) => {
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.id === Number(id)
+          ? {
+              ...user,
+              status: user.status === "active" ? "inactive" : "active",
+            }
+          : user,
+      ),
+    );
+  };
+
   const getUser = (id) => users.find((user) => user.id === Number(id));
 
   return {
@@ -78,6 +99,7 @@ export function useUsersStore() {
     addUser,
     updateUser,
     deleteUsers,
+    toggleUserStatus,
     getUser,
   };
 }

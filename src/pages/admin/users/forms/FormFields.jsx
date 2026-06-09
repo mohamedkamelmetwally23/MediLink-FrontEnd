@@ -10,6 +10,7 @@ export function Field({ label, error, children, className = "" }) {
         }`}
       >
         {label}
+        <span className="mr-1 text-red-500">*</span>
       </span>
       {children}
       {error && <span className="mt-2 block text-sm text-red-500">{error}</span>}
