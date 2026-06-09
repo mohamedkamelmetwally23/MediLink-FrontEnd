@@ -77,7 +77,7 @@ export default function NewPasswordForm({ onSuccess }) {
             name="password"
             label="كلمة المرور الجديدة"
             type="password"
-            placeholder="مثال: Password1!"
+            placeholder="ادخل كلمة مرور"
             value={formData.password}
             onChange={handleChange}
             autoComplete="new-password"

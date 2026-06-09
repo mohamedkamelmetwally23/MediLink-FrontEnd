@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { CalendarDays } from "lucide-react";
 import FormInput from "../ui/FormInput";
-import FormSelect from "../ui/FormSelect";
 import PrimaryButton from "../ui/PrimaryButton";
 import { validateStrongPassword } from "../../utils/passwordValidation";
 
-const days = Array.from({ length: 31 }, (_, i) => i + 1);
-const maxBirthYear = 2015;
+const minimumAge = 18;
+const maximumAge = 75;
 const months = [
   "يناير",
   "فبراير",
@@ -22,13 +22,6 @@ const months = [
   "نوفمبر",
   "ديسمبر",
 ];
-const years = Array.from({ length: 60 }, (_, i) => maxBirthYear - i);
-const dayOptions = days.map((day) => ({ value: String(day), label: day }));
-const monthOptions = months.map((month, index) => ({
-  value: String(index + 1),
-  label: month,
-}));
-const yearOptions = years.map((year) => ({ value: String(year), label: year }));
 const registerErrorToastId = "register-error";
 const initialRegisterFormData = {
   firstName: "",
@@ -47,6 +40,101 @@ function showRegisterError(message) {
   toast.error(message, { toastId: registerErrorToastId });
 }
 
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDateInputValue(date) {
+  return [
+    date.getFullYear(),
+    padDatePart(date.getMonth() + 1),
+    padDatePart(date.getDate()),
+  ].join("-");
+}
+
+function getAgeBoundaryDate(age) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setFullYear(date.getFullYear() - age);
+  return date;
+}
+
+function getBirthDateLimits() {
+  return {
+    min: getAgeBoundaryDate(maximumAge),
+    max: getAgeBoundaryDate(minimumAge),
+  };
+}
+
+function getBirthDateValue(formData) {
+  if (!formData.birthDay || !formData.birthMonth || !formData.birthYear) {
+    return "";
+  }
+
+  return `${formData.birthYear}-${padDatePart(formData.birthMonth)}-${padDatePart(
+    formData.birthDay,
+  )}`;
+}
+
+function parseBirthDate(formData) {
+  const day = Number(formData.birthDay);
+  const month = Number(formData.birthMonth);
+  const year = Number(formData.birthYear);
+
+  if (!day || !month || !year) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function RequiredLabel({ children, htmlFor, error }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={`mb-2 inline-flex items-center gap-1 text-sm font-medium ${
+        error ? "text-[#C51F26]" : "text-gray-900 dark:text-[#F0F0F0]"
+      }`}
+    >
+      <span>{children}</span>
+      <span className="text-[#C51F26]">*</span>
+    </label>
+  );
+}
+
+function BirthDateSegment({ value, placeholder, error, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-12 w-full items-center justify-end rounded-lg border bg-base-200 px-4 text-right text-sm shadow-sm transition hover:text-[#05ADE8] focus:outline-none focus:ring-1 dark:bg-[#303030] ${
+        error
+          ? "border-[#C51F26] text-[#C51F26] focus:ring-[#C51F26]"
+          : "border-transparent text-gray-800 focus:ring-[#05ADE8] dark:text-[#F0F0F0]"
+      }`}
+    >
+      <span
+        className={
+          value ? "" : "text-gray-400 dark:text-[#8A8A8A]"
+        }
+      >
+        {value || placeholder}
+      </span>
+    </button>
+  );
+}
+
 export default function RegisterForm({
   onOtpRequested,
   initialData = initialRegisterFormData,
@@ -58,6 +146,10 @@ export default function RegisterForm({
   }));
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const birthDateInputRef = useRef(null);
+  const birthDateLimits = getBirthDateLimits();
+  const minBirthDate = formatDateInputValue(birthDateLimits.min);
+  const maxBirthDate = formatDateInputValue(birthDateLimits.max);
 
   const updateFormData = (nextFormData) => {
     setFormData(nextFormData);
@@ -74,6 +166,34 @@ export default function RegisterForm({
     });
   };
 
+  const handleBirthDateChange = (event) => {
+    const [year = "", month = "", day = ""] = event.target.value.split("-");
+
+    updateFormData({
+      ...formData,
+      birthDay: day ? String(Number(day)) : "",
+      birthMonth: month ? String(Number(month)) : "",
+      birthYear: year,
+    });
+  };
+
+  const openBirthDatePicker = () => {
+    const input = birthDateInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    input.focus({ preventScroll: true });
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.click();
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -87,10 +207,17 @@ export default function RegisterForm({
       newErrors.lastName = "اسم العائلة مطلوب";
     }
 
+    const birthDate = parseBirthDate(formData);
+
     if (!formData.birthDay || !formData.birthMonth || !formData.birthYear) {
       newErrors.birthDate = "تاريخ الميلاد مطلوب";
-    } else if (Number(formData.birthYear) > maxBirthYear) {
-      newErrors.birthDate = "تاريخ الميلاد يجب أن يكون من سنة 2015 أو قبلها";
+    } else if (!birthDate) {
+      newErrors.birthDate = "تاريخ الميلاد غير صحيح";
+    } else if (
+      birthDate < birthDateLimits.min ||
+      birthDate > birthDateLimits.max
+    ) {
+      newErrors.birthDate = "السن يجب أن يكون من 18 إلى 75 سنة";
     }
 
     if (!formData.gender) {
@@ -170,6 +297,7 @@ export default function RegisterForm({
             id="registerFirstName"
             name="firstName"
             label="الاسم الأول"
+            required
             placeholder="الاسم الأول"
             value={formData.firstName}
             onChange={handleChange}
@@ -180,6 +308,7 @@ export default function RegisterForm({
             id="registerLastName"
             name="lastName"
             label="اسم العائلة"
+            required
             placeholder="اسم العائلة"
             value={formData.lastName}
             onChange={handleChange}
@@ -189,39 +318,61 @@ export default function RegisterForm({
         </div>
 
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-[#F0F0F0]">
+          <RequiredLabel htmlFor="birthDate" error={errors.birthDate}>
             تاريخ الميلاد
-          </label>
+          </RequiredLabel>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <FormSelect
-              id="birthDay"
-              name="birthDay"
-              value={formData.birthDay}
-              onChange={handleChange}
+          <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_48px]">
+            <BirthDateSegment
               placeholder="اليوم"
-              options={dayOptions}
+              value={formData.birthDay}
+              onClick={openBirthDatePicker}
               error={errors.birthDate}
             />
 
-            <FormSelect
-              id="birthMonth"
-              name="birthMonth"
-              value={formData.birthMonth}
-              onChange={handleChange}
+            <BirthDateSegment
               placeholder="الشهر"
-              options={monthOptions}
+              value={
+                formData.birthMonth
+                  ? months[Number(formData.birthMonth) - 1]
+                  : ""
+              }
+              onClick={openBirthDatePicker}
               error={errors.birthDate}
             />
 
-            <FormSelect
-              id="birthYear"
-              name="birthYear"
-              value={formData.birthYear}
-              onChange={handleChange}
+            <BirthDateSegment
               placeholder="السنة"
-              options={yearOptions}
+              value={formData.birthYear}
+              onClick={openBirthDatePicker}
               error={errors.birthDate}
+            />
+
+            <button
+              type="button"
+              onClick={openBirthDatePicker}
+              aria-label="فتح أجندة تاريخ الميلاد"
+              className={`flex h-12 items-center justify-center rounded-lg border bg-base-200 text-gray-500 shadow-sm transition hover:text-[#05ADE8] focus:outline-none focus:ring-1 dark:bg-[#303030] dark:text-[#D2D2D2] ${
+                errors.birthDate
+                  ? "border-[#C51F26] focus:ring-[#C51F26]"
+                  : "border-transparent focus:ring-[#05ADE8]"
+              }`}
+            >
+              <CalendarDays size={18} />
+            </button>
+
+            <input
+              ref={birthDateInputRef}
+              id="birthDate"
+              name="birthDate"
+              type="date"
+              value={getBirthDateValue(formData)}
+              onChange={handleBirthDateChange}
+              min={minBirthDate}
+              max={maxBirthDate}
+              tabIndex={-1}
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 h-px w-px -translate-y-1/2 opacity-0"
             />
           </div>
 
@@ -231,9 +382,9 @@ export default function RegisterForm({
         </div>
 
         <div className="mt-5">
-          <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-[#F0F0F0]">
+          <RequiredLabel error={errors.gender}>
             الجنس
-          </label>
+          </RequiredLabel>
           <div className="grid grid-cols-2 gap-3">
             {[
               { value: "female", label: "أنثى" },
@@ -266,6 +417,7 @@ export default function RegisterForm({
             id="registerPhone"
             name="phoneNumber"
             label="رقم الهاتف"
+            required
             type="tel"
             placeholder="01XXXXXXXXX"
             value={formData.phoneNumber}
@@ -278,8 +430,9 @@ export default function RegisterForm({
             id="registerPassword"
             name="password"
             label="كلمة المرور"
+            required
             type="password"
-            placeholder="مثال: Password1!"
+            placeholder="ادخل كلمة مرور"
             value={formData.password}
             onChange={handleChange}
             autoComplete="new-password"
@@ -290,6 +443,7 @@ export default function RegisterForm({
             id="registerConfirmPassword"
             name="confirmPassword"
             label="تأكيد كلمة المرور"
+            required
             type="password"
             placeholder="أعد إدخال كلمة المرور"
             value={formData.confirmPassword}
@@ -300,16 +454,32 @@ export default function RegisterForm({
         </div>
 
         <div className="mt-5">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-900 dark:text-[#F0F0F0]">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900 dark:text-[#F0F0F0]">
             <input
+              id="registerTerms"
               type="checkbox"
               name="terms"
               checked={formData.terms}
               onChange={handleChange}
               className="checkbox checkbox-xs rounded border-gray-400"
             />
-            <span>أوافق على جميع الشروط والأحكام</span>
-          </label>
+            <label htmlFor="registerTerms" className="cursor-pointer">
+              أوافق على جميع
+            </label>
+            <Link
+              to="/terms"
+              className="font-semibold text-[#05ADE8] underline underline-offset-4"
+            >
+              الشروط
+            </Link>
+            <span>و</span>
+            <Link
+              to="/conditions"
+              className="font-semibold text-[#05ADE8] underline underline-offset-4"
+            >
+              الأحكام
+            </Link>
+          </div>
           {errors.terms && (
             <p className="mt-2 text-xs text-[#C51F26]">{errors.terms}</p>
           )}

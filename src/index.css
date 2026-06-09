@@ -34,6 +34,71 @@ select:disabled {
   cursor: not-allowed;
 }
 
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #ececec 25%, #f7f7f7 37%, #ececec 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #3f3f3f 25%, #525252 37%, #3f3f3f 63%);
+  background-size: 400% 100%;
+}
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 700ms ease,
+    transform 700ms ease;
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-item {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: reveal-item-up 650ms ease forwards;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@keyframes reveal-item-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .reveal-item {
+    animation: none;
+  }
+
+  .scroll-reveal,
+  .scroll-reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 @theme {
   --font-cairo: "Cairo", sans-serif;
 }

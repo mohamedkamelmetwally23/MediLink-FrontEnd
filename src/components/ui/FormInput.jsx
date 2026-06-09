@@ -8,6 +8,7 @@ export default function FormInput({
   placeholder = "",
   autoComplete = "off",
   error = "",
+  required = false,
   value,
   onChange,
 }) {
@@ -21,11 +22,12 @@ export default function FormInput({
       {label && (
         <label
           htmlFor={id}
-          className={`mb-2 block text-sm font-medium ${
+          className={`mb-2 inline-flex items-center gap-1 text-sm font-medium ${
             error ? "text-[#C51F26]" : "text-gray-900 dark:text-[#F0F0F0]"
           }`}
         >
-          {label}
+          <span>{label}</span>
+          {required && <span className="text-[#C51F26]">*</span>}
         </label>
       )}
 

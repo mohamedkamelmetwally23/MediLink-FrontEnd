@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ChevronLeft,
   ChevronsLeft,
   Edit3,
   Plus,
@@ -9,6 +8,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  ArrowBadge,
+  ArrowGlyph,
+  arrowButtonClass,
+} from "../../../components/ui/ArrowButton";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
 
@@ -242,7 +246,7 @@ export default function UsersPage() {
                         >
                           <Trash2 size={22} className="text-red-600" />
                         </button>
-                        <ChevronLeft size={22} className="mr-15" />
+                        <ArrowBadge className="mr-15" />
                       </div>
                     </div>
                   );
@@ -297,7 +301,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة الأولى"
         disabled={currentPage === 1}
-        className="rotate-180 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${arrowButtonClass} rotate-180`}
         onClick={() => onPageChange(1)}
       >
         <ChevronsLeft size={18} />
@@ -306,10 +310,10 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة السابقة"
         disabled={currentPage === 1}
-        className="rotate-180 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${arrowButtonClass} rotate-180`}
         onClick={() => onPageChange(currentPage - 1)}
       >
-        <ChevronLeft size={18} />
+        <ArrowGlyph />
       </button>
 
       {pages.map((page) => (
@@ -329,16 +333,16 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة التالية"
         disabled={currentPage === totalPages}
-        className=" disabled:cursor-not-allowed disabled:opacity-40"
+        className={arrowButtonClass}
         onClick={() => onPageChange(currentPage + 1)}
       >
-        <ChevronLeft size={18} />
+        <ArrowGlyph />
       </button>
       <button
         type="button"
         aria-label="الصفحة الأخيرة"
         disabled={currentPage === totalPages}
-        className=" disabled:cursor-not-allowed disabled:opacity-40"
+        className={arrowButtonClass}
         onClick={() => onPageChange(totalPages)}
       >
         <ChevronsLeft size={18} />

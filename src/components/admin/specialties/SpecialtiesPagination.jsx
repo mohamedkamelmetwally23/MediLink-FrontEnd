@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronsLeft } from "lucide-react";
+import { ChevronsLeft } from "lucide-react";
+import { ArrowGlyph, arrowButtonClass } from "../../ui/ArrowButton";
 
 export default function SpecialtiesPagination({
   currentPage,
@@ -13,7 +14,7 @@ export default function SpecialtiesPagination({
         type="button"
         aria-label="الصفحة الأولى"
         disabled={currentPage === 1}
-        className="rotate-180 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${arrowButtonClass} rotate-180`}
         onClick={() => onPageChange(1)}
       >
         <ChevronsLeft size={18} />
@@ -22,10 +23,10 @@ export default function SpecialtiesPagination({
         type="button"
         aria-label="الصفحة السابقة"
         disabled={currentPage === 1}
-        className="rotate-180 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${arrowButtonClass} rotate-180`}
         onClick={() => onPageChange(currentPage - 1)}
       >
-        <ChevronLeft size={18} />
+        <ArrowGlyph />
       </button>
 
       {pages.map((page) => (
@@ -45,16 +46,16 @@ export default function SpecialtiesPagination({
         type="button"
         aria-label="الصفحة التالية"
         disabled={currentPage === totalPages}
-        className="disabled:cursor-not-allowed disabled:opacity-40"
+        className={arrowButtonClass}
         onClick={() => onPageChange(currentPage + 1)}
       >
-        <ChevronLeft size={18} />
+        <ArrowGlyph />
       </button>
       <button
         type="button"
         aria-label="الصفحة الأخيرة"
         disabled={currentPage === totalPages}
-        className="disabled:cursor-not-allowed disabled:opacity-40"
+        className={arrowButtonClass}
         onClick={() => onPageChange(totalPages)}
       >
         <ChevronsLeft size={18} />

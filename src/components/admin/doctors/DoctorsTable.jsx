@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Ban, ChevronLeft, Edit3, Trash2 } from "lucide-react";
+import { Ban, Edit3, Trash2 } from "lucide-react";
 import DoctorStatusBadge from "./DoctorStatusBadge";
+import { ArrowBadge } from "../../ui/ArrowButton";
 
 function getCaseCount(doctor) {
   return doctor.caseCount ?? doctor.casesCount ?? doctor.appointmentsCount ?? 0;
@@ -98,7 +99,7 @@ export default function DoctorsTable({
                   >
                     <Edit3 size={22} className="dark:text-yellow-400" />
                   </Link>
-                  <ChevronLeft size={22} className="mr-8" />
+                  <ArrowBadge className="mr-8" />
                 </div>
               </div>
             );

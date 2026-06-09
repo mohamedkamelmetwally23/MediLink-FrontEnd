@@ -7,23 +7,63 @@ import {
   FaPhoneAlt,
 } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import logo from "../assets/landingPage/logo.png";
 
 const columns = [
   {
     title: "روابط سريعة",
-    items: ["الرئيسية", "من نحن", "خدماتنا", "التخصصات", "الأطباء"],
+    items: [
+      { label: "الرئيسية", href: "#home" },
+      { label: "من نحن", href: "#features" },
+      { label: "خدماتنا", href: "#features" },
+      { label: "التخصصات", href: "#specialties" },
+      { label: "الأطباء", href: "#doctors" },
+      { label: "الشروط", to: "/terms" },
+      { label: "الأحكام", to: "/conditions" },
+    ],
   },
   {
     title: "خدماتنا",
-    items: ["حجز موعد", "الاستشارات", "الملفات الطبية", "المتابعة والتنبيهات", "الدعم الفني"],
+    items: [
+      { label: "حجز موعد", href: "#features" },
+      { label: "الاستشارات", href: "#features" },
+      { label: "الملفات الطبية", href: "#features" },
+      { label: "المتابعة والتنبيهات", href: "#features" },
+      { label: "الدعم الفني", href: "#contact" },
+    ],
   },
   {
     title: "التخصصات",
-    items: ["الباطنة", "الأطفال", "الجلدية", "الفم والأسنان", "المخ والأعصاب"],
+    items: [
+      { label: "الباطنة", href: "#specialties" },
+      { label: "الأطفال", href: "#specialties" },
+      { label: "الجلدية", href: "#specialties" },
+      { label: "الفم والأسنان", href: "#specialties" },
+      { label: "المخ والأعصاب", href: "#specialties" },
+    ],
   },
 ];
+
+function FooterColumnLink({ item }) {
+  const linkClassName =
+    "inline-flex transition hover:text-[#05ADE8] hover:underline hover:underline-offset-4";
+
+  if (item.to) {
+    return (
+      <Link to={item.to} className={linkClassName}>
+        {item.label}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={item.href} className={linkClassName}>
+      {item.label}
+    </a>
+  );
+}
 
 export default function Footer() {
   return (
@@ -64,7 +104,9 @@ export default function Footer() {
               <h3 className="mb-5 text-xl font-bold">{column.title}</h3>
               <ul className="space-y-3 text-gray-700 dark:text-[#F0F0F0]">
                 {column.items.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li key={item.label}>
+                    <FooterColumnLink item={item} />
+                  </li>
                 ))}
               </ul>
             </div>

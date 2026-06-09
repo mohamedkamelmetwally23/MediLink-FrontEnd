@@ -1,4 +1,5 @@
-import { ChevronLeft, Edit3, Trash2 } from "lucide-react";
+import { Edit3, Trash2 } from "lucide-react";
+import { ArrowBadge } from "../../ui/ArrowButton";
 
 export default function SpecialtiesTable({
   specialties,
@@ -75,7 +76,7 @@ export default function SpecialtiesTable({
                   >
                     <Trash2 size={22} className="text-red-600" />
                   </button>
-                  <ChevronLeft size={22} className="mr-8" />
+                  <ArrowBadge className="mr-8" />
                 </div>
               </div>
             );
