@@ -92,6 +92,27 @@ export function useUsersStore() {
     );
   };
 
+  const updateUsersSpecialty = (oldSpecialty, nextSpecialty) => {
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.role === "doctor" && user.specialty === oldSpecialty
+          ? { ...user, specialty: nextSpecialty }
+          : user,
+      ),
+    );
+  };
+
+  const clearUsersSpecialties = (specialties) => {
+    const specialtiesSet = new Set(specialties);
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.role === "doctor" && specialtiesSet.has(user.specialty)
+          ? { ...user, specialty: "" }
+          : user,
+      ),
+    );
+  };
+
   const getUser = (id) => users.find((user) => user.id === Number(id));
 
   return {
@@ -100,6 +121,8 @@ export function useUsersStore() {
     updateUser,
     deleteUsers,
     toggleUserStatus,
+    updateUsersSpecialty,
+    clearUsersSpecialties,
     getUser,
   };
 }

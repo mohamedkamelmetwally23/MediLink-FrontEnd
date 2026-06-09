@@ -15,6 +15,7 @@ import EditUserPage from "./pages/admin/users/EditUserPage";
 import DoctorsPage from "./pages/admin/doctors/DoctorsPage";
 import AddDoctorPage from "./pages/admin/doctors/AddDoctorPage";
 import EditDoctorPage from "./pages/admin/doctors/EditDoctorPage";
+import SpecialtiesPage from "./pages/admin/specialties/SpecialtiesPage";
 
 function App() {
   const { dark } = useTheme();
@@ -37,6 +38,7 @@ function App() {
           <Route path="doctors" element={<DoctorsPage />} />
           <Route path="doctors/new" element={<AddDoctorPage />} />
           <Route path="doctors/:doctorId/edit" element={<EditDoctorPage />} />
+          <Route path="specialties" element={<SpecialtiesPage />} />
         </Route>
       </Routes>
 

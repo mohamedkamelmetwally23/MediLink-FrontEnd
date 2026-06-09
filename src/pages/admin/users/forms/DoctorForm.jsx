@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { specialties, timeOptions, userStatuses, workDays } from "../usersData";
+import { timeOptions, userStatuses, workDays } from "../usersData";
+import { useSpecialtiesStore } from "../../specialties/useSpecialtiesStore";
 import { validateDoctor } from "../validation";
 import {
   Field,
@@ -37,6 +38,7 @@ export default function DoctorForm({
   subtitle,
 }) {
   const navigate = useNavigate();
+  const { specialties } = useSpecialtiesStore();
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
 

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Plus, Search, X } from "lucide-react";
-import { specialties } from "../../../pages/admin/users/usersData";
+import { useSpecialtiesStore } from "../../../pages/admin/specialties/useSpecialtiesStore";
 import { doctorStatusLabels } from "./doctorStatusLabels";
 
 export default function DoctorsToolbar({
@@ -11,6 +11,8 @@ export default function DoctorsToolbar({
   onSpecialtyChange,
   onStatusChange,
 }) {
+  const { specialties } = useSpecialtiesStore();
+
   return (
     <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row">
