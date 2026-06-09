@@ -6,7 +6,15 @@ const STORAGE_KEY = "medilink-admin-users";
 function loadUsers() {
   try {
     const savedUsers = localStorage.getItem(STORAGE_KEY);
-    return savedUsers ? JSON.parse(savedUsers) : initialUsers;
+    if (!savedUsers) {
+      return initialUsers;
+    }
+
+    const parsedUsers = JSON.parse(savedUsers);
+    return parsedUsers.map((user) => {
+      const seedUser = initialUsers.find((item) => item.id === user.id);
+      return seedUser ? { ...seedUser, ...user } : user;
+    });
   } catch {
     return initialUsers;
   }
@@ -71,6 +79,40 @@ export function useUsersStore() {
     );
   };
 
+  const toggleUserStatus = (id) => {
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.id === Number(id)
+          ? {
+              ...user,
+              status: user.status === "active" ? "inactive" : "active",
+            }
+          : user,
+      ),
+    );
+  };
+
+  const updateUsersSpecialty = (oldSpecialty, nextSpecialty) => {
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.role === "doctor" && user.specialty === oldSpecialty
+          ? { ...user, specialty: nextSpecialty }
+          : user,
+      ),
+    );
+  };
+
+  const clearUsersSpecialties = (specialties) => {
+    const specialtiesSet = new Set(specialties);
+    commitUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.role === "doctor" && specialtiesSet.has(user.specialty)
+          ? { ...user, specialty: "" }
+          : user,
+      ),
+    );
+  };
+
   const getUser = (id) => users.find((user) => user.id === Number(id));
 
   return {
@@ -78,6 +120,9 @@ export function useUsersStore() {
     addUser,
     updateUser,
     deleteUsers,
+    toggleUserStatus,
+    updateUsersSpecialty,
+    clearUsersSpecialties,
     getUser,
   };
 }

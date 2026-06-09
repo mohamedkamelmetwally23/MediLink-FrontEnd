@@ -140,6 +140,7 @@ export default function ReceptionistForm({
         <div>
           <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
             ساعات العمل
+            <span className="mr-1 text-red-500">*</span>
           </span>
           <WorkHoursRange
             start={values.workStart}

@@ -1,33 +1,23 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
-import doctor from "../../assets/landingPage/admin.png";
 import {
-  Search,
-  Users,
-  CalendarDays,
   Banknote,
+  CalendarDays,
+  Search,
   Stethoscope,
-  Home,
-  UserCog,
-  LogOut,
-  Building2,
-  Menu,
-  X,
+  Users,
 } from "lucide-react";
-
 import {
-  LineChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 
 const stats = [
@@ -106,189 +96,164 @@ const pieColors = [
 ];
 
 export default function Dashboard() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-[#f8f8f8] text-[#2f2f2f] dark:bg-[#2f2f2f] dark:text-white"
-    >
-      <div className="flex min-h-screen">
-        {isSidebarOpen && (
-          <button
-            type="button"
-            aria-label="Close sidebar"
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
+    <section>
+      <Header />
 
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
+      <section className="p-4 sm:p-6 lg:p-8">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((item) => (
+            <StatCard key={item.title} {...item} />
+          ))}
+        </div>
 
-        <main className="flex-1 lg:mr-0">
-          <Header onMenuClick={() => setIsSidebarOpen(true)} />
-
-          <section className="p-4 sm:p-6 lg:p-8">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((item) => (
-                <StatCard  key={item.title} {...item} />
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <Card title="عدد المواعيد">
+            <div className="mb-6 flex w-full max-w-sm overflow-hidden rounded-xl bg-gray-100 dark:bg-[#3b3b3b]">
+              {["سنة", "شهر", "أسبوع", "يوم"].map((item, index) => (
+                <button
+                  key={item}
+                  className={`flex-1 py-2 text-sm ${
+                    index === 0
+                      ? "bg-cyan-400 text-white"
+                      : "text-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  {item}
+                </button>
               ))}
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <Card title="عدد المواعيد">
-                <div className="mb-6 flex w-full max-w-sm overflow-hidden rounded-xl bg-gray-100 dark:bg-[#3b3b3b]">
-                  {["سنة", "شهر", "أسبوع", "يوم"].map((x, i) => (
-                    <button
-                      key={x}
-                      className={`flex-1 py-2 text-sm ${
-                        i === 0
-                          ? "bg-cyan-400 text-white"
-                          : "text-gray-700 dark:text-gray-200"
-                      }`}
-                    >
-                      {x}
-                    </button>
-                  ))}
-                </div>
+            <ChartBox>
+              <LineChart data={appointments}>
+                <CartesianGrid
+                  stroke="currentColor"
+                  opacity={0.18}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 15, fill: "currentColor" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 15, fill: "currentColor" }}
+                  tickMargin={40}
+                />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#22c7f4"
+                  strokeWidth={3}
+                  dot={{ r: 5, fill: "#22c7f4" }}
+                />
+              </LineChart>
+            </ChartBox>
+          </Card>
 
-                <ChartBox>
-                  <LineChart data={appointments}>
-                    <CartesianGrid
-                      stroke="currentColor"
-                      opacity={0.18}
-                      vertical={false}
-                    />
-                    <XAxis dataKey="month" tick={{ fontSize: 15, fill: "currentColor" }} />
-                    <YAxis tick={{ fontSize: 15, fill: "currentColor" }} tickMargin={40} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#22c7f4"
-                      strokeWidth={3}
-                      dot={{ r: 5, fill: "#22c7f4" }}
-                    />
-                  </LineChart>
-                </ChartBox>
-              </Card>
-
-              <Card title="عدد المواعيد لكل طبيب">
-                <div className="mb-6 flex gap-2">
-                  <SelectButton text="السنة" />
-                  <SelectButton text="الكل" />
-                </div>
-
-                <ChartBox>
-                  <BarChart data={doctors}>
-                    <CartesianGrid
-                      stroke="currentColor"
-                      opacity={0.18}
-                      vertical={false}
-                    />
-                    <XAxis dataKey="name" tick={{ fontSize: 13, fill: "currentColor" }} tickMargin={12} />
-                    <YAxis tick={{ fontSize: 15, fill: "currentColor" }} tickMargin={40} />
-                    <Tooltip />
-                    <Bar
-                      dataKey="value"
-                      fill="#20b8df"
-                      radius={[0, 0, 0, 0]}
-                      barSize={30}
-                    />
-                  </BarChart>
-                </ChartBox>
-              </Card>
+          <Card title="عدد المواعيد لكل طبيب">
+            <div className="mb-6 flex gap-2">
+              <SelectButton text="السنة" />
+              <SelectButton text="الكل" />
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-              <Card title="النشاط الأخير">
-                <div className="mt-6 max-h-[250px] overflow-hidden">
-                  {[
-                    "تم إنشاء حساب مستخدم جديد",
-                    "تم حجز موعد جديد",
-                    "تم إلغاء موعد",
-                    "تم إضافة طبيب جديد",
-                    "تم تحديث بيانات العيادة",
-                  ].map((text, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between border-b border-gray-200 py-4 dark:border-white/30"
-                    >
-                      <span className="text-xs text-gray-500 dark:text-gray-300">
-                        منذ 10 دقائق
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm sm:text-base">{text}</span>
-                        <span className="grid h-10 w-10 place-items-center rounded-full bg-teal-50 text-teal-500">
-                          <Users size={20} />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+            <ChartBox>
+              <BarChart data={doctors}>
+                <CartesianGrid
+                  stroke="currentColor"
+                  opacity={0.18}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 13, fill: "currentColor" }}
+                  tickMargin={12}
+                />
+                <YAxis
+                  tick={{ fontSize: 15, fill: "currentColor" }}
+                  tickMargin={40}
+                />
+                <Tooltip />
+                <Bar dataKey="value" fill="#20b8df" barSize={30} />
+              </BarChart>
+            </ChartBox>
+          </Card>
+        </div>
 
-              <Card title="أكثر التخصصات حجزا">
-                <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
-                  <div className="h-[230px] w-[230px]">
-                    <ResponsiveContainer>
-                      <PieChart>
-                        <Pie
-                          data={specializations}
-                          dataKey="value"
-                          innerRadius={68}
-                          outerRadius={112}
-                        >
-                          {specializations.map((_, i) => (
-                            <Cell key={i} fill={pieColors[i]} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="space-y-3">
-                    {specializations.map((item, i) => (
-                      <div
-                        key={item.name}
-                        className="flex items-center gap-3 text-sm"
-                      >
-                        <span>{item.value}%</span>
-                        <span>{item.name}</span>
-                        <span
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: pieColors[i] }}
-                        />
-                      </div>
-                    ))}
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+          <Card title="النشاط الأخير">
+            <div className="mt-6 max-h-[250px] overflow-hidden">
+              {[
+                "تم إنشاء حساب مستخدم جديد",
+                "تم حجز موعد جديد",
+                "تم إلغاء موعد",
+                "تم إضافة طبيب جديد",
+                "تم تحديث بيانات العيادة",
+              ].map((text) => (
+                <div
+                  key={text}
+                  className="flex items-center justify-between border-b border-gray-200 py-4 dark:border-white/30"
+                >
+                  <span className="text-xs text-gray-500 dark:text-gray-300">
+                    منذ 10 دقائق
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm sm:text-base">{text}</span>
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-teal-50 text-teal-500">
+                      <Users size={20} />
+                    </span>
                   </div>
                 </div>
-              </Card>
+              ))}
             </div>
-          </section>
-        </main>
-      </div>
-    </div>
+          </Card>
+
+          <Card title="أكثر التخصصات حجزا">
+            <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
+              <div className="h-[230px] w-[230px]">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={specializations}
+                      dataKey="value"
+                      innerRadius={68}
+                      outerRadius={112}
+                    >
+                      {specializations.map((_, index) => (
+                        <Cell key={pieColors[index]} fill={pieColors[index]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-3">
+                {specializations.map((item, index) => (
+                  <div key={item.name} className="flex items-center gap-3 text-sm">
+                    <span>{item.value}%</span>
+                    <span>{item.name}</span>
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: pieColors[index] }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
+      </section>
+    </section>
   );
 }
 
-function Header({ onMenuClick }) {
+function Header() {
   return (
     <header className="flex h-auto flex-col gap-4 bg-white px-4 py-6 shadow-sm dark:bg-[#3a3a3a] sm:px-8 lg:h-[120px] lg:flex-row lg:items-center lg:justify-between">
-      <button
-        type="button"
-        aria-label="Open sidebar"
-        className="self-start rounded-lg p-2 text-gray-700 hover:bg-gray-100 dark:text-white dark:hover:bg-white/10 lg:hidden"
-        onClick={onMenuClick}
-      >
-        <Menu />
-      </button>
-
       <div>
-        <h2 className="text-xl font-bold sm:text-2xl">مرحبا د. أحمد محمد 👋</h2>
+        <h2 className="text-xl font-bold sm:text-2xl">
+          مرحبا د. أحمد محمد
+        </h2>
         <p className="text-sm text-gray-500 dark:text-gray-300">
           إليك ملخص أداء العيادة
         </p>
@@ -296,67 +261,9 @@ function Header({ onMenuClick }) {
 
       <label className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-500 dark:border-white/30 dark:bg-transparent dark:text-gray-200 lg:w-[350px]">
         <Search size={20} />
-        <input
-          className="w-full bg-transparent outline-none"
-          placeholder="ابحث هنا..."
-        />
+        <input className="w-full bg-transparent outline-none" placeholder="ابحث هنا..." />
       </label>
     </header>
-  );
-}
-
-function Sidebar({ isOpen, onClose }) {
-  return (
-    <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,85vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:block lg:w-[300px] lg:translate-x-0 lg:shadow-none ${
-        isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      }`}
-    >
-      <button
-        type="button"
-        aria-label="Close sidebar"
-        className="absolute left-4 top-4 rounded-lg p-2 text-white hover:bg-white/15 lg:hidden"
-        onClick={onClose}
-      >
-        <X />
-      </button>
-
-      <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#0fb8e8] to-[#63d5df] text-center">
-        <h1 className="pt-10 text-xl font-bold text-white dark:text-[#333]">
-          Medilink
-        </h1>
-
-        <div className="absolute bottom-0 h-[46px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
-
-        <div className="absolute bottom-[-30px] left-1/2 -translate-x-1/2">
-          <div className="h-32 w-32 overflow-hidden rounded-full ring-8 ring-white">
-            <img
-              src={doctor}
-              className="h-full w-full"
-            />
-          </div>
-          <span className="absolute bottom-7 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-4 ring-white" />
-        </div>
-      </div>
-
-      <div className="mt-16 text-center">
-        <h2 className="text-lg font-bold">د. أحمد محمد</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-300">مدير النظام</p>
-      </div>
-
-      <nav className="mt-10 space-y-3 px-8 text-lg font-bold">
-        <SideItem to="/admin" icon={Home} text="لوحة التحكم" />
-        <SideItem to="/admin/users" icon={UserCog} text="المستخدمون" />
-        <SideItem icon={Stethoscope} text="الأطباء" />
-        <SideItem icon={Users} text="التخصصات" />
-        <SideItem icon={Users} text="المواعيد" />
-        <SideItem icon={Building2} text="إدارة العيادة" />
-
-        <div className="my-5 h-px bg-gray-200 dark:bg-white/20" />
-
-        <SideItem danger icon={LogOut} text="تسجيل الخروج" />
-      </nav>
-    </aside>
   );
 }
 
@@ -366,9 +273,7 @@ function StatCard({ title, value, change, icon: Icon, color, bg }) {
   return (
     <div className="rounded-xl bg-white p-6 shadow-[0_0_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div className="flex items-center justify-between">
-        <div
-          className={`grid h-14 w-14 place-items-center rounded-xl ${bg} ${color}`}
-        >
+        <div className={`grid h-14 w-14 place-items-center rounded-xl ${bg} ${color}`}>
           <Icon size={30} />
         </div>
 
@@ -413,36 +318,4 @@ function SelectButton({ text }) {
       {text}
     </button>
   );
-}
-
-function SideItem({ icon: Icon, text, active, danger, to }) {
-  const baseClass = `relative flex items-center justify-between rounded-xl px-3 py-3 ${
-    danger ? "text-red-400" : "text-gray-400 dark:text-gray-300"
-  }`;
-
-  const content = (isActive = active) => (
-    <>
-      {isActive && (
-        <span className="absolute -right-8 h-14 w-2 rotate-180 rounded-r-xl bg-cyan-400" />
-      )}
-      <Icon size={26} />
-      <span>{text}</span>
-    </>
-  );
-
-  if (to) {
-    return (
-      <NavLink
-        to={to}
-        end={to === "/admin"}
-        className={({ isActive }) =>
-          `${baseClass} ${isActive ? "text-cyan-400" : "hover:text-cyan-500"}`
-        }
-      >
-        {({ isActive }) => content(isActive)}
-      </NavLink>
-    );
-  }
-
-  return <div className={`${baseClass} ${active ? "text-cyan-400" : ""}`}>{content()}</div>;
 }
