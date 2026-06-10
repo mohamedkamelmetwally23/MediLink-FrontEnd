@@ -250,7 +250,7 @@ export default function Dashboard() {
 function Header() {
   return (
     <header className="flex h-auto flex-col gap-4 bg-white px-4 py-6 shadow-sm dark:bg-[#3a3a3a] sm:px-8 lg:h-[120px] lg:flex-row lg:items-center lg:justify-between">
-      <div>
+      <div className="mr-13 lg:mr-0">
         <h2 className="text-xl font-bold sm:text-2xl">
           مرحبا د. أحمد محمد
         </h2>
