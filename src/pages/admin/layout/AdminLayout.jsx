@@ -14,7 +14,7 @@ import {
 import doctor from "../../../assets/landingPage/admin.png";
 
 const navItems = [
-  { label: "لوحة التحكم", icon: Home, to: "/admin" },
+  { label: "لوحة التحكم", icon: Home, to: "/admin/dashboard" },
   { label: "المستخدمون", icon: UserCog, to: "/admin/users" },
   { label: "الأطباء", icon: Stethoscope, to: "/admin/doctors" },
   { label: "التخصصات", icon: Users, to: "/admin/specialties" },

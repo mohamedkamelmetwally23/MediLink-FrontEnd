@@ -2,11 +2,16 @@ import { useMemo, useState } from "react";
 import {
   CalendarDays,
   Check,
-  ChevronLeft,
+  ChevronsLeft,
   Search,
   Trash2,
   X,
 } from "lucide-react";
+import {
+  ArrowButton,
+  ArrowGlyph,
+  arrowButtonClass,
+} from "../../../components/ui/ArrowButton";
 
 const pageSize = 8;
 
@@ -212,9 +217,7 @@ export default function AppointmentsPage() {
         <AppointmentsToolbar
           search={search}
           statusFilter={statusFilter}
-          onSearchChange={(value) =>
-            resetToFirstPage(() => setSearch(value))
-          }
+          onSearchChange={(value) => resetToFirstPage(() => setSearch(value))}
           onStatusChange={(value) =>
             resetToFirstPage(() => setStatusFilter(value))
           }
@@ -379,7 +382,10 @@ function AppointmentsTable({
                 <span className="block font-semibold">
                   {appointment.patient}
                 </span>
-                <span dir="ltr" className="block text-right text-xs text-gray-400">
+                <span
+                  dir="ltr"
+                  className="block text-right text-xs text-gray-400"
+                >
                   {appointment.phone}
                 </span>
               </div>
@@ -398,7 +404,7 @@ function AppointmentsTable({
                 >
                   <Trash2 size={21} className="text-red-600" />
                 </button>
-                <ChevronLeft size={22} className="text-gray-400" />
+                <ArrowButton className={arrowButtonClass} />
               </div>
             </div>
           );
@@ -442,6 +448,25 @@ function AppointmentsPagination({ currentPage, totalPages, onPageChange }) {
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-3 py-5 font-semibold">
+      <button
+        type="button"
+        aria-label="الصفحة الأولى"
+        disabled={currentPage === 1}
+        className={`${arrowButtonClass} rotate-180`}
+        onClick={() => onPageChange(1)}
+      >
+        <ChevronsLeft size={18} />
+      </button>
+      <button
+        type="button"
+        aria-label="الصفحة السابقة"
+        disabled={currentPage === 1}
+        className={`${arrowButtonClass} rotate-180`}
+        onClick={() => onPageChange(currentPage - 1)}
+      >
+        <ArrowGlyph />
+      </button>
+
       {pages.map((page) => (
         <button
           key={page}
@@ -454,6 +479,25 @@ function AppointmentsPagination({ currentPage, totalPages, onPageChange }) {
           {page}
         </button>
       ))}
+
+      <button
+        type="button"
+        aria-label="الصفحة التالية"
+        disabled={currentPage === totalPages}
+        className={arrowButtonClass}
+        onClick={() => onPageChange(currentPage + 1)}
+      >
+        <ArrowGlyph />
+      </button>
+      <button
+        type="button"
+        aria-label="الصفحة الأخيرة"
+        disabled={currentPage === totalPages}
+        className={arrowButtonClass}
+        onClick={() => onPageChange(totalPages)}
+      >
+        <ChevronsLeft size={18} />
+      </button>
     </div>
   );
 }
