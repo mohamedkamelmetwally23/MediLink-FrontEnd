@@ -124,7 +124,7 @@ export default function AdminLayout() {
       end={to === "/admin"}
       onClick={onClick}
       className={({ isActive }) =>
-        `relative flex items-center justify-between rounded-xl px-3 py-3 transition ${
+        `relative flex items-center justify-start gap-12 rounded-xl px-3 py-3 transition ${
           isActive
             ? "text-cyan-400"
             : "text-gray-400 hover:text-cyan-500 dark:text-gray-300"
