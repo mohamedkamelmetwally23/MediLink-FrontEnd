@@ -1,25 +1,27 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Ban,
+  ChevronLeft,
+  ChevronRight,
   ChevronsLeft,
-  Edit3,
-  Plus,
+  ChevronsRight,
   Search,
   Trash2,
   X,
 } from "lucide-react";
-import {
-  ArrowBadge,
-  ArrowGlyph,
-  arrowButtonClass,
-} from "../../../components/ui/ArrowButton";
+import CustomSelect from "../../../components/admin/CustomSelect";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
 
-const pageSize = 8;
+const pageSize = 10;
 
 export default function UsersPage() {
-  const { users, deleteUsers: removeUsers } = useUsersStore();
+  const {
+    users,
+    deleteUsers: removeUsers,
+    toggleUserStatus,
+  } = useUsersStore();
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -32,6 +34,7 @@ export default function UsersPage() {
 
     return users.filter((user) => {
       const fullName = `${user.firstName} ${user.lastName}`;
+
       return (
         (!query || fullName.includes(query) || user.phone.includes(query)) &&
         (!roleFilter || user.role === roleFilter) &&
@@ -64,6 +67,7 @@ export default function UsersPage() {
       if (allVisibleSelected) {
         return current.filter((id) => !visibleIds.includes(id));
       }
+
       return Array.from(new Set([...current, ...visibleIds]));
     });
   };
@@ -75,182 +79,59 @@ export default function UsersPage() {
   };
 
   return (
-    <section>
-      <header className="flex min-h-[120px] items-end justify-start bg-white px-6 pb-8 shadow-sm dark:bg-[#3a3a3a] lg:px-8">
-        <div className="text-right">
-          <h1 className="text-2xl font-bold lg:text-3xl">المستخدمون</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-3">
-            عرض وإدارة جميع حسابات المرضى والأطباء وموظفي الاستقبال.
-          </p>
-        </div>
-      </header>
+    <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
+      <PageHeader />
 
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <select
-              value={roleFilter}
-              onChange={(event) => {
-                setRoleFilter(event.target.value);
-                setCurrentPage(1);
-              }}
-              className="h-[52px] rounded-xl border border-gray-200 bg-white px-4 outline-none dark:border-white/30 dark:bg-[#454545]"
-            >
-              <option value="">كل الأدوار</option>
-              {Object.entries(userRoles).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value);
-                setCurrentPage(1);
-              }}
-              className="h-[52px] rounded-xl border border-gray-200 bg-white px-4 outline-none dark:border-white/30 dark:bg-[#454545]"
-            >
-              <option value="">كل الحالات</option>
-              {Object.entries(userStatuses).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <label className="flex h-[52px] w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-gray-500 dark:border-white/30 dark:bg-[#454545] dark:text-gray-200 lg:w-[260px]">
-              <Search size={20} />
-              <input
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-transparent outline-none"
-                placeholder="ابحث هنا..."
-              />
-              {search && (
-                <button
-                  type="button"
-                  aria-label="مسح البحث"
-                  onClick={() => {
-                    setSearch("");
-                    setCurrentPage(1);
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </label>
-          </div>
-          <Link
-            to="/admin/users/new"
-            className="inline-flex h-[52px] w-fit items-center gap-2 rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] px-5 font-semibold text-white"
-          >
-            <Plus size={20} />
-            أضف مستخدم
-          </Link>
+      <main className="px-4 pb-8 pt-[28px] sm:px-6 lg:px-[52px]">
+        <div className="mb-[16px] flex justify-end" dir="ltr">
+          <SearchBox
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
 
         {selectedCount > 0 && (
-          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-cyan-900 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-100 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold">تم تحديد {selectedCount} عنصر</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
-                onClick={() => setPendingDelete(selectedIds)}
-              >
-                حذف المحدد
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-cyan-300 px-4 py-2 text-sm font-semibold"
-                onClick={() => setSelectedIds([])}
-              >
-                إلغاء التحديد
-              </button>
-            </div>
-          </div>
+          <SelectionBar
+            count={selectedCount}
+            onClear={() => setSelectedIds([])}
+            onDelete={() => setPendingDelete(selectedIds)}
+          />
         )}
 
-        <div className="overflow-hidden rounded-xl bg-white shadow-[0_0_20px_rgba(0,0,0,0.06)] dark:bg-[#3b3b3b]">
+        <section className="overflow-hidden bg-white dark:bg-[#505050]">
           <div className="overflow-x-auto">
-            <div className="min-w-[860px]">
-              <div className="grid grid-cols-[70px_1.4fr_1fr_1fr_1fr_170px] items-center bg-[#f5f5f5] px-6 py-4 font-semibold dark:bg-[#4a4a4a]">
-                <button
-                  type="button"
-                  aria-label="تحديد كل المستخدمين في الصفحة الحالية"
-                  className={`h-5 w-5 rounded border ${
-                    allVisibleSelected
-                      ? "border-cyan-400 bg-cyan-400"
-                      : "border-gray-400"
-                  }`}
-                  onClick={toggleAllVisible}
-                />
-                <span>الاسم</span>
-                <span>رقم الهاتف</span>
-                <span>الدور</span>
-                <span>الحالة</span>
-                <span />
-              </div>
+            <div className="min-w-[980px]">
+              <TableHeader
+                allVisibleSelected={allVisibleSelected}
+                onToggleAll={toggleAllVisible}
+                roleFilter={roleFilter}
+                statusFilter={statusFilter}
+                onRoleChange={(value) => {
+                  setRoleFilter(value);
+                  setCurrentPage(1);
+                }}
+                onStatusChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+              />
 
               {filteredUsers.length === 0 ? (
-                <div className="grid min-h-[360px] place-items-center text-lg font-semibold">
-                  لا يوجد مستخدمين حتى الآن
-                </div>
+                <EmptyState />
               ) : (
-                pageUsers.map((user) => {
-                  const selected = selectedIds.includes(user.id);
-
-                  return (
-                    <div
-                      key={user.id}
-                      className={`grid grid-cols-[70px_1.4fr_1fr_1fr_1fr_170px] items-center border-b border-gray-200 px-6 py-4 transition dark:border-white/20 ${
-                        selected ? "bg-cyan-50 dark:bg-cyan-500/10" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        aria-label={`تحديد ${user.firstName} ${user.lastName}`}
-                        className={`grid h-5 w-5 place-items-center rounded border text-sm ${
-                          selected
-                            ? "border-cyan-400 bg-cyan-400 text-white"
-                            : "border-gray-400"
-                        }`}
-                        onClick={() => toggleUser(user.id)}
-                      >
-                        {selected ? "✓" : ""}
-                      </button>
-                      <span>
-                        {user.firstName} {user.lastName}
-                      </span>
-                      <span dir="ltr" className="text-right">
-                        {user.phone}
-                      </span>
-                      <span>{userRoles[user.role]}</span>
-                      <StatusBadge status={user.status} />
-                      <div className="flex items-center gap-4 text-gray-700 dark:text-gray-100">
-                        <Link
-                          to={`/admin/users/${user.id}/edit`}
-                          aria-label="تعديل المستخدم"
-                        >
-                          <Edit3 size={22} className="dark:text-yellow-400" />
-                        </Link>
-                        <button
-                          type="button"
-                          aria-label="حذف المستخدم"
-                          onClick={() => setPendingDelete([user.id])}
-                        >
-                          <Trash2 size={22} className="text-red-600" />
-                        </button>
-                        <ArrowBadge className="mr-15" />
-                      </div>
-                    </div>
-                  );
-                })
+                pageUsers.map((user) => (
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    selected={selectedIds.includes(user.id)}
+                    onToggle={() => toggleUser(user.id)}
+                    onDelete={() => setPendingDelete([user.id])}
+                    onToggleStatus={() => toggleUserStatus(user.id)}
+                  />
+                ))
               )}
             </div>
           </div>
@@ -262,12 +143,11 @@ export default function UsersPage() {
               onPageChange={setCurrentPage}
             />
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {pendingDelete && (
         <ConfirmDeleteModal
-          count={pendingDelete.length}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => deleteUsers(pendingDelete)}
         />
@@ -276,15 +156,210 @@ export default function UsersPage() {
   );
 }
 
+function PageHeader() {
+  return (
+    <header className="flex min-h-[120px] items-start justify-start bg-white px-4 pt-[38px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
+      <div className="text-right">
+        <h1 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
+          المرضى
+        </h1>
+        <p className="mt-1 text-[16px] leading-5 text-[#8a8a8a] dark:text-gray-300">
+          عرض وإدارة جميع حسابات المرضى.
+        </p>
+      </div>
+    </header>
+  );
+}
+
+function SearchBox({ value, onChange }) {
+  return (
+    <label
+      className="flex h-[52px] w-full items-center gap-[12px] rounded-[12px] border border-[#d7d7d7] bg-[#fbfbfb] px-[16px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[260px]"
+      dir="ltr"
+    >
+      <button
+        type="button"
+        aria-label="مسح البحث"
+        className="grid h-6 w-6 place-items-center"
+        onClick={() => onChange("")}
+      >
+        <X size={16} strokeWidth={1.6} />
+      </button>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
+        placeholder="إبحث هنا..."
+        dir="rtl"
+      />
+      <Search size={20} strokeWidth={1.7} />
+    </label>
+  );
+}
+
+function SelectionBar({ count, onClear, onDelete }) {
+  return (
+    <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
+      <p className="text-[17px] font-semibold text-[#333] dark:text-white">
+        تم تحديد {count} من العناصر
+      </p>
+
+      <div className="flex items-center gap-[24px]" dir="ltr">
+        <button
+          type="button"
+          aria-label="إلغاء التحديد"
+          className="grid h-[36px] w-[36px] place-items-center text-[#222] dark:text-white"
+          onClick={onClear}
+        >
+          <X size={26} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
+          onClick={onDelete}
+        >
+          <span>حذف المحدد</span>
+          <Trash2 size={22} strokeWidth={1.8} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TableHeader({
+  allVisibleSelected,
+  onToggleAll,
+  roleFilter,
+  statusFilter,
+  onRoleChange,
+  onStatusChange,
+}) {
+  return (
+    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+      <div className="flex justify-center">
+        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
+      </div>
+      <span className="text-center">الأسم</span>
+      <span className="text-center">رقم الهاتف</span>
+      <FilterSelect value={roleFilter} onChange={onRoleChange} label="الدور">
+        <option value="">الدور</option>
+        {Object.entries(userRoles).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </FilterSelect>
+      <FilterSelect
+        value={statusFilter}
+        onChange={onStatusChange}
+        label="الحالة"
+      >
+        <option value="">الحالة</option>
+        {Object.entries(userStatuses).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </FilterSelect>
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function FilterSelect({ value, onChange, label, children }) {
+  return (
+    <CustomSelect
+      value={value}
+      onChange={onChange}
+      displayLabel={label}
+      className="h-full"
+      buttonClassName="relative flex h-full w-full items-center justify-center bg-transparent px-0 text-[17px] font-medium text-[#333] outline-none dark:text-white [&>span]:flex-none [&>span]:text-center [&>svg]:absolute [&>svg]:left-[18px]"
+    >
+      {children}
+    </CustomSelect>
+  );
+}
+
+function UserRow({ user, selected, onToggle, onDelete, onToggleStatus }) {
+  return (
+    <div
+      className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
+      }`}
+    >
+      <div className="flex justify-center">
+        <Checkbox checked={selected} onClick={onToggle} />
+      </div>
+      <span className="truncate text-center">
+        {user.firstName} {user.lastName}
+      </span>
+      <span className="text-center" dir="ltr">
+        {user.phone}
+      </span>
+      <span className="text-center">{userRoles[user.role]}</span>
+      <div className="flex justify-center">
+        <StatusBadge status={user.status} />
+      </div>
+      <div className="flex items-center justify-center gap-[18px]" dir="ltr">
+        <button
+          type="button"
+          aria-label="حذف المستخدم"
+          className="text-[#333] dark:text-white"
+          onClick={onDelete}
+        >
+          <Trash2 size={24} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          aria-label="تغيير حالة المستخدم"
+          className={
+            user.status === "inactive"
+              ? "text-[#ff2020]"
+              : "text-[#333] dark:text-white"
+          }
+          onClick={onToggleStatus}
+        >
+          <Ban size={23} strokeWidth={1.8} />
+        </button>
+      </div>
+      <Link
+        to={`/admin/users/${user.id}/profile`}
+        aria-label="عرض المستخدم"
+        className="grid h-full place-items-center text-[#333] dark:text-white"
+      >
+        <ChevronLeft size={23} strokeWidth={1.7} />
+      </Link>
+    </div>
+  );
+}
+
+function Checkbox({ checked, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={checked}
+      className={`grid h-[20px] w-[20px] place-items-center rounded-[4px] border text-[14px] font-bold leading-none ${
+        checked
+          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
+          : "border-[#999] bg-transparent"
+      }`}
+      onClick={onClick}
+    >
+      {checked ? "✓" : ""}
+    </button>
+  );
+}
+
 function StatusBadge({ status }) {
   const active = status === "active";
 
   return (
     <span
-      className={`w-fit rounded-lg px-3 py-1 text-xs font-semibold ${
+      className={`rounded-[7px] px-[7px] py-[5px] text-[10px] font-medium ${
         active
-          ? "bg-emerald-50 text-emerald-600 dark:bg-white dark:text-emerald-700"
-          : "bg-red-50 text-red-500 dark:bg-white dark:text-red-600"
+          ? "bg-[#e8fff4] text-[#129a55]"
+          : "bg-[#fff0f0] text-[#ff2020]"
       }`}
     >
       {userStatuses[status]}
@@ -292,88 +367,109 @@ function StatusBadge({ status }) {
   );
 }
 
+function EmptyState() {
+  return (
+    <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
+      لا يوجد مرضى حتى الآن
+    </div>
+  );
+}
+
 function Pagination({ currentPage, totalPages, onPageChange }) {
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pages = getPaginationPages(currentPage, totalPages);
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 py-5 font-semibold">
+    <div className="flex h-[79px] items-center justify-center gap-[25px] text-[16px] font-bold text-[#333] dark:text-white">
       <button
         type="button"
         aria-label="الصفحة الأولى"
         disabled={currentPage === 1}
-        className={`${arrowButtonClass} rotate-180`}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(1)}
       >
-        <ChevronsLeft size={18} />
+        <ChevronsRight size={18} strokeWidth={1.7} />
       </button>
       <button
         type="button"
         aria-label="الصفحة السابقة"
         disabled={currentPage === 1}
-        className={`${arrowButtonClass} rotate-180`}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(currentPage - 1)}
       >
-        <ArrowGlyph />
+        <ChevronRight size={18} strokeWidth={1.7} />
       </button>
 
-      {pages.map((page) => (
-        <button
-          key={page}
-          type="button"
-          className={`grid h-8 w-8 place-items-center rounded-full ${
-            page === currentPage ? "bg-cyan-400 text-white" : ""
-          }`}
-          onClick={() => onPageChange(page)}
-        >
-          {page}
-        </button>
-      ))}
+      {pages.map((page) =>
+        page === "ellipsis" ? (
+          <span key="ellipsis">...</span>
+        ) : (
+          <button
+            key={page}
+            type="button"
+            className={`grid h-[28px] w-[28px] place-items-center rounded-full ${
+              page === currentPage ? "bg-[#38bfd7] text-white" : ""
+            }`}
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </button>
+        ),
+      )}
 
       <button
         type="button"
         aria-label="الصفحة التالية"
         disabled={currentPage === totalPages}
-        className={arrowButtonClass}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(currentPage + 1)}
       >
-        <ArrowGlyph />
+        <ChevronLeft size={18} strokeWidth={1.7} />
       </button>
       <button
         type="button"
         aria-label="الصفحة الأخيرة"
         disabled={currentPage === totalPages}
-        className={arrowButtonClass}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(totalPages)}
       >
-        <ChevronsLeft size={18} />
+        <ChevronsLeft size={18} strokeWidth={1.7} />
       </button>
     </div>
   );
 }
 
-function ConfirmDeleteModal({ count, onCancel, onConfirm }) {
+function getPaginationPages(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  return [1, 2, 3, 4, "ellipsis", totalPages].filter((page, index, items) => {
+    if (page === "ellipsis") return true;
+    return items.indexOf(page) === index;
+  });
+}
+
+function ConfirmDeleteModal({ onCancel, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
-      <div className="w-full max-w-[350px] rounded-xl bg-white p-6 text-center shadow-2xl dark:bg-[#454545]">
-        <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-700 text-3xl font-bold text-white">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
+      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
+        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
           !
         </div>
-        <h2 className="mb-5 text-xl font-bold text-red-700 dark:text-red-300">
-          {count > 1
-            ? `هل أنت متأكد من حذف ${count} عناصر؟`
-            : "هل أنت متأكد من حذف هذا العنصر؟"}
+        <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
+          هل أنت متأكد من حذف هذا العنصر
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
           <button
             type="button"
-            className="h-11 rounded-lg border-2 border-cyan-400 font-semibold text-cyan-500"
+            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
             onClick={onConfirm}
           >
             نعم
           </button>
           <button
             type="button"
-            className="h-11 rounded-lg bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
+            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
             onClick={onCancel}
           >
             لا

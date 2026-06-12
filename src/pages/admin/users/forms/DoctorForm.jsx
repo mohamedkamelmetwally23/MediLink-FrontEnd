@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { timeOptions, userStatuses, workDays } from "../usersData";
+import { timeOptions, workDays } from "../usersData";
 import { useSpecialtiesStore } from "../../specialties/useSpecialtiesStore";
 import { validateDoctor } from "../validation";
 import {
@@ -63,6 +63,7 @@ export default function DoctorForm({
   return (
     <UserFormShell
       title={title || (mode === "edit" ? "تعديل بيانات مستخدم" : "إضافة مستخدم")}
+      returnTo={returnTo}
       subtitle={
         subtitle ||
         (mode === "edit"
@@ -113,43 +114,53 @@ export default function DoctorForm({
           />
         </Field>
 
-        <Field label="سنوات خبرة" error={errors.experience}>
-          <TextInput
-            value={values.experience}
-            error={errors.experience}
-            inputMode="numeric"
-            onChange={(event) => setField("experience", event.target.value)}
-          />
-        </Field>
+        <div className="grid gap-2 lg:col-span-2 lg:grid-cols-[210px_1fr]">
+          <Field label="سنوات الخبرة" error={errors.experience}>
+            <div className="relative">
+              <TextInput
+                value={values.experience}
+                error={errors.experience}
+                inputMode="numeric"
+                className="pl-16"
+                onChange={(event) => setField("experience", event.target.value)}
+              />
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#333] dark:text-white">
+                أعوام
+              </span>
+            </div>
+          </Field>
 
-        <Field label="التخصص" error={errors.specialty}>
-          <SelectInput
-            value={values.specialty}
-            error={errors.specialty}
-            onChange={(event) => setField("specialty", event.target.value)}
-          >
-            <option value="">اختر التخصص</option>
-            {specialties.map((specialty) => (
-              <option key={specialty} value={specialty}>
-                {specialty}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
+          <Field label="التخصص" error={errors.specialty}>
+            <SelectInput
+              value={values.specialty}
+              error={errors.specialty}
+              onChange={(event) => setField("specialty", event.target.value)}
+            >
+              <option value="">اختر التخصص</option>
+              {specialties.map((specialty) => (
+                <option key={specialty} value={specialty}>
+                  {specialty}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        </div>
 
-        <Field label="أيام العمل" error={errors.workDays}>
+        <div>
+          <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
+            أيام العمل
+          </span>
           <WorkDaysPicker
             value={values.workDays}
             options={workDays}
             error={errors.workDays}
             onChange={(nextValue) => setField("workDays", nextValue)}
           />
-        </Field>
+        </div>
 
         <div>
           <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
             ساعات العمل
-            <span className="mr-1 text-red-500">*</span>
           </span>
           <WorkHoursRange
             start={values.workStart}
@@ -162,27 +173,10 @@ export default function DoctorForm({
           />
         </div>
 
-        <Field label="الحالة" error={errors.status}>
-          <SelectInput
-            value={values.status}
-            error={errors.status}
-            onChange={(event) => setField("status", event.target.value)}
-          >
-            {Object.entries(userStatuses).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-
-        <span className="hidden lg:block" />
-
         <Field label="كلمة المرور" error={errors.password} className="lg:col-span-2">
           <PasswordInput
             value={values.password}
             error={errors.password}
-            placeholder={mode === "edit" ? "اتركها فارغة لو مش هتغيرها" : ""}
             onChange={(event) => setField("password", event.target.value)}
           />
         </Field>

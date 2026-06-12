@@ -1,13 +1,39 @@
-import { Pencil } from "lucide-react";
+import { ArrowRight, Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-export default function UserFormShell({ title, subtitle, children }) {
+export default function UserFormShell({
+  title,
+  subtitle,
+  children,
+  returnTo = "/admin/users",
+}) {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate(returnTo);
+  };
+
   return (
     <section>
-      <header className="flex min-h-[120px] items-end justify-start bg-white px-6 pb-8 shadow-sm dark:bg-[#3a3a3a] lg:px-8">
+      <header className="relative flex min-h-[120px] items-end justify-start bg-white px-6 pb-8 shadow-sm dark:bg-[#3a3a3a] lg:px-8">
         <div className="text-right mr-10 lg:mr-0">
           <h1 className="text-2xl font-bold lg:text-3xl">{title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-300 mt-3">{subtitle}</p>
         </div>
+
+        <button
+          type="button"
+          onClick={handleBack}
+          className="absolute left-6 bottom-8 inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#333] shadow-sm transition hover:border-cyan-300 hover:text-[#18b9d4] dark:border-white/10 dark:bg-[#454545] dark:text-white lg:left-8"
+        >
+          <ArrowRight size={18} />
+          رجوع
+        </button>
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8">

@@ -1,10 +1,17 @@
 import { useMemo, useState } from "react";
-import ConfirmSpecialtyDeleteModal from "../../../components/admin/specialties/ConfirmSpecialtyDeleteModal";
-import SpecialtiesPagination from "../../../components/admin/specialties/SpecialtiesPagination";
-import SpecialtiesSelectionBar from "../../../components/admin/specialties/SpecialtiesSelectionBar";
-import SpecialtiesTable from "../../../components/admin/specialties/SpecialtiesTable";
-import SpecialtiesToolbar from "../../../components/admin/specialties/SpecialtiesToolbar";
-import SpecialtyFormModal from "../../../components/admin/specialties/SpecialtyFormModal";
+import { Link } from "react-router-dom";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { normalizeSpecialtyLabel } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
 import {
   useSpecialtiesStore,
@@ -12,24 +19,74 @@ import {
 } from "./useSpecialtiesStore";
 
 const pageSize = 7;
+const PRICE_STORAGE_KEY = "medilink-admin-specialty-prices";
+
+const defaultSpecialtyPrices = {
+  "الفم والأسنان": "200",
+  "أمراض الباطنة": "150",
+  الأطفال: "150",
+  "طب العيون": "70",
+  "مخ وأعصاب": "100",
+  "أنف وأذن": "100",
+  "جلدية وتجميل": "140",
+};
+
+const defaultSpecialtyStats = {
+  "الفم والأسنان": { doctorsCount: 3, appointmentsCount: 453 },
+  "أمراض الباطنة": { doctorsCount: 2, appointmentsCount: 233 },
+  الأطفال: { doctorsCount: 4, appointmentsCount: 233 },
+  "طب العيون": { doctorsCount: 2, appointmentsCount: 233 },
+  "مخ وأعصاب": { doctorsCount: 0, appointmentsCount: 0 },
+  "أنف وأذن": { doctorsCount: 0, appointmentsCount: 0 },
+  "جلدية وتجميل": { doctorsCount: 0, appointmentsCount: 0 },
+};
 
 function getDoctorAppointmentsCount(doctor) {
-  return doctor.appointmentsCount ?? doctor.caseCount ?? 0;
+  return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
+}
+
+function loadSpecialtyPrices() {
+  if (typeof window === "undefined") {
+    return defaultSpecialtyPrices;
+  }
+
+  try {
+    const savedPrices = window.localStorage.getItem(PRICE_STORAGE_KEY);
+    if (!savedPrices) {
+      return defaultSpecialtyPrices;
+    }
+
+    const parsedPrices = JSON.parse(savedPrices);
+    return Object.entries(parsedPrices).reduce(
+      (prices, [name, price]) => ({
+        ...prices,
+        [normalizeSpecialtyLabel(name)]: String(price),
+      }),
+      { ...defaultSpecialtyPrices },
+    );
+  } catch {
+    return defaultSpecialtyPrices;
+  }
+}
+
+function persistSpecialtyPrices(nextPrices) {
+  window.localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(nextPrices));
+}
+
+function normalizePrice(price) {
+  return String(price).replace(/[^\d]/g, "");
 }
 
 export default function SpecialtiesPage() {
   const { users, updateUsersSpecialty, clearUsersSpecialties } = useUsersStore();
-  const {
-    specialties,
-    addSpecialty,
-    updateSpecialty,
-    deleteSpecialties,
-  } = useSpecialtiesStore();
+  const { specialties, addSpecialty, updateSpecialty, deleteSpecialties } =
+    useSpecialtiesStore();
+  const [prices, setPrices] = useState(loadSpecialtyPrices);
   const [selectedNames, setSelectedNames] = useState([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [formState, setFormState] = useState(null);
-  const [formError, setFormError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
   const [pendingDelete, setPendingDelete] = useState(null);
 
   const doctors = useMemo(
@@ -40,18 +97,27 @@ export default function SpecialtiesPage() {
   const specialtiesStats = useMemo(
     () =>
       specialties.map((name) => {
-        const specialtyDoctors = doctors.filter((doctor) => doctor.specialty === name);
-
-        return {
-          name,
+        const normalizedName = normalizeSpecialtyLabel(name);
+        const specialtyDoctors = doctors.filter(
+          (doctor) => normalizeSpecialtyLabel(doctor.specialty) === normalizedName,
+        );
+        const actualStats = {
           doctorsCount: specialtyDoctors.length,
           appointmentsCount: specialtyDoctors.reduce(
             (total, doctor) => total + getDoctorAppointmentsCount(doctor),
             0,
           ),
         };
+        const displayStats = defaultSpecialtyStats[normalizedName] || actualStats;
+
+        return {
+          name: normalizedName,
+          doctorsCount: displayStats.doctorsCount,
+          appointmentsCount: displayStats.appointmentsCount,
+          price: prices[normalizedName] || "",
+        };
       }),
-    [specialties, doctors],
+    [specialties, doctors, prices],
   );
 
   const filteredSpecialties = useMemo(() => {
@@ -69,41 +135,74 @@ export default function SpecialtiesPage() {
     safeCurrentPage * pageSize,
   );
   const visibleNames = pageSpecialties.map((specialty) => specialty.name);
+  const selectedCount = selectedNames.length;
   const allVisibleSelected =
     visibleNames.length > 0 &&
     visibleNames.every((name) => selectedNames.includes(name));
 
-  const openForm = (mode, name = "") => {
-    setFormState({ mode, name });
-    setFormError("");
+  const updatePrices = (getNextPrices) => {
+    setPrices((currentPrices) => {
+      const nextPrices = getNextPrices(currentPrices);
+      persistSpecialtyPrices(nextPrices);
+      return nextPrices;
+    });
+  };
+
+  const openForm = (mode, specialty = null) => {
+    setFormState({
+      mode,
+      name: specialty?.name || "",
+      price: specialty?.price || "",
+    });
+    setFormErrors({});
   };
 
   const closeForm = () => {
     setFormState(null);
-    setFormError("");
+    setFormErrors({});
   };
 
-  const handleSubmitSpecialty = (name) => {
-    const error = validateSpecialtyName(
-      name,
-      specialties,
+  const handleSubmitSpecialty = ({ name, price }) => {
+    const normalizedName = normalizeSpecialtyLabel(name);
+    const normalizedPrice = normalizePrice(price);
+    const errors = {};
+    const nameError = validateSpecialtyName(
+      normalizedName,
+      specialties.map(normalizeSpecialtyLabel),
       formState?.mode === "edit" ? formState.name : "",
     );
 
-    if (error) {
-      setFormError(error);
+    if (nameError) {
+      errors.name = nameError;
+    }
+
+    if (!normalizedPrice || Number(normalizedPrice) <= 0) {
+      errors.price = "ادخل سعر كشف صحيح";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
 
     if (formState.mode === "edit") {
-      const normalizedName = name.trim().replace(/\s+/g, " ");
-      updateSpecialty(formState.name, name);
+      updateSpecialty(formState.name, normalizedName);
       updateUsersSpecialty(formState.name, normalizedName);
+      updatePrices((currentPrices) => {
+        const nextPrices = { ...currentPrices };
+        delete nextPrices[formState.name];
+        nextPrices[normalizedName] = normalizedPrice;
+        return nextPrices;
+      });
       setSelectedNames((current) =>
         current.map((item) => (item === formState.name ? normalizedName : item)),
       );
     } else {
-      addSpecialty(name);
+      addSpecialty(normalizedName);
+      updatePrices((currentPrices) => ({
+        ...currentPrices,
+        [normalizedName]: normalizedPrice,
+      }));
       setCurrentPage(1);
     }
 
@@ -131,76 +230,462 @@ export default function SpecialtiesPage() {
   const removeSpecialties = (names) => {
     deleteSpecialties(names);
     clearUsersSpecialties(names);
+    updatePrices((currentPrices) => {
+      const nextPrices = { ...currentPrices };
+      names.forEach((name) => delete nextPrices[name]);
+      return nextPrices;
+    });
     setSelectedNames((current) => current.filter((name) => !names.includes(name)));
     setPendingDelete(null);
   };
 
   return (
-    <section>
-      <header className="flex min-h-[120px] items-end justify-start bg-white px-6 pb-8 shadow-sm dark:bg-[#3a3a3a] lg:px-8">
-        <div className="text-right">
-          <h1 className="text-2xl font-bold lg:text-3xl">التخصصات</h1>
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-300">
-            تنظيم التخصصات الطبية وإضافة أو تعديل أو حذف التخصصات المتاحة.
-          </p>
-        </div>
-      </header>
+    <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
+      <PageHeader />
 
-      <div className="p-4 sm:p-6 lg:p-8">
-        <SpecialtiesToolbar
-          search={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setCurrentPage(1);
-          }}
-          onAddClick={() => openForm("create")}
-        />
+      <main className="px-4 pb-8 pt-[28px] sm:px-6 lg:px-[38px]">
+        <div
+          className="mb-[16px] flex items-center justify-between gap-4"
+          dir="ltr"
+        >
+          <button
+            type="button"
+            className="flex h-[52px] items-center gap-2 rounded-[10px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] px-[18px] text-[16px] font-medium text-white"
+            onClick={() => openForm("create")}
+          >
+            <Plus size={20} strokeWidth={2} />
+            <span>أضف تخصص</span>
+          </button>
 
-        <SpecialtiesSelectionBar
-          selectedCount={selectedNames.length}
-          onDeleteSelected={() => setPendingDelete(selectedNames)}
-          onClearSelection={() => setSelectedNames([])}
-        />
-
-        <div className="overflow-hidden rounded-xl bg-white shadow-[0_0_20px_rgba(0,0,0,0.06)] dark:bg-[#3b3b3b]">
-          <SpecialtiesTable
-            specialties={pageSpecialties}
-            filteredCount={filteredSpecialties.length}
-            selectedNames={selectedNames}
-            allVisibleSelected={allVisibleSelected}
-            onToggleAllVisible={toggleAllVisible}
-            onToggleSpecialty={toggleSpecialty}
-            onEditSpecialty={(name) => openForm("edit", name)}
-            onDeleteSpecialty={setPendingDelete}
+          <SearchBox
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setCurrentPage(1);
+            }}
           />
+        </div>
+
+        {selectedCount > 0 && (
+          <SelectionBar
+            count={selectedCount}
+            onClear={() => setSelectedNames([])}
+            onDelete={() => setPendingDelete(selectedNames)}
+          />
+        )}
+
+        <section className="overflow-hidden bg-white dark:bg-[#505050]">
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px]">
+              <TableHeader
+                allVisibleSelected={allVisibleSelected}
+                onToggleAll={toggleAllVisible}
+              />
+
+              {filteredSpecialties.length === 0 ? (
+                <EmptyState />
+              ) : (
+                pageSpecialties.map((specialty) => (
+                  <SpecialtyRow
+                    key={specialty.name}
+                    specialty={specialty}
+                    selected={selectedNames.includes(specialty.name)}
+                    onToggle={() => toggleSpecialty(specialty.name)}
+                    onEdit={() => openForm("edit", specialty)}
+                    onDelete={() => setPendingDelete([specialty.name])}
+                  />
+                ))
+              )}
+            </div>
+          </div>
 
           {filteredSpecialties.length > 0 && (
-            <SpecialtiesPagination
+            <Pagination
               currentPage={safeCurrentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
             />
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {formState && (
-        <SpecialtyFormModal
+        <SpecialtyModal
           mode={formState.mode}
           initialName={formState.name}
-          error={formError}
-          onSubmit={handleSubmitSpecialty}
+          initialPrice={formState.price}
+          errors={formErrors}
           onCancel={closeForm}
+          onSubmit={handleSubmitSpecialty}
         />
       )}
 
       {pendingDelete && (
-        <ConfirmSpecialtyDeleteModal
-          count={pendingDelete.length}
+        <ConfirmDeleteModal
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => removeSpecialties(pendingDelete)}
         />
       )}
     </section>
+  );
+}
+
+function PageHeader() {
+  return (
+    <header className="flex min-h-[120px] items-start justify-start bg-white px-4 pt-[38px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
+      <div className="text-right">
+        <h1 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
+          التخصصات
+        </h1>
+        <p className="mt-1 text-[16px] leading-5 text-[#8a8a8a] dark:text-gray-300">
+          تنظيم التخصصات الطبية وإضافة أو تعديل أو حذف التخصصات المتاحة.
+        </p>
+      </div>
+    </header>
+  );
+}
+
+function SearchBox({ value, onChange }) {
+  return (
+    <label
+      className="flex h-[52px] w-full items-center gap-[12px] rounded-[12px] border border-[#d7d7d7] bg-[#fbfbfb] px-[16px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[260px]"
+      dir="ltr"
+    >
+      <button
+        type="button"
+        aria-label="مسح البحث"
+        className="grid h-6 w-6 place-items-center"
+        onClick={() => onChange("")}
+      >
+        <X size={16} strokeWidth={1.6} />
+      </button>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
+        placeholder="إبحث هنا..."
+        dir="rtl"
+      />
+      <Search size={20} strokeWidth={1.7} />
+    </label>
+  );
+}
+
+function SelectionBar({ count, onClear, onDelete }) {
+  return (
+    <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
+      <p className="text-[17px] font-semibold text-[#333] dark:text-white">
+        تم تحديد {count} من العناصر
+      </p>
+
+      <div className="flex items-center gap-[24px]" dir="ltr">
+        <button
+          type="button"
+          aria-label="إلغاء التحديد"
+          className="grid h-[36px] w-[36px] place-items-center text-[#222] dark:text-white"
+          onClick={onClear}
+        >
+          <X size={26} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
+          onClick={onDelete}
+        >
+          <span>حذف المحدد</span>
+          <Trash2 size={22} strokeWidth={1.8} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TableHeader({ allVisibleSelected, onToggleAll }) {
+  return (
+    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+      <div className="flex justify-center">
+        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
+      </div>
+      <span className="text-center">اسم التخصص</span>
+      <span className="text-center">عدد الأطباء</span>
+      <span className="text-center">عدد المواعيد</span>
+      <span className="text-center">سعر الكشف</span>
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function SpecialtyRow({ specialty, selected, onToggle, onEdit, onDelete }) {
+  return (
+    <div
+      className={`grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
+      }`}
+    >
+      <div className="flex justify-center">
+        <Checkbox checked={selected} onClick={onToggle} />
+      </div>
+      <span className="truncate text-center">{specialty.name}</span>
+      <span className="text-center">{specialty.doctorsCount}</span>
+      <span className="text-center">{specialty.appointmentsCount}</span>
+      <span className="text-center">{specialty.price} جنيه</span>
+      <div className="flex items-center justify-center gap-[12px]" dir="ltr">
+        <button
+          type="button"
+          aria-label="تعديل التخصص"
+          className="text-[#333] dark:text-white"
+          onClick={onEdit}
+        >
+          <Pencil size={23} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          aria-label="حذف التخصص"
+          className="text-[#333] dark:text-white"
+          onClick={onDelete}
+        >
+          <Trash2 size={24} strokeWidth={1.8} />
+        </button>
+      </div>
+      <Link
+        to={`/admin/specialties/${encodeURIComponent(specialty.name)}`}
+        aria-label={`عرض ${specialty.name}`}
+        className="grid h-full place-items-center text-[#333] dark:text-white"
+      >
+        <ChevronLeft size={23} strokeWidth={1.7} />
+      </Link>
+    </div>
+  );
+}
+
+function Checkbox({ checked, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={checked}
+      className={`grid h-[20px] w-[20px] place-items-center rounded-[4px] border text-[14px] font-bold leading-none ${
+        checked
+          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
+          : "border-[#999] bg-transparent"
+      }`}
+      onClick={onClick}
+    >
+      {checked ? "✓" : ""}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
+      لا يوجد تخصصات حتى الآن
+    </div>
+  );
+}
+
+function Pagination({ currentPage, totalPages, onPageChange }) {
+  const pages = getPaginationPages(currentPage, totalPages);
+
+  return (
+    <div className="flex h-[79px] items-center justify-center gap-[25px] text-[16px] font-bold text-[#333] dark:text-white">
+      <button
+        type="button"
+        aria-label="الصفحة الأولى"
+        disabled={currentPage === 1}
+        className="disabled:opacity-30"
+        onClick={() => onPageChange(1)}
+      >
+        <ChevronsRight size={18} strokeWidth={1.7} />
+      </button>
+      <button
+        type="button"
+        aria-label="الصفحة السابقة"
+        disabled={currentPage === 1}
+        className="disabled:opacity-30"
+        onClick={() => onPageChange(currentPage - 1)}
+      >
+        <ChevronRight size={18} strokeWidth={1.7} />
+      </button>
+
+      {pages.map((page) =>
+        page === "ellipsis" ? (
+          <span key="ellipsis">...</span>
+        ) : (
+          <button
+            key={page}
+            type="button"
+            className={`grid h-[28px] w-[28px] place-items-center rounded-full ${
+              page === currentPage ? "bg-[#38bfd7] text-white" : ""
+            }`}
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </button>
+        ),
+      )}
+
+      <button
+        type="button"
+        aria-label="الصفحة التالية"
+        disabled={currentPage === totalPages}
+        className="disabled:opacity-30"
+        onClick={() => onPageChange(currentPage + 1)}
+      >
+        <ChevronLeft size={18} strokeWidth={1.7} />
+      </button>
+      <button
+        type="button"
+        aria-label="الصفحة الأخيرة"
+        disabled={currentPage === totalPages}
+        className="disabled:opacity-30"
+        onClick={() => onPageChange(totalPages)}
+      >
+        <ChevronsLeft size={18} strokeWidth={1.7} />
+      </button>
+    </div>
+  );
+}
+
+function getPaginationPages(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  return [1, 2, 3, 4, "ellipsis", totalPages].filter((page, index, items) => {
+    if (page === "ellipsis") return true;
+    return items.indexOf(page) === index;
+  });
+}
+
+function SpecialtyModal({
+  mode,
+  initialName,
+  initialPrice,
+  errors,
+  onCancel,
+  onSubmit,
+}) {
+  const [name, setName] = useState(initialName);
+  const [price, setPrice] = useState(initialPrice);
+  const nameError = errors.name;
+  const priceError = errors.price;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit({ name, price });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-[468px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[24px] shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]"
+      >
+        <h2 className="mb-[24px] text-center text-[22px] font-medium text-[#333] dark:text-white">
+          {mode === "edit" ? "تعديل التخصص" : "إضافة تخصص جديد"}
+        </h2>
+
+        <label className="block text-right">
+          <span
+            className={`mb-[8px] block text-[16px] font-medium ${
+              nameError ? "text-[#c92626]" : "text-[#111] dark:text-white"
+            }`}
+          >
+            اسم التخصص
+          </span>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className={`h-[52px] w-full rounded-[10px] border bg-[#eeeeee] px-[16px] text-right text-[16px] text-[#333] outline-none transition placeholder:text-[#9a9a9a] dark:bg-[#505050] dark:text-white ${
+              nameError
+                ? "border-[#ff2020]"
+                : "border-transparent focus:border-[#0fb8e8]"
+            }`}
+            placeholder="اكتب اسم التخصص"
+          />
+        </label>
+
+        <label className="mt-[18px] block text-right">
+          <span
+            className={`mb-[8px] block text-[16px] font-medium ${
+              priceError ? "text-[#c92626]" : "text-[#111] dark:text-white"
+            }`}
+          >
+            سعر الكشف
+          </span>
+          <div
+            className={`flex h-[52px] items-center rounded-[10px] border bg-[#eeeeee] px-[16px] text-[16px] text-[#333] dark:bg-[#505050] dark:text-white ${
+              priceError
+                ? "border-[#ff2020]"
+                : "border-transparent focus-within:border-[#0fb8e8]"
+            }`}
+            dir="ltr"
+          >
+            <span className="shrink-0">جنيه</span>
+            <input
+              value={price}
+              onChange={(event) => setPrice(normalizePrice(event.target.value))}
+              className="min-w-0 flex-1 bg-transparent text-right outline-none"
+              inputMode="numeric"
+              dir="rtl"
+            />
+          </div>
+        </label>
+
+        {(nameError || priceError) && (
+          <p className="mt-[14px] text-center text-[17px] font-medium text-[#c92626]">
+            {nameError || priceError}
+          </p>
+        )}
+
+        <div className="mt-[18px] grid grid-cols-2 gap-[7px]" dir="ltr">
+          <button
+            type="submit"
+            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
+          >
+            {mode === "edit" ? "حفظ التعديل" : "إضافة"}
+          </button>
+          <button
+            type="button"
+            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
+            onClick={onCancel}
+          >
+            إلغاء
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ConfirmDeleteModal({ onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
+      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
+        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
+          !
+        </div>
+        <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
+          هل أنت متأكد من حذف هذا العنصر
+        </h2>
+        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
+          <button
+            type="button"
+            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
+            onClick={onConfirm}
+          >
+            نعم
+          </button>
+          <button
+            type="button"
+            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
+            onClick={onCancel}
+          >
+            لا
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

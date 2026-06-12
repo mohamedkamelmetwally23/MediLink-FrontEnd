@@ -1,24 +1,37 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Building2,
-  CalendarDays,
+  CalendarCheck,
+  Cross,
   Home,
   LogOut,
   Menu,
   Stethoscope,
-  UserCog,
-  Users,
+  UserRoundCog,
+  UsersRound,
   X,
 } from "lucide-react";
 import doctor from "../../../assets/landingPage/admin.png";
+import { useUsersStore } from "../users/useUsersStore";
 
 const navItems = [
-  { label: "لوحة التحكم", icon: Home, to: "/admin/dashboard" },
-  { label: "المستخدمون", icon: UserCog, to: "/admin/users" },
+  {
+    label: "لوحة التحكم",
+    icon: Home,
+    to: "/admin/dashboard",
+    activePaths: ["/admin/activity"],
+  },
+  { label: "المرضى", icon: UsersRound, to: "/admin/users" },
   { label: "الأطباء", icon: Stethoscope, to: "/admin/doctors" },
-  { label: "التخصصات", icon: Users, to: "/admin/specialties" },
-  { label: "المواعيد", icon: CalendarDays, to: "/admin/appointments" },
+  {
+    label: "موظفين الاستقبال",
+    icon: UserRoundCog,
+    to: "/admin/receptionists",
+    activePrefix: "/admin/receptionists",
+  },
+  { label: "التخصصات", icon: Cross, to: "/admin/specialties" },
+  { label: "المواعيد", icon: CalendarCheck, to: "/admin/appointments" },
   { label: "إدارة العيادة", icon: Building2, to: "/admin/clinic" },
 ];
 
@@ -28,7 +41,7 @@ export default function AdminLayout() {
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-[#f8f8f8] text-[#333] dark:bg-[#2f2f2f] dark:text-white"
+      className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white"
     >
       <div className="flex min-h-screen">
         {isSidebarOpen && (
@@ -62,10 +75,14 @@ export default function AdminLayout() {
   );
 }
 
- function Sidebar({ isOpen, onClose }) {
+function Sidebar({ isOpen, onClose }) {
+  const location = useLocation();
+  const { getUser } = useUsersStore();
+  const forcedActiveTo = getProfileActiveRoute(location, getUser);
+
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,85vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-none ${
+      className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       }`}
     >
@@ -78,68 +95,119 @@ export default function AdminLayout() {
         <X />
       </button>
 
-      <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#0fb8e8] to-[#63d5df] text-center">
-        <Link to="/admin" className="block pt-10 text-xl font-bold text-white">
+      <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5acbd0] text-center">
+        <Link
+          to="/admin"
+          className="block pt-[42px] text-[24px] font-bold leading-7 text-white"
+        >
           Medilink
         </Link>
 
         <div className="absolute bottom-0 h-[46px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
 
-        <div className="absolute bottom-[-30px] left-1/2 -translate-x-1/2">
-          <div className="h-32 w-32 overflow-hidden rounded-full ring-8 ring-white dark:ring-[#3a3a3a]">
-            <img src={doctor} alt="مدير النظام" className="h-full w-full object-cover" />
+        <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2">
+          <div className="h-[128px] w-[128px] overflow-hidden rounded-full ring-[6px] ring-white dark:ring-[#3a3a3a]">
+            <img
+              src={doctor}
+              alt="مدير النظام"
+              className="h-full w-full object-cover"
+            />
           </div>
-          <span className="absolute bottom-7 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-[#3a3a3a]" />
+          <span className="absolute bottom-[15px] right-[11px] h-[16px] w-[16px] rounded-full bg-[#22c55e] ring-[4px] ring-white dark:ring-[#3a3a3a]" />
         </div>
       </div>
 
-      <div className="mt-16 text-center">
-        <h2 className="text-lg font-bold">د. أحمد محمد</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-300">مدير النظام</p>
+      <div className="mt-[17px] text-center">
+        <h2 className="text-[17px] font-bold leading-6 text-[#333] dark:text-white">
+          د. أحمد محمد
+        </h2>
+        <p className="mt-1 text-[13px] leading-5 text-[#888] dark:text-gray-300">
+          مدير النظام
+        </p>
       </div>
 
-      <nav className="mt-10 space-y-3 px-8 text-lg font-bold">
+      <nav className="mt-[29px] space-y-[18px] px-[38px] text-[18px] font-bold">
         {navItems.map((item) => (
-          <SideItem key={item.to} {...item} onClick={onClose} />
+          <SideItem
+            key={`${item.label}-${item.to}`}
+            {...item}
+            forcedActiveTo={forcedActiveTo}
+            onClick={onClose}
+          />
         ))}
 
-        <div className="my-5 h-px bg-gray-200 dark:bg-white/20" />
+        <div className="mx-auto h-px w-[158px] bg-[#f0f0f0] dark:bg-white/20" />
 
         <button
           type="button"
-          className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-red-400"
+          className="flex h-[47px] w-full items-center justify-start gap-[34px] rounded-xl px-0 text-[#ff7b7b]"
         >
+          <LogOut size={27} strokeWidth={1.8} />
           <span>تسجيل الخروج</span>
-          <LogOut size={26} />
         </button>
       </nav>
     </aside>
   );
 }
 
- function SideItem({ icon: Icon, label, to, onClick }) {
+function getProfileActiveRoute(location, getUser) {
+  if (location.pathname === "/admin/users/profile") {
+    return getRoleActiveRoute(new URLSearchParams(location.search).get("role"));
+  }
+
+  const profileMatch = location.pathname.match(/^\/admin\/users\/([^/]+)\/profile$/);
+  if (!profileMatch) {
+    return null;
+  }
+
+  return getRoleActiveRoute(getUser(profileMatch[1])?.role);
+}
+
+function getRoleActiveRoute(role) {
+  if (role === "doctor") return "/admin/doctors";
+  if (role === "receptionist") return "/admin/receptionists";
+  if (role === "patient") return "/admin/users";
+
+  return null;
+}
+
+function SideItem({
+  icon: Icon,
+  label,
+  to,
+  activePaths = [],
+  activePrefix,
+  disableDefaultActive = false,
+  forcedActiveTo,
+  onClick,
+}) {
+  const location = useLocation();
+  const isPrefixActive =
+    activePrefix && location.pathname.startsWith(activePrefix);
+
   return (
     <NavLink
       to={to}
-      end={to === "/admin"}
+      end={to === "/admin/dashboard"}
       onClick={onClick}
       className={({ isActive }) =>
-        `relative flex items-center justify-start gap-12 rounded-xl px-3 py-3 transition ${
-          isActive
-            ? "text-cyan-400"
-            : "text-gray-400 hover:text-cyan-500 dark:text-gray-300"
-        }`
+        {
+          const isItemActive = forcedActiveTo
+            ? to === forcedActiveTo
+            : (!disableDefaultActive && isActive) ||
+          activePaths.includes(location.pathname) ||
+              isPrefixActive;
+
+          return `flex h-[47px] items-center justify-start gap-[34px] rounded-xl px-0 transition ${
+            isItemActive
+              ? "text-[#30bfd6]"
+              : "text-[#b8b8b8] hover:text-[#30bfd6] dark:text-gray-300"
+          }`;
+        }
       }
     >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            <span className="absolute -right-8 rotate-180 h-14 w-2 rounded-r-xl bg-cyan-400" />
-          )}
-          <Icon size={26} />
-          <span>{label}</span>
-        </>
-      )}
+      <Icon size={27} strokeWidth={1.8} />
+      <span className="whitespace-nowrap">{label}</span>
     </NavLink>
   );
 }

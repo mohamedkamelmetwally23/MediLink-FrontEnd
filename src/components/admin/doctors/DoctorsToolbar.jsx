@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Plus, Search, X } from "lucide-react";
+import CustomSelect from "../CustomSelect";
 import { useSpecialtiesStore } from "../../../pages/admin/specialties/useSpecialtiesStore";
 import { doctorStatusLabels } from "./doctorStatusLabels";
 
@@ -16,10 +17,10 @@ export default function DoctorsToolbar({
   return (
     <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row">
-        <select
+        <CustomSelect
           value={specialtyFilter}
-          onChange={(event) => onSpecialtyChange(event.target.value)}
-          className="h-[52px] rounded-xl border border-gray-200 bg-white px-4 outline-none dark:border-white/30 dark:bg-[#454545]"
+          onChange={onSpecialtyChange}
+          className="w-full sm:w-[190px]"
         >
           <option value="">كل التخصصات</option>
           {specialties.map((specialty) => (
@@ -27,12 +28,12 @@ export default function DoctorsToolbar({
               {specialty}
             </option>
           ))}
-        </select>
+        </CustomSelect>
 
-        <select
+        <CustomSelect
           value={statusFilter}
-          onChange={(event) => onStatusChange(event.target.value)}
-          className="h-[52px] rounded-xl border border-gray-200 bg-white px-4 outline-none dark:border-white/30 dark:bg-[#454545]"
+          onChange={onStatusChange}
+          className="w-full sm:w-[170px]"
         >
           <option value="">كل الحالات</option>
           {Object.entries(doctorStatusLabels).map(([value, label]) => (
@@ -40,7 +41,7 @@ export default function DoctorsToolbar({
               {label}
             </option>
           ))}
-        </select>
+        </CustomSelect>
 
         <label className="flex h-[52px] w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-gray-500 dark:border-white/30 dark:bg-[#454545] dark:text-gray-200 lg:w-[260px]">
           <Search size={20} />

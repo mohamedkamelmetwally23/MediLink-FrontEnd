@@ -9,6 +9,27 @@ export const userStatuses = {
   inactive: "غير مفعل",
 };
 
+export const specialtyAliases = {
+  أسنان: "الفم والأسنان",
+  "فم وأسنان": "الفم والأسنان",
+  "الفم والأسنان": "الفم والأسنان",
+  باطنة: "أمراض الباطنة",
+  "أمراض الباطنة": "أمراض الباطنة",
+  أطفال: "الأطفال",
+  الأطفال: "الأطفال",
+  عيون: "طب العيون",
+  "طب العيون": "طب العيون",
+  جلدية: "جلدية وتجميل",
+  "جلدية وتجميل": "جلدية وتجميل",
+  "مخ وأعصاب": "مخ وأعصاب",
+  "أنف وأذن": "أنف وأذن",
+};
+
+export function normalizeSpecialtyLabel(specialty = "") {
+  const normalized = specialty.trim().replace(/\s+/g, " ");
+  return specialtyAliases[normalized] || normalized;
+}
+
 export const initialUsers = [
   {
     id: 1,
@@ -67,7 +88,7 @@ export const initialUsers = [
     phone: "01237652086",
     role: "doctor",
     status: "active",
-    specialty: "أسنان",
+    specialty: "الفم والأسنان",
     caseCount: 43,
     experience: 5,
     workDays: ["الأحد", "الثلاثاء", "الخميس"],
@@ -93,7 +114,7 @@ export const initialUsers = [
     phone: "01237652086",
     role: "doctor",
     status: "active",
-    specialty: "باطنة",
+    specialty: "أمراض الباطنة",
     caseCount: 87,
     experience: 10,
     workDays: ["السبت", "الإثنين", "الأربعاء"],
@@ -115,7 +136,7 @@ export const initialUsers = [
     phone: "01237652086",
     role: "doctor",
     status: "active",
-    specialty: "جلدية",
+    specialty: "جلدية وتجميل",
     caseCount: 91,
     experience: 6,
     workDays: ["الثلاثاء", "الأربعاء", "الخميس"],
@@ -129,7 +150,7 @@ export const initialUsers = [
     phone: "01237652086",
     role: "doctor",
     status: "active",
-    specialty: "أطفال",
+    specialty: "الأطفال",
     caseCount: 134,
     experience: 7,
     workDays: ["السبت", "الإثنين", "الأربعاء"],
@@ -158,10 +179,11 @@ export const timeOptions = Array.from({ length: 48 }, (_, index) => {
 });
 
 export const specialties = [
+  "الفم والأسنان",
+  "أمراض الباطنة",
+  "الأطفال",
+  "طب العيون",
   "مخ وأعصاب",
-  "أسنان",
-  "جلدية",
-  "باطنة",
-  "أطفال",
-  "عيون",
+  "أنف وأذن",
+  "جلدية وتجميل",
 ];

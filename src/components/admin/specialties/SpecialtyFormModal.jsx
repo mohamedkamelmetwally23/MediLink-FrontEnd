@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function SpecialtyFormModal({
   mode,
@@ -8,10 +8,6 @@ export default function SpecialtyFormModal({
   onCancel,
 }) {
   const [name, setName] = useState(initialName);
-
-  useEffect(() => {
-    setName(initialName);
-  }, [initialName]);
 
   const handleSubmit = (event) => {
     event.preventDefault();

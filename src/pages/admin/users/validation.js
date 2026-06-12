@@ -79,7 +79,7 @@ export function validateDoctor(values, options) {
 
   const experience = Number(values.experience);
   if (!Number.isInteger(experience) || experience < 0 || experience > 60) {
-    errors.experience = "سنوات الخبرة يجب أن تكون بين 0 و60.";
+    errors.experience = "ادخل رقم صحيح";
   }
 
   return errors;

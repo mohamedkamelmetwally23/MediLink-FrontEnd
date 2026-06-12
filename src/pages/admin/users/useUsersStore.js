@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { initialUsers } from "./usersData";
+import { initialUsers, normalizeSpecialtyLabel } from "./usersData";
 
 const STORAGE_KEY = "medilink-admin-users";
 
@@ -7,17 +7,28 @@ function loadUsers() {
   try {
     const savedUsers = localStorage.getItem(STORAGE_KEY);
     if (!savedUsers) {
-      return initialUsers;
+      return initialUsers.map(normalizeLoadedUser);
     }
 
     const parsedUsers = JSON.parse(savedUsers);
     return parsedUsers.map((user) => {
       const seedUser = initialUsers.find((item) => item.id === user.id);
-      return seedUser ? { ...seedUser, ...user } : user;
+      return normalizeLoadedUser(seedUser ? { ...seedUser, ...user } : user);
     });
   } catch {
-    return initialUsers;
+    return initialUsers.map(normalizeLoadedUser);
   }
+}
+
+function normalizeLoadedUser(user) {
+  if (user.role !== "doctor" || !user.specialty) {
+    return user;
+  }
+
+  return {
+    ...user,
+    specialty: normalizeSpecialtyLabel(user.specialty),
+  };
 }
 
 function persistUsers(nextUsers) {

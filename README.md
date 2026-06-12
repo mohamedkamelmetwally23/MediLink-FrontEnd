@@ -1,16 +1,108 @@
-# React + Vite
+# MediLink Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+واجهة أمامية لنظام MediLink لإدارة العيادات الطبية. المشروع مبني باستخدام React و Vite، ويحتوي على لوحة تحكم عربية RTL لإدارة المستخدمين، الأطباء، موظفي الاستقبال، التخصصات، المواعيد، وبيانات العيادة.
 
-Currently, two official plugins are available:
+## المميزات
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- لوحة تحكم إدارية بتصميم عربي واتجاه RTL.
+- إدارة المرضى، الأطباء، وموظفي الاستقبال.
+- صفحات إضافة وتعديل وعرض ملف المستخدم.
+- إدارة التخصصات الطبية وأسعار الكشف.
+- عرض أطباء كل تخصص من خلال صفحة تفاصيل.
+- إدارة المواعيد وحالات الحجز والدفع.
+- دعم الوضع الفاتح والداكن.
+- جداول قابلة للبحث، التحديد، الحذف، والتنقل بين الصفحات.
 
-## React Compiler
+## التقنيات المستخدمة
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Lucide React Icons
+- Recharts
+- React Toastify
 
-## Expanding the ESLint configuration
+## تشغيل المشروع
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+ثبت الحزم:
+
+```bash
+npm install
+```
+
+شغل بيئة التطوير:
+
+```bash
+npm run dev
+```
+
+افتح المشروع من المتصفح:
+
+```text
+http://localhost:5173
+```
+
+## أوامر مهمة
+
+تشغيل المشروع:
+
+```bash
+npm run dev
+```
+
+فحص الكود:
+
+```bash
+npm run lint
+```
+
+بناء نسخة الإنتاج:
+
+```bash
+npm run build
+```
+
+معاينة نسخة الإنتاج محليا:
+
+```bash
+npm run preview
+```
+
+## هيكل المشروع
+
+```text
+src/
+  assets/              الصور والملفات الثابتة
+  components/          المكونات المشتركة
+  hooks/               React hooks
+  pages/
+    admin/             صفحات لوحة التحكم
+      appointments/    المواعيد
+      clinic/          إدارة العيادة
+      doctors/         الأطباء
+      receptionists/   موظفو الاستقبال
+      specialties/     التخصصات
+      users/           المستخدمون وملفاتهم
+    Auth/              صفحات تسجيل الدخول والحساب
+```
+
+## صور ملفات المستخدمين
+
+يمكن إضافة صور ملفات المستخدمين داخل:
+
+```text
+src/assets/profiles
+```
+
+الأسماء المدعومة موضحة داخل:
+
+```text
+src/assets/profiles/README.md
+```
+
+## ملاحظات
+
+- المشروع يستخدم `localStorage` لحفظ بيانات لوحة التحكم أثناء التطوير.
+- التصميم الحالي مخصص للوحة إدارة عربية، لذلك يفضل الحفاظ على اتجاه `rtl` عند إضافة صفحات جديدة.
+- قبل تسليم أي تعديل شغل `npm run lint` و `npm run build`.

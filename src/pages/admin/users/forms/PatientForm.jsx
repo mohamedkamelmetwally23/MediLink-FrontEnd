@@ -14,7 +14,11 @@ const initialValues = {
   status: "active",
 };
 
-export default function PatientForm({ initialData, onSubmit }) {
+export default function PatientForm({
+  initialData,
+  onSubmit,
+  returnTo = "/admin/users",
+}) {
   const navigate = useNavigate();
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
@@ -31,7 +35,7 @@ export default function PatientForm({ initialData, onSubmit }) {
 
     if (Object.keys(nextErrors).length === 0) {
       onSubmit?.(values);
-      navigate("/admin/users");
+      navigate(returnTo);
     }
   };
 
@@ -39,6 +43,7 @@ export default function PatientForm({ initialData, onSubmit }) {
     <UserFormShell
       title="تعديل بيانات مستخدم"
       subtitle="عدل بيانات المستخدم الأساسية."
+      returnTo={returnTo}
     >
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
         <Field label="الاسم الأول" error={errors.firstName}>
@@ -106,7 +111,7 @@ export default function PatientForm({ initialData, onSubmit }) {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/admin/users")}
+            onClick={() => navigate(returnTo)}
             className="h-[54px] rounded-xl border-2 border-cyan-400 font-semibold text-cyan-500"
           >
             إلغاء

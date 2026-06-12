@@ -1,17 +1,23 @@
+import { Link } from "react-router-dom";
 import {
   Banknote,
+  Bell,
   CalendarDays,
+  ChevronDown,
+  ChevronLeft,
   Search,
   Stethoscope,
-  Users,
+  TrendingDown,
+  TrendingUp,
+  UserRound,
 } from "lucide-react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -25,44 +31,44 @@ const stats = [
     title: "إجمالي المستخدمين",
     value: "2,449",
     change: "+13%",
-    icon: Users,
-    color: "text-teal-500",
-    bg: "bg-teal-50",
+    icon: UserRound,
+    color: "text-[#4fc5b9]",
+    bg: "bg-[#eefcfa]",
   },
   {
     title: "إجمالي الحجوزات",
     value: "3,848",
     change: "-5%",
     icon: CalendarDays,
-    color: "text-amber-500",
-    bg: "bg-amber-50",
-  },
-  {
-    title: "إجمالي الإيرادات",
-    value: "125,430",
-    change: "+18%",
-    icon: Banknote,
-    color: "text-green-600",
-    bg: "bg-green-50",
+    color: "text-[#ffb21d]",
+    bg: "bg-[#fff3d8]",
   },
   {
     title: "إجمالي الأطباء",
     value: "32",
     change: "+5%",
     icon: Stethoscope,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
+    color: "text-[#1d77c8]",
+    bg: "bg-[#edf6ff]",
+  },
+  {
+    title: "إجمالي الإيرادات",
+    value: "125,430",
+    change: "+18%",
+    icon: Banknote,
+    color: "text-[#5bbf22]",
+    bg: "bg-[#edf9e6]",
   },
 ];
 
 const appointments = [
   { month: "يناير", value: 360 },
-  { month: "فبراير", value: 440 },
+  { month: "فبراير", value: 390 },
   { month: "مارس", value: 590 },
-  { month: "أبريل", value: 620 },
+  { month: "أبريل", value: 610 },
   { month: "مايو", value: 950 },
-  { month: "يونيو", value: 1100 },
-  { month: "يوليو", value: 1250 },
+  { month: "يونيو", value: 1090 },
+  { month: "يوليو", value: 1240 },
 ];
 
 const doctors = [
@@ -71,8 +77,16 @@ const doctors = [
   { name: "أماني فضالي", value: 115 },
   { name: "محمد حسن", value: 130 },
   { name: "خالد توفيق", value: 75 },
-  { name: "عبد الله محمد", value: 135 },
+  { name: "عبد الله حامد", value: 135 },
   { name: "طارق مصطفى", value: 185 },
+];
+
+const activities = [
+  "تم إنشاء حساب مستخدم جديد",
+  "تم حجز موعد جديد",
+  "تم إلغاء موعد",
+  "تم إضافة طبيب جديد",
+  "تم تحديث بيانات العيادة",
 ];
 
 const specializations = [
@@ -87,137 +101,151 @@ const specializations = [
 
 const pieColors = [
   "#1976d2",
-  "#3498db",
-  "#35b9d0",
-  "#65c7c1",
-  "#3aa0e8",
-  "#45c0d6",
-  "#169bd5",
+  "#399de5",
+  "#39bdd1",
+  "#62c7c3",
+  "#359ce6",
+  "#42b9d0",
+  "#1689c9",
 ];
 
 export default function Dashboard() {
   return (
-    <section>
+    <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
       <Header />
 
-      <section className="p-4 sm:p-6 lg:p-8">
+      <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <Card title="عدد المواعيد">
-            <div className="mb-6 flex w-full max-w-sm overflow-hidden rounded-xl bg-gray-100 dark:bg-[#3b3b3b]">
-              {["سنة", "شهر", "أسبوع", "يوم"].map((item, index) => (
-                <button
-                  key={item}
-                  className={`flex-1 py-2 text-sm ${
-                    index === 0
-                      ? "bg-cyan-400 text-white"
-                      : "text-gray-700 dark:text-gray-200"
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-
+        <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-2">
+          <DashboardCard
+            title="عدد الحجوزات"
+            action={<RangeTabs options={["يوم", "أسبوع", "شهر", "سنة"]} />}
+            className="h-[317px]"
+          >
             <ChartBox>
-              <LineChart data={appointments}>
+              <AreaChart
+                data={appointments}
+                margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="appointmentsFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#28bfe1" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="#28bfe1" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid
-                  stroke="currentColor"
-                  opacity={0.18}
+                  stroke="#d9e2e7"
+                  strokeDasharray="0"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 15, fill: "currentColor" }}
+                  axisLine={{ stroke: "#7e8a91" }}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  tickMargin={11}
                 />
                 <YAxis
-                  tick={{ fontSize: 15, fill: "currentColor" }}
-                  tickMargin={40}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  ticks={[0, 500, 1000, 1500]}
+                  domain={[0, 1500]}
+                  width={43}
                 />
-                <Tooltip />
-                <Line
+                <Tooltip contentStyle={tooltipStyle} />
+                <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="#22c7f4"
+                  fill="url(#appointmentsFill)"
+                  stroke="#31b9db"
                   strokeWidth={3}
-                  dot={{ r: 5, fill: "#22c7f4" }}
+                  dot={{ r: 5, fill: "#31b9db", strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: "#31b9db", strokeWidth: 0 }}
                 />
-              </LineChart>
+              </AreaChart>
             </ChartBox>
-          </Card>
+          </DashboardCard>
 
-          <Card title="عدد المواعيد لكل طبيب">
-            <div className="mb-6 flex gap-2">
-              <SelectButton text="السنة" />
-              <SelectButton text="الكل" />
-            </div>
-
+          <DashboardCard
+            title="عدد الحجوزات لكل طبيب"
+            action={
+              <div className="flex gap-2.5">
+                <SelectButton text="الكل" />
+                <SelectButton text="السنة" />
+              </div>
+            }
+            className="h-[317px]"
+          >
             <ChartBox>
-              <BarChart data={doctors}>
+              <BarChart
+                data={doctors}
+                margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
+                barCategoryGap="29%"
+              >
+                <defs>
+                  <linearGradient id="doctorBarFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10aee3" />
+                    <stop offset="100%" stopColor="#62c9c2" />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid
-                  stroke="currentColor"
-                  opacity={0.18}
+                  stroke="#d9e2e7"
+                  strokeDasharray="0"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 13, fill: "currentColor" }}
-                  tickMargin={12}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  tick={{ fontSize: 10, fill: "#6e767b" }}
+                  tickMargin={8}
                 />
                 <YAxis
-                  tick={{ fontSize: 15, fill: "currentColor" }}
-                  tickMargin={40}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  ticks={[0, 50, 100, 150, 200]}
+                  domain={[0, 220]}
+                  width={43}
                 />
-                <Tooltip />
-                <Bar dataKey="value" fill="#20b8df" barSize={30} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  cursor={{ fill: "rgba(49, 185, 219, 0.08)" }}
+                />
+                <Bar
+                  dataKey="value"
+                  fill="url(#doctorBarFill)"
+                  radius={[17, 17, 17, 17]}
+                  barSize={30}
+                />
               </BarChart>
             </ChartBox>
-          </Card>
+          </DashboardCard>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-          <Card title="النشاط الأخير">
-            <div className="mt-6 max-h-[250px] overflow-hidden">
-              {[
-                "تم إنشاء حساب مستخدم جديد",
-                "تم حجز موعد جديد",
-                "تم إلغاء موعد",
-                "تم إضافة طبيب جديد",
-                "تم تحديث بيانات العيادة",
-              ].map((text) => (
-                <div
-                  key={text}
-                  className="flex items-center justify-between border-b border-gray-200 py-4 dark:border-white/30"
-                >
-                  <span className="text-xs text-gray-500 dark:text-gray-300">
-                    منذ 10 دقائق
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm sm:text-base">{text}</span>
-                    <span className="grid h-10 w-10 place-items-center rounded-full bg-teal-50 text-teal-500">
-                      <Users size={20} />
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="أكثر التخصصات حجزا">
-            <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
-              <div className="h-[230px] w-[230px]">
-                <ResponsiveContainer>
+        <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
+          <DashboardCard title="أكثر التخصصات حجزا" className="h-[360px] overflow-hidden">
+            <div
+              className="flex h-[232px] items-center justify-between gap-5"
+              dir="ltr"
+            >
+              <div className="h-[224px] w-[224px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={specializations}
                       dataKey="value"
-                      innerRadius={68}
+                      innerRadius={67}
                       outerRadius={112}
+                      paddingAngle={0}
+                      stroke="none"
                     >
                       {specializations.map((_, index) => (
                         <Cell key={pieColors[index]} fill={pieColors[index]} />
@@ -227,20 +255,65 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="space-y-3">
+              <div className="w-[150px] space-y-[8px]" dir="rtl">
                 {specializations.map((item, index) => (
-                  <div key={item.name} className="flex items-center gap-3 text-sm">
-                    <span>{item.value}%</span>
-                    <span>{item.name}</span>
+                  <div
+                    key={item.name}
+                    className="grid grid-cols-[14px_1fr_35px] items-center gap-2 text-[16px] leading-5 text-[#444] dark:text-gray-100"
+                  >
                     <span
-                      className="h-3 w-3 rounded-full"
+                      className="h-[10px] w-[10px] rounded-full"
                       style={{ backgroundColor: pieColors[index] }}
                     />
+                    <span className="truncate">{item.name}</span>
+                    <span className="text-left text-[14px] text-[#424242] dark:text-gray-200">
+                      {item.value}%
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
-          </Card>
+          </DashboardCard>
+
+          <DashboardCard
+            title="النشاطات الأخيرة"
+            action={
+              <Link
+                to="/admin/activity"
+                className="flex items-center gap-2 text-[13px] text-[#30bfd6]"
+                dir="ltr"
+              >
+                <ChevronLeft size={16} strokeWidth={1.8} />
+                <span>عرض الكل</span>
+              </Link>
+            }
+            className="h-[360px] overflow-hidden"
+          >
+            <div className="mt-1 overflow-hidden">
+              {activities.map((text) => (
+                <div
+                  key={text}
+                  className="flex h-[56px] items-center justify-between gap-5 border-b border-[#e9eef1] last:border-b-0 dark:border-white/15"
+                  dir="ltr"
+                >
+                  <span className="shrink-0 text-[12px] text-[#777] dark:text-gray-300">
+                    منذ 10 دقائق
+                  </span>
+                  <div className="flex min-w-0 items-center gap-4" dir="ltr">
+                    <span
+                      className="truncate text-[17px] font-medium text-[#333] dark:text-white"
+                      dir="rtl"
+                    >
+                      {text}
+                    </span>
+                    <span className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
+                      <Bell size={19} />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
         </div>
       </section>
     </section>
@@ -249,19 +322,22 @@ export default function Dashboard() {
 
 function Header() {
   return (
-    <header className="flex h-auto flex-col gap-4 bg-white px-4 py-6 shadow-sm dark:bg-[#3a3a3a] sm:px-8 lg:h-[120px] lg:flex-row lg:items-center lg:justify-between">
-      <div className="mr-13 lg:mr-0">
-        <h2 className="text-xl font-bold sm:text-2xl">
-          مرحبا د. أحمد محمد
+    <header className="flex min-h-[120px] flex-col gap-5 bg-white px-4 py-7 shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[38px] lg:pt-[32px]">
+      <div className="text-right">
+        <h2 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
+          مرحبا أحمد محمد 👋
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-300">
+        <p className="mt-1 text-[14px] leading-5 text-[#8a8a8a] dark:text-gray-300">
           إليك ملخص أداء العيادة
         </p>
       </div>
 
-      <label className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-500 dark:border-white/30 dark:bg-transparent dark:text-gray-200 lg:w-[350px]">
-        <Search size={20} />
-        <input className="w-full bg-transparent outline-none" placeholder="ابحث هنا..." />
+      <label className="flex h-[56px] w-full items-center gap-3 rounded-[12px] border border-[#d7d7d7] bg-[#fbfbfb] px-[18px] text-[#9a9a9a] shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)] dark:border-white/20 dark:bg-transparent dark:text-gray-200 lg:w-[351px]">
+        <Search size={20} strokeWidth={1.8} />
+        <input
+          className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-[#9a9a9a]"
+          placeholder="إبحث هنا..."
+        />
       </label>
     </header>
   );
@@ -269,42 +345,61 @@ function Header() {
 
 function StatCard({ title, value, change, icon: Icon, color, bg }) {
   const isDown = change.includes("-");
+  const TrendIcon = isDown ? TrendingDown : TrendingUp;
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-[0_0_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <div className="flex items-center justify-between">
-        <div className={`grid h-14 w-14 place-items-center rounded-xl ${bg} ${color}`}>
-          <Icon size={30} />
-        </div>
+    <article className="h-[154px] rounded-[10px] bg-white px-[32px] pb-[20px] pt-[27px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+      <div className="flex items-start justify-between" dir="ltr">
+        <span
+          className={`grid h-[56px] w-[56px] shrink-0 place-items-center rounded-[11px] ${bg} ${color}`}
+        >
+          <Icon size={29} strokeWidth={2} />
+        </span>
 
-        <div className="text-right">
-          <p className="text-base text-gray-700 dark:text-gray-200">{title}</p>
-          <h3 className="mt-1 text-2xl font-bold">{value}</h3>
+        <div className="text-right" dir="rtl">
+          <p className="text-[17px] leading-6 text-[#333] dark:text-gray-100">
+            {title}
+          </p>
+          <h3 className="mt-1 text-[24px] font-bold leading-8 text-[#2e2e2e] dark:text-white">
+            {value}
+          </h3>
         </div>
       </div>
 
-      <p className="mt-7 text-base text-gray-500 dark:text-gray-300">
-        عن الشهر الماضي{" "}
-        <span className={isDown ? "text-red-500" : "text-green-600"}>
+      <p className="mt-[26px] flex items-center justify-end gap-2 text-[16px] leading-5 text-[#666] dark:text-gray-300">
+        <span>عن الشهر الماضي</span>
+        <span
+          className={`flex items-center gap-1 ${
+            isDown ? "text-[#ff2020]" : "text-[#36b320]"
+          }`}
+        >
           {change}
+          <TrendIcon size={16} strokeWidth={2} />
         </span>
       </p>
-    </div>
+    </article>
   );
 }
 
-function Card({ title, children }) {
+function DashboardCard({ title, action, children, className = "" }) {
   return (
-    <div className="rounded-xl bg-white p-6 shadow-[0_0_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <h3 className="mb-2 text-right text-xl font-bold">{title}</h3>
+    <section
+      className={`rounded-[10px] bg-white px-[26px] pb-[18px] pt-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050] ${className}`}
+    >
+      <div className="mb-[17px] flex h-[37px] items-center justify-between gap-4">
+        <h3 className="text-right text-[17px] font-bold leading-6 text-[#333] dark:text-white">
+          {title}
+        </h3>
+        {action}
+      </div>
       {children}
-    </div>
+    </section>
   );
 }
 
 function ChartBox({ children }) {
   return (
-    <div className="h-[230px] w-full text-gray-500 dark:text-gray-200">
+    <div className="h-[219px] w-full text-[#6e767b] dark:text-gray-200">
       <ResponsiveContainer width="100%" height="100%">
         {children}
       </ResponsiveContainer>
@@ -312,10 +407,42 @@ function ChartBox({ children }) {
   );
 }
 
+function RangeTabs({ options }) {
+  return (
+    <div className="flex h-[36px] w-[280px] overflow-hidden rounded-[9px] bg-[#fafafa] p-[2px] text-[12px] text-[#333] dark:bg-[#3f3f3f] dark:text-gray-200">
+      {options.map((item) => (
+        <button
+          key={item}
+          type="button"
+          className={`flex-1 rounded-[9px] transition ${
+            item === "شهر" ? "bg-[#35c0d8] text-white" : ""
+          }`}
+        >
+          {item}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SelectButton({ text }) {
   return (
-    <button className="rounded-xl border border-gray-300 px-6 py-2 text-sm text-gray-700 dark:border-white/30 dark:text-white">
+    <button
+      type="button"
+      className="flex h-[37px] w-[101px] items-center justify-center gap-3 rounded-[9px] border border-[#d8d8d8] bg-[#fafafa] text-[17px] leading-5 text-[#333] dark:border-white/20 dark:bg-transparent dark:text-white"
+      dir="ltr"
+    >
+      <ChevronDown size={19} strokeWidth={1.8} />
       {text}
     </button>
   );
 }
+
+const tooltipStyle = {
+  border: "1px solid #e2edf1",
+  borderRadius: 8,
+  boxShadow: "0 8px 20px rgba(20, 72, 89, 0.1)",
+  direction: "rtl",
+  fontFamily: "Cairo, sans-serif",
+  fontSize: 12,
+};

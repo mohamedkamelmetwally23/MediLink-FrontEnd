@@ -13,60 +13,49 @@ import {
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
-import { useSpecialtiesStore } from "../specialties/useSpecialtiesStore";
-import { userStatuses } from "../users/usersData";
+import { userRoles, userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
 
 const pageSize = 10;
 
-function getAppointmentsCount(doctor) {
-  return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
-}
-
-export default function DoctorsPage() {
+export default function ReceptionistsPage() {
   const {
     users,
     deleteUsers: removeUsers,
     toggleUserStatus,
   } = useUsersStore();
-  const { specialties } = useSpecialtiesStore();
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
-  const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredDoctors = useMemo(() => {
+  const filteredUsers = useMemo(() => {
     const query = search.trim();
 
-    return users.filter((doctor) => {
-      const fullName = `${doctor.firstName} ${doctor.lastName}`;
+    return users.filter((user) => {
+      const fullName = `${user.firstName} ${user.lastName}`;
 
       return (
-        doctor.role === "doctor" &&
-        (!query ||
-          fullName.includes(query) ||
-          doctor.phone?.includes(query) ||
-          doctor.specialty?.includes(query)) &&
-        (!specialtyFilter || doctor.specialty === specialtyFilter) &&
-        (!statusFilter || doctor.status === statusFilter)
+        user.role === "receptionist" &&
+        (!query || fullName.includes(query) || user.phone.includes(query)) &&
+        (!statusFilter || user.status === statusFilter)
       );
     });
-  }, [users, search, specialtyFilter, statusFilter]);
+  }, [users, search, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredDoctors.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageDoctors = filteredDoctors.slice(
+  const pageUsers = filteredUsers.slice(
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
-  const visibleIds = pageDoctors.map((doctor) => doctor.id);
+  const visibleIds = pageUsers.map((user) => user.id);
   const selectedCount = selectedIds.length;
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
-  const toggleDoctor = (id) => {
+  const toggleUser = (id) => {
     setSelectedIds((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
@@ -84,7 +73,7 @@ export default function DoctorsPage() {
     });
   };
 
-  const deleteDoctors = (ids) => {
+  const deleteUsers = (ids) => {
     removeUsers(ids);
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setPendingDelete(null);
@@ -95,85 +84,81 @@ export default function DoctorsPage() {
       <PageHeader />
 
       <main className="px-4 pb-8 pt-[28px] sm:px-6 lg:px-[52px]">
-        <div
-          className="mb-[16px] flex items-center justify-between gap-4"
-          dir="ltr"
-        >
-          <Link
-            to="/admin/doctors/new"
-            className="flex h-[52px] items-center gap-2 rounded-[10px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] px-[18px] text-[16px] font-medium text-white"
+        <div className="w-full">
+          <div
+            className="mb-[16px] flex items-center justify-between gap-4"
+            dir="ltr"
           >
-            <Plus size={20} strokeWidth={2} />
-            <span>أضف طبيب</span>
-          </Link>
+            <Link
+              to="/admin/receptionists/new"
+              className="flex h-[52px] items-center gap-2 rounded-[10px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] px-[18px] text-[16px] font-medium text-white"
+            >
+              <Plus size={20} strokeWidth={2} />
+              <span>أضف موظف استقبال</span>
+            </Link>
 
-          <SearchBox
-            value={search}
-            onChange={(value) => {
-              setSearch(value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-
-        {selectedCount > 0 && (
-          <SelectionBar
-            count={selectedCount}
-            onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
-          />
-        )}
-
-        <section className="overflow-hidden bg-white dark:bg-[#505050]">
-          <div className="overflow-x-auto">
-            <div className="min-w-[980px]">
-              <TableHeader
-                allVisibleSelected={allVisibleSelected}
-                onToggleAll={toggleAllVisible}
-                specialtyFilter={specialtyFilter}
-                statusFilter={statusFilter}
-                specialties={specialties}
-                onSpecialtyChange={(value) => {
-                  setSpecialtyFilter(value);
-                  setCurrentPage(1);
-                }}
-                onStatusChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-              />
-
-              {filteredDoctors.length === 0 ? (
-                <EmptyState />
-              ) : (
-                pageDoctors.map((doctor) => (
-                  <DoctorRow
-                    key={doctor.id}
-                    doctor={doctor}
-                    selected={selectedIds.includes(doctor.id)}
-                    onToggle={() => toggleDoctor(doctor.id)}
-                    onDelete={() => setPendingDelete([doctor.id])}
-                    onToggleStatus={() => toggleUserStatus(doctor.id)}
-                  />
-                ))
-              )}
-            </div>
+            <SearchBox
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setCurrentPage(1);
+              }}
+            />
           </div>
 
-          {filteredDoctors.length > 0 && (
-            <Pagination
-              currentPage={safeCurrentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+          {selectedCount > 0 && (
+            <SelectionBar
+              count={selectedCount}
+              onClear={() => setSelectedIds([])}
+              onDelete={() => setPendingDelete(selectedIds)}
             />
           )}
-        </section>
+
+          <section className="overflow-hidden bg-white dark:bg-[#505050]">
+            <div className="overflow-x-auto">
+              <div className="min-w-[980px]">
+                <TableHeader
+                  allVisibleSelected={allVisibleSelected}
+                  onToggleAll={toggleAllVisible}
+                  statusFilter={statusFilter}
+                  onStatusChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}
+                />
+
+                {filteredUsers.length === 0 ? (
+                  <EmptyState />
+                ) : (
+                  pageUsers.map((user) => (
+                    <ReceptionistRow
+                      key={user.id}
+                      user={user}
+                      selected={selectedIds.includes(user.id)}
+                      onToggle={() => toggleUser(user.id)}
+                      onDelete={() => setPendingDelete([user.id])}
+                      onToggleStatus={() => toggleUserStatus(user.id)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {filteredUsers.length > 0 && (
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </section>
+        </div>
       </main>
 
       {pendingDelete && (
         <ConfirmDeleteModal
           onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deleteDoctors(pendingDelete)}
+          onConfirm={() => deleteUsers(pendingDelete)}
         />
       )}
     </section>
@@ -185,10 +170,10 @@ function PageHeader() {
     <header className="flex min-h-[120px] items-start justify-start bg-white px-4 pt-[38px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
       <div className="text-right">
         <h1 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
-          الأطباء
+          موظفين الاستقبال
         </h1>
         <p className="mt-1 text-[16px] leading-5 text-[#8a8a8a] dark:text-gray-300">
-          متابعة بيانات الأطباء وتخصصاتهم وحجوزاتهم.
+          عرض وإدارة جميع حسابات موظفي الاستقبال.
         </p>
       </div>
     </header>
@@ -250,40 +235,23 @@ function SelectionBar({ count, onClear, onDelete }) {
   );
 }
 
-function TableHeader({
-  allVisibleSelected,
-  onToggleAll,
-  specialtyFilter,
-  statusFilter,
-  specialties,
-  onSpecialtyChange,
-  onStatusChange,
-}) {
+function TableHeader({ allVisibleSelected, onToggleAll, statusFilter, onStatusChange }) {
   return (
     <div className="grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
       <span className="text-center">الأسم</span>
-      <FilterSelect
-        value={specialtyFilter}
-        onChange={onSpecialtyChange}
-        label="التخصص"
-      >
-        <option value="">التخصص</option>
-        {specialties.map((specialty) => (
-          <option key={specialty} value={specialty}>
-            {specialty}
-          </option>
-        ))}
+      <span className="text-center">رقم الهاتف</span>
+      <FilterSelect value="receptionist" onChange={() => {}} label="الدور">
+        <option value="receptionist">{userRoles.receptionist}</option>
       </FilterSelect>
-      <span className="text-center">عدد الحجوزات</span>
       <FilterSelect
         value={statusFilter}
         onChange={onStatusChange}
-        label="حالة"
+        label="الحالة"
       >
-        <option value="">حالة</option>
+        <option value="">الحالة</option>
         {Object.entries(userStatuses).map(([value, label]) => (
           <option key={value} value={value}>
             {label}
@@ -310,7 +278,7 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
+function ReceptionistRow({ user, selected, onToggle, onDelete, onToggleStatus }) {
   return (
     <div
       className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
@@ -321,24 +289,26 @@ function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
         <Checkbox checked={selected} onClick={onToggle} />
       </div>
       <span className="truncate text-center">
-        {doctor.firstName} {doctor.lastName}
+        {user.firstName} {user.lastName}
       </span>
-      <span className="truncate text-center">{doctor.specialty || "غير محدد"}</span>
-      <span className="text-center">{getAppointmentsCount(doctor)}</span>
+      <span className="text-center" dir="ltr">
+        {user.phone}
+      </span>
+      <span className="text-center">{userRoles.receptionist}</span>
       <div className="flex justify-center">
-        <StatusBadge status={doctor.status} />
+        <StatusBadge status={user.status} />
       </div>
       <div className="flex items-center justify-center gap-[12px]" dir="ltr">
         <Link
-          to={`/admin/doctors/${doctor.id}/edit`}
-          aria-label="تعديل الطبيب"
+          to={`/admin/receptionists/${user.id}/edit`}
+          aria-label="تعديل موظف الاستقبال"
           className="text-[#333] dark:text-white"
         >
           <Pencil size={23} strokeWidth={1.8} />
         </Link>
         <button
           type="button"
-          aria-label="حذف الطبيب"
+          aria-label="حذف موظف الاستقبال"
           className="text-[#333] dark:text-white"
           onClick={onDelete}
         >
@@ -346,9 +316,9 @@ function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
         </button>
         <button
           type="button"
-          aria-label="تغيير حالة الطبيب"
+          aria-label="تغيير حالة موظف الاستقبال"
           className={
-            doctor.status === "inactive"
+            user.status === "inactive"
               ? "text-[#ff2020]"
               : "text-[#333] dark:text-white"
           }
@@ -358,8 +328,8 @@ function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
         </button>
       </div>
       <Link
-        to={`/admin/users/${doctor.id}/profile`}
-        aria-label="عرض الطبيب"
+        to={`/admin/users/${user.id}/profile`}
+        aria-label="عرض موظف الاستقبال"
         className="grid h-full place-items-center text-[#333] dark:text-white"
       >
         <ChevronLeft size={23} strokeWidth={1.7} />
@@ -404,7 +374,7 @@ function StatusBadge({ status }) {
 function EmptyState() {
   return (
     <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
-      لا يوجد أطباء حتى الآن
+      لا يوجد مستخدمين حتى الآن
     </div>
   );
 }

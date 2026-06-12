@@ -1,10 +1,26 @@
 import { useState } from "react";
-import { specialties as initialSpecialties } from "../users/usersData";
+import {
+  normalizeSpecialtyLabel,
+  specialties as initialSpecialties,
+} from "../users/usersData";
 
 const STORAGE_KEY = "medilink-admin-specialties";
 
 function normalizeSpecialtyName(name) {
-  return name.trim().replace(/\s+/g, " ");
+  return normalizeSpecialtyLabel(name);
+}
+
+function normalizeSpecialties(specialties, includeDefaults = false) {
+  const normalizedSpecialties = specialties
+    .map(normalizeSpecialtyName)
+    .filter(Boolean);
+
+  return Array.from(
+    new Set([
+      ...(includeDefaults ? initialSpecialties : []),
+      ...normalizedSpecialties,
+    ]),
+  );
 }
 
 function loadSpecialties() {
@@ -14,7 +30,18 @@ function loadSpecialties() {
       return initialSpecialties;
     }
 
-    return JSON.parse(savedSpecialties);
+    const parsedSpecialties = JSON.parse(savedSpecialties);
+    const hasLegacyNames = parsedSpecialties.some(
+      (specialty) => normalizeSpecialtyName(specialty) !== specialty,
+    );
+    const normalizedSpecialties = normalizeSpecialties(
+      parsedSpecialties,
+      hasLegacyNames,
+    );
+
+    return normalizedSpecialties.length > 0
+      ? normalizedSpecialties
+      : initialSpecialties;
   } catch {
     return initialSpecialties;
   }

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Pencil, Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { toast } from "react-toastify";
+import CustomSelect from "../../../components/admin/CustomSelect";
 
 const tabs = [
   { id: "info", label: "معلومات العيادة" },
@@ -596,17 +597,13 @@ function TextField({ label, ...props }) {
 
 function SelectField({ children, ...props }) {
   return (
-    <label className="relative block">
-      <select
+    <label className="block">
+      <CustomSelect
         {...props}
-        className={`${inputClass} appearance-none pl-10 text-right`}
+        buttonClassName={`${inputClass} flex items-center gap-3 pl-3`}
       >
         {children}
-      </select>
-      <ChevronDown
-        size={18}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-      />
+      </CustomSelect>
     </label>
   );
 }

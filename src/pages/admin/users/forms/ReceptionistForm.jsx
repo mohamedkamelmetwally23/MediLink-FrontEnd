@@ -31,6 +31,9 @@ export default function ReceptionistForm({
   mode = "create",
   initialData,
   onSubmit,
+  returnTo = "/admin/users",
+  title,
+  subtitle,
 }) {
   const navigate = useNavigate();
   const [values, setValues] = useState({ ...initialValues, ...initialData });
@@ -50,17 +53,19 @@ export default function ReceptionistForm({
 
     if (Object.keys(nextErrors).length === 0) {
       onSubmit?.(values);
-      navigate("/admin/users");
+      navigate(returnTo);
     }
   };
 
   return (
     <UserFormShell
-      title={mode === "edit" ? "تعديل بيانات مستخدم" : "إضافة مستخدم"}
+      title={title || (mode === "edit" ? "تعديل بيانات مستخدم" : "إضافة مستخدم")}
+      returnTo={returnTo}
       subtitle={
-        mode === "edit"
+        subtitle ||
+        (mode === "edit"
           ? "عدل بيانات المستخدم ودوره ومواعيد العمل."
-          : "أدخل بيانات المستخدم ودوره ومواعيد العمل لإضافته إلى النظام."
+          : "أدخل بيانات المستخدم ودوره ومواعيد العمل لإضافته إلى النظام.")
       }
     >
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
@@ -128,19 +133,21 @@ export default function ReceptionistForm({
           />
         </Field>
 
-        <Field label="أيام العمل" error={errors.workDays}>
+        <div>
+          <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
+            أيام العمل
+          </span>
           <WorkDaysPicker
             value={values.workDays}
             options={workDays}
             error={errors.workDays}
             onChange={(nextValue) => setField("workDays", nextValue)}
           />
-        </Field>
+        </div>
 
         <div>
           <span className="mb-2 block text-right font-semibold text-[#111] dark:text-white">
             ساعات العمل
-            <span className="mr-1 text-red-500">*</span>
           </span>
           <WorkHoursRange
             start={values.workStart}
@@ -157,7 +164,6 @@ export default function ReceptionistForm({
           <PasswordInput
             value={values.password}
             error={errors.password}
-            placeholder={mode === "edit" ? "اتركها فارغة لو مش هتغيرها" : ""}
             onChange={(event) => setField("password", event.target.value)}
           />
         </Field>
@@ -183,7 +189,7 @@ export default function ReceptionistForm({
           </button>
           <button
             type="button"
-            onClick={() => navigate("/admin/users")}
+            onClick={() => navigate(returnTo)}
             className="h-[54px] rounded-xl border-2 border-cyan-400 font-semibold text-cyan-500"
           >
             إلغاء

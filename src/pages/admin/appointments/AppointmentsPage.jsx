@@ -1,144 +1,191 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  CalendarDays,
-  Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronsLeft,
+  ChevronsRight,
   Search,
   Trash2,
   X,
 } from "lucide-react";
-import {
-  ArrowButton,
-  ArrowGlyph,
-  arrowButtonClass,
-} from "../../../components/ui/ArrowButton";
+import CustomSelect from "../../../components/admin/CustomSelect";
 
-const pageSize = 8;
+const pageSize = 10;
 
 const initialAppointments = [
   {
     id: 1,
     patient: "محمد حسن",
-    doctor: "د. مروة خالد",
+    doctor: "د.محمد خالد",
     specialty: "أسنان",
     phone: "01237652086",
-    date: "2026-06-11",
-    time: "9:30 ص",
+    date: "2026-05-24",
+    time: "1:00 م",
     status: "confirmed",
-    payment: "مدفوع",
+    payment: "paid",
   },
   {
     id: 2,
-    patient: "سلمى حمدي",
-    doctor: "د. ماهر طاهر",
+    patient: "يوسف أمين",
+    doctor: "د.عادل شوقي",
     specialty: "باطنة",
     phone: "01127652086",
-    date: "2026-06-11",
-    time: "10:00 ص",
+    date: "2026-05-24",
+    time: "1:00 م",
     status: "pending",
-    payment: "غير مدفوع",
+    payment: "waiting",
   },
   {
     id: 3,
-    patient: "علي يوسف",
-    doctor: "د. سارة هيثم",
+    patient: "محمد حسني",
+    doctor: "د.يحيى الفقي",
     specialty: "أطفال",
     phone: "01037652086",
-    date: "2026-06-12",
-    time: "11:30 ص",
+    date: "2026-05-24",
+    time: "4:00 م",
     status: "confirmed",
-    payment: "مدفوع",
+    payment: "paid",
   },
   {
     id: 4,
-    patient: "حمد شعبان",
-    doctor: "د. أماني الظريف",
+    patient: "عبد الرحمن نصر الله",
+    doctor: "د.مروان يوسف",
     specialty: "جلدية",
     phone: "01537652086",
-    date: "2026-06-12",
-    time: "12:00 م",
-    status: "cancelled",
-    payment: "مسترد",
+    date: "2026-05-24",
+    time: "5:00 م",
+    status: "pending",
+    payment: "unpaid",
   },
   {
     id: 5,
-    patient: "نور باسم",
-    doctor: "د. مروة خالد",
+    patient: "خالد فتحي",
+    doctor: "د.عادل شوقي",
     specialty: "أسنان",
     phone: "01287652086",
-    date: "2026-06-13",
-    time: "1:00 م",
-    status: "pending",
-    payment: "غير مدفوع",
+    date: "2026-05-24",
+    time: "10:00 ص",
+    status: "confirmed",
+    payment: "paid",
   },
   {
     id: 6,
-    patient: "بسملة خالد",
-    doctor: "د. ماهر طاهر",
+    patient: "سارة عبد الله",
+    doctor: "د.مروة خالد",
     specialty: "باطنة",
     phone: "01233652086",
-    date: "2026-06-13",
-    time: "2:30 م",
-    status: "confirmed",
-    payment: "مدفوع",
+    date: "2026-05-23",
+    time: "10:00 ص",
+    status: "cancelled",
+    payment: "refunded",
   },
   {
     id: 7,
-    patient: "محمود ناصر",
-    doctor: "د. سارة هيثم",
+    patient: "سما سامي",
+    doctor: "د.عادل شوقي",
     specialty: "أطفال",
     phone: "01097652086",
-    date: "2026-06-14",
-    time: "4:00 م",
-    status: "completed",
-    payment: "مدفوع",
+    date: "2026-05-23",
+    time: "12:30 ص",
+    status: "pending",
+    payment: "waiting",
   },
   {
     id: 8,
-    patient: "هدى سمير",
-    doctor: "د. أماني الظريف",
+    patient: "ياسمين أحمد",
+    doctor: "د.عادل شوقي",
     specialty: "جلدية",
     phone: "01187652086",
-    date: "2026-06-14",
-    time: "5:00 م",
+    date: "2026-05-23",
+    time: "12:00 ص",
     status: "confirmed",
-    payment: "مدفوع",
+    payment: "paid",
   },
   {
     id: 9,
-    patient: "أحمد شريف",
-    doctor: "د. مروة خالد",
+    patient: "نورا أيمن",
+    doctor: "د.مروة خالد",
     specialty: "أسنان",
     phone: "01587652086",
-    date: "2026-06-15",
-    time: "6:00 م",
-    status: "pending",
-    payment: "غير مدفوع",
+    date: "2026-05-23",
+    time: "6:00 ص",
+    status: "completed",
+    payment: "refunded",
+  },
+  {
+    id: 10,
+    patient: "محمد توفيق",
+    doctor: "د.مروة خالد",
+    specialty: "أسنان",
+    phone: "01237652086",
+    date: "2026-05-22",
+    time: "5:00 ص",
+    status: "cancelled",
+    payment: "refunded",
   },
 ];
 
-const statusLabels = {
-  all: "كل الحالات",
-  confirmed: "مؤكد",
-  pending: "قيد الانتظار",
+const bookingStatusLabels = {
+  confirmed: "تم التأكيد",
+  pending: "في انتظار تأكيد",
   completed: "مكتمل",
   cancelled: "ملغي",
 };
 
-const statusStyles = {
-  confirmed: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15",
-  pending: "bg-amber-50 text-amber-600 dark:bg-amber-500/15",
-  completed: "bg-sky-50 text-sky-600 dark:bg-sky-500/15",
-  cancelled: "bg-red-50 text-red-500 dark:bg-red-500/15",
+const paymentStatusLabels = {
+  paid: "مدفوع",
+  waiting: "بانتظار الدفع",
+  unpaid: "غير مدفوع",
+  refunded: "تم الإسترداد",
 };
+
+const badgeStyles = {
+  confirmed: "bg-[#e8fff4] text-[#129a55]",
+  pending: "bg-[#fff7d8] text-[#a47500]",
+  completed: "bg-[#e7f2ff] text-[#2870c9]",
+  cancelled: "bg-[#fff0f0] text-[#ff2020]",
+  paid: "bg-[#e8fff4] text-[#129a55]",
+  waiting: "bg-[#fff7d8] text-[#a47500]",
+  unpaid: "bg-[#fff0f0] text-[#ff2020]",
+  refunded: "bg-[#e7f2ff] text-[#2870c9]",
+};
+
+const arabicMonths = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
+];
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState(initialAppointments);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [doctorFilter, setDoctorFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [bookingFilter, setBookingFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const doctors = useMemo(
+    () => Array.from(new Set(appointments.map((appointment) => appointment.doctor))),
+    [appointments],
+  );
+
+  const dates = useMemo(
+    () => Array.from(new Set(appointments.map((appointment) => appointment.date))),
+    [appointments],
+  );
 
   const filteredAppointments = useMemo(() => {
     const query = search.trim();
@@ -153,21 +200,22 @@ export default function AppointmentsPage() {
 
       return (
         matchesSearch &&
-        (statusFilter === "all" || appointment.status === statusFilter)
+        (!doctorFilter || appointment.doctor === doctorFilter) &&
+        (!dateFilter || appointment.date === dateFilter) &&
+        (!bookingFilter || appointment.status === bookingFilter) &&
+        (!paymentFilter || appointment.payment === paymentFilter)
       );
     });
-  }, [appointments, search, statusFilter]);
+  }, [appointments, search, doctorFilter, dateFilter, bookingFilter, paymentFilter]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredAppointments.length / pageSize),
-  );
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pageAppointments = filteredAppointments.slice(
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
   const visibleIds = pageAppointments.map((appointment) => appointment.id);
+  const selectedCount = selectedIds.length;
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
@@ -203,77 +251,79 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <section>
-      <header className="flex min-h-[120px] items-end justify-start bg-white px-6 pb-8 shadow-sm dark:bg-[#3a3a3a] lg:px-8">
-        <div className="text-right">
-          <h1 className="text-2xl font-bold lg:text-3xl">المواعيد</h1>
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-300">
-            متابعة حجوزات المرضى وإدارة حالة كل موعد داخل العيادة.
-          </p>
+    <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
+      <PageHeader />
+
+      <main className="px-4 pb-8 pt-[28px] sm:px-6 lg:px-[38px]">
+        <div className="mb-[16px] flex justify-end" dir="ltr">
+          <SearchBox
+            value={search}
+            onChange={(value) => resetToFirstPage(() => setSearch(value))}
+          />
         </div>
-      </header>
 
-      <div className="p-4 sm:p-6 lg:p-8">
-        <AppointmentsToolbar
-          search={search}
-          statusFilter={statusFilter}
-          onSearchChange={(value) => resetToFirstPage(() => setSearch(value))}
-          onStatusChange={(value) =>
-            resetToFirstPage(() => setStatusFilter(value))
-          }
-        />
-
-        {selectedIds.length > 0 && (
-          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-cyan-900 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-100 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold">
-              تم تحديد {selectedIds.length} موعد
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
-                onClick={() => setPendingDelete(selectedIds)}
-              >
-                حذف المحدد
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-cyan-300 px-4 py-2 text-sm font-semibold"
-                onClick={() => setSelectedIds([])}
-              >
-                إلغاء التحديد
-              </button>
-            </div>
-          </div>
+        {selectedCount > 0 && (
+          <SelectionBar
+            count={selectedCount}
+            onClear={() => setSelectedIds([])}
+            onDelete={() => setPendingDelete(selectedIds)}
+          />
         )}
 
-        <div className="overflow-hidden rounded-xl bg-white shadow-[0_0_20px_rgba(0,0,0,0.06)] dark:bg-[#3b3b3b]">
-          {filteredAppointments.length === 0 ? (
-            <AppointmentsEmptyState />
-          ) : (
-            <>
-              <AppointmentsTable
-                appointments={pageAppointments}
-                selectedIds={selectedIds}
+        <section className="overflow-hidden bg-white dark:bg-[#505050]">
+          <div className="overflow-x-auto">
+            <div className="min-w-[1040px]">
+              <TableHeader
                 allVisibleSelected={allVisibleSelected}
-                onToggleAllVisible={toggleAllVisible}
-                onToggleAppointment={toggleAppointment}
-                onDeleteAppointment={(id) => setPendingDelete([id])}
+                onToggleAll={toggleAllVisible}
+                doctorFilter={doctorFilter}
+                dateFilter={dateFilter}
+                bookingFilter={bookingFilter}
+                paymentFilter={paymentFilter}
+                doctors={doctors}
+                dates={dates}
+                onDoctorChange={(value) =>
+                  resetToFirstPage(() => setDoctorFilter(value))
+                }
+                onDateChange={(value) =>
+                  resetToFirstPage(() => setDateFilter(value))
+                }
+                onBookingChange={(value) =>
+                  resetToFirstPage(() => setBookingFilter(value))
+                }
+                onPaymentChange={(value) =>
+                  resetToFirstPage(() => setPaymentFilter(value))
+                }
               />
 
-              <AppointmentsPagination
-                currentPage={safeCurrentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </>
+              {filteredAppointments.length === 0 ? (
+                <EmptyState />
+              ) : (
+                pageAppointments.map((appointment) => (
+                  <AppointmentRow
+                    key={appointment.id}
+                    appointment={appointment}
+                    selected={selectedIds.includes(appointment.id)}
+                    onToggle={() => toggleAppointment(appointment.id)}
+                    onDelete={() => setPendingDelete([appointment.id])}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          {filteredAppointments.length > 0 && (
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {pendingDelete && (
-        <ConfirmAppointmentDeleteModal
-          count={pendingDelete.length}
+        <ConfirmDeleteModal
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => deleteAppointments(pendingDelete)}
         />
@@ -282,249 +332,345 @@ export default function AppointmentsPage() {
   );
 }
 
-function AppointmentsToolbar({
-  search,
-  statusFilter,
-  onSearchChange,
-  onStatusChange,
+function PageHeader() {
+  return (
+    <header className="flex min-h-[120px] items-start justify-start bg-white px-4 pt-[38px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
+      <div className="text-right">
+        <h1 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
+          المواعيد
+        </h1>
+        <p className="mt-1 text-[16px] leading-5 text-[#8a8a8a] dark:text-gray-300">
+          متابعة جميع المواعيد وحالات الحجز والدفع والإلغاء.
+        </p>
+      </div>
+    </header>
+  );
+}
+
+function SearchBox({ value, onChange }) {
+  return (
+    <label
+      className="flex h-[52px] w-full items-center gap-[12px] rounded-[12px] border border-[#d7d7d7] bg-[#fbfbfb] px-[16px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[260px]"
+      dir="ltr"
+    >
+      <button
+        type="button"
+        aria-label="مسح البحث"
+        className="grid h-6 w-6 place-items-center"
+        onClick={() => onChange("")}
+      >
+        <X size={16} strokeWidth={1.6} />
+      </button>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
+        placeholder="إبحث هنا..."
+        dir="rtl"
+      />
+      <Search size={20} strokeWidth={1.7} />
+    </label>
+  );
+}
+
+function SelectionBar({ count, onClear, onDelete }) {
+  return (
+    <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
+      <p className="text-[17px] font-semibold text-[#333] dark:text-white">
+        تم تحديد {count} من العناصر
+      </p>
+
+      <div className="flex items-center gap-[24px]" dir="ltr">
+        <button
+          type="button"
+          aria-label="إلغاء التحديد"
+          className="grid h-[36px] w-[36px] place-items-center text-[#222] dark:text-white"
+          onClick={onClear}
+        >
+          <X size={26} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
+          onClick={onDelete}
+        >
+          <span>حذف المحدد</span>
+          <Trash2 size={22} strokeWidth={1.8} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TableHeader({
+  allVisibleSelected,
+  onToggleAll,
+  doctorFilter,
+  dateFilter,
+  bookingFilter,
+  paymentFilter,
+  doctors,
+  dates,
+  onDoctorChange,
+  onDateChange,
+  onBookingChange,
+  onPaymentChange,
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <label className="flex h-[52px] w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-gray-500 dark:border-white/30 dark:bg-[#454545] dark:text-gray-200 lg:w-[310px]">
-        <Search size={20} />
-        <input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          className="w-full bg-transparent outline-none"
-          placeholder="ابحث هنا..."
-        />
-        {search && (
-          <button
-            type="button"
-            aria-label="مسح البحث"
-            onClick={() => onSearchChange("")}
-          >
-            <X size={16} />
-          </button>
-        )}
-      </label>
-
-      <select
-        value={statusFilter}
-        onChange={(event) => onStatusChange(event.target.value)}
-        className="h-[52px] rounded-xl border border-gray-200 bg-white px-4 outline-none dark:border-white/30 dark:bg-[#454545]"
+    <div className="grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr_64px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+      <div className="flex justify-center">
+        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
+      </div>
+      <span className="text-center">المريض</span>
+      <FilterSelect value={doctorFilter} onChange={onDoctorChange} label="الطبيب">
+        <option value="">الطبيب</option>
+        {doctors.map((doctor) => (
+          <option key={doctor} value={doctor}>
+            {doctor}
+          </option>
+        ))}
+      </FilterSelect>
+      <FilterSelect
+        value={dateFilter}
+        onChange={onDateChange}
+        label="التاريخ والوقت"
       >
-        {Object.entries(statusLabels).map(([value, label]) => (
+        <option value="">التاريخ والوقت</option>
+        {dates.map((date) => (
+          <option key={date} value={date}>
+            {formatDateOnly(date)}
+          </option>
+        ))}
+      </FilterSelect>
+      <FilterSelect
+        value={bookingFilter}
+        onChange={onBookingChange}
+        label="حالة الحجز"
+      >
+        <option value="">حالة الحجز</option>
+        {Object.entries(bookingStatusLabels).map(([value, label]) => (
           <option key={value} value={value}>
             {label}
           </option>
         ))}
-      </select>
+      </FilterSelect>
+      <FilterSelect
+        value={paymentFilter}
+        onChange={onPaymentChange}
+        label="حالة الدفع"
+      >
+        <option value="">حالة الدفع</option>
+        {Object.entries(paymentStatusLabels).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </FilterSelect>
+      <span />
+      <span />
     </div>
   );
 }
 
-function AppointmentsEmptyState() {
+function FilterSelect({ value, onChange, label, children }) {
   return (
-    <div className="grid min-h-[430px] place-items-center px-6 py-12 text-center">
-      <div>
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-cyan-50 text-cyan-500 dark:bg-cyan-500/10">
-          <CalendarDays size={34} />
-        </div>
-        <h2 className="text-lg font-bold">لا يوجد مواعيد حتى الآن</h2>
-      </div>
-    </div>
+    <CustomSelect
+      value={value}
+      onChange={onChange}
+      displayLabel={label}
+      className="h-full"
+      buttonClassName="relative flex h-full w-full items-center justify-center bg-transparent px-0 text-[17px] font-medium text-[#333] outline-none dark:text-white [&>span]:flex-none [&>span]:text-center [&>svg]:absolute [&>svg]:left-[18px]"
+    >
+      {children}
+    </CustomSelect>
   );
 }
 
-function AppointmentsTable({
-  appointments,
-  selectedIds,
-  allVisibleSelected,
-  onToggleAllVisible,
-  onToggleAppointment,
-  onDeleteAppointment,
-}) {
+function AppointmentRow({ appointment, selected, onToggle, onDelete }) {
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[980px]">
-        <div className="grid grid-cols-[58px_1.2fr_1.1fr_1fr_1fr_1fr_1fr_90px] items-center bg-[#f5f5f5] px-6 py-4 font-semibold dark:bg-[#4a4a4a]">
-          <SelectBox
-            checked={allVisibleSelected}
-            ariaLabel="تحديد كل المواعيد في الصفحة الحالية"
-            onChange={onToggleAllVisible}
-          />
-          <span>اسم المريض</span>
-          <span>الطبيب</span>
-          <span>التخصص</span>
-          <span>التاريخ</span>
-          <span>الوقت</span>
-          <span>الحالة</span>
-          <span />
-        </div>
-
-        {appointments.map((appointment) => {
-          const selected = selectedIds.includes(appointment.id);
-
-          return (
-            <div
-              key={appointment.id}
-              className={`grid grid-cols-[58px_1.2fr_1.1fr_1fr_1fr_1fr_1fr_90px] items-center border-b border-gray-200 px-6 py-4 transition dark:border-white/20 ${
-                selected ? "bg-cyan-50 dark:bg-cyan-500/10" : ""
-              }`}
-            >
-              <SelectBox
-                checked={selected}
-                ariaLabel={`تحديد موعد ${appointment.patient}`}
-                onChange={() => onToggleAppointment(appointment.id)}
-              />
-              <div>
-                <span className="block font-semibold">
-                  {appointment.patient}
-                </span>
-                <span
-                  dir="ltr"
-                  className="block text-right text-xs text-gray-400"
-                >
-                  {appointment.phone}
-                </span>
-              </div>
-              <span>{appointment.doctor}</span>
-              <span>{appointment.specialty}</span>
-              <span dir="ltr" className="text-right">
-                {appointment.date}
-              </span>
-              <span>{appointment.time}</span>
-              <StatusBadge status={appointment.status} />
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  aria-label="حذف الموعد"
-                  onClick={() => onDeleteAppointment(appointment.id)}
-                >
-                  <Trash2 size={21} className="text-red-600" />
-                </button>
-                <ArrowButton className={arrowButtonClass} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  return (
-    <span
-      className={`w-fit rounded-md px-3 py-1 text-xs font-semibold ${
-        statusStyles[status] || statusStyles.pending
+    <div
+      className={`grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr_64px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
-      {statusLabels[status]}
-    </span>
+      <div className="flex justify-center">
+        <Checkbox checked={selected} onClick={onToggle} />
+      </div>
+      <span className="truncate text-center">{appointment.patient}</span>
+      <span className="truncate text-center">{appointment.doctor}</span>
+      <span className="truncate text-center">
+        {formatAppointmentDate(appointment.date, appointment.time)}
+      </span>
+      <div className="flex justify-center">
+        <StatusBadge value={appointment.status} labels={bookingStatusLabels} />
+      </div>
+      <div className="flex justify-center">
+        <StatusBadge value={appointment.payment} labels={paymentStatusLabels} />
+      </div>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          aria-label="حذف الموعد"
+          className="text-[#333] dark:text-white"
+          onClick={onDelete}
+        >
+          <Trash2 size={24} strokeWidth={1.8} />
+        </button>
+      </div>
+      <Link
+        to={getPatientProfilePath(appointment)}
+        aria-label={`عرض ملف ${appointment.patient}`}
+        className="grid h-full place-items-center text-[#333] dark:text-white"
+      >
+        <ChevronLeft size={23} strokeWidth={1.7} />
+      </Link>
+    </div>
   );
 }
 
-function SelectBox({ checked, onChange, ariaLabel }) {
+function getPatientProfilePath(appointment) {
+  const params = new URLSearchParams({
+    name: appointment.patient,
+    phone: appointment.phone,
+    role: "patient",
+    status: "active",
+  });
+
+  return `/admin/users/profile?${params.toString()}`;
+}
+
+function Checkbox({ checked, onClick }) {
   return (
     <button
       type="button"
-      aria-label={ariaLabel}
-      className={`grid h-5 w-5 place-items-center rounded border ${
+      aria-pressed={checked}
+      className={`grid h-[20px] w-[20px] place-items-center rounded-[4px] border text-[14px] font-bold leading-none ${
         checked
-          ? "border-cyan-400 bg-cyan-400 text-white"
-          : "border-gray-400 bg-transparent"
+          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
+          : "border-[#999] bg-transparent"
       }`}
-      onClick={onChange}
+      onClick={onClick}
     >
-      {checked ? <Check size={15} strokeWidth={3} /> : null}
+      {checked ? "✓" : ""}
     </button>
   );
 }
 
-function AppointmentsPagination({ currentPage, totalPages, onPageChange }) {
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+function StatusBadge({ value, labels }) {
+  return (
+    <span
+      className={`rounded-[7px] px-[7px] py-[5px] text-[10px] font-medium ${
+        badgeStyles[value] || badgeStyles.pending
+      }`}
+    >
+      {labels[value]}
+    </span>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
+      لا يوجد مواعيد حتى الآن
+    </div>
+  );
+}
+
+function Pagination({ currentPage, totalPages, onPageChange }) {
+  const pages = getPaginationPages(currentPage, totalPages);
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 py-5 font-semibold">
+    <div className="flex h-[79px] items-center justify-center gap-[25px] text-[16px] font-bold text-[#333] dark:text-white">
       <button
         type="button"
         aria-label="الصفحة الأولى"
         disabled={currentPage === 1}
-        className={`${arrowButtonClass} rotate-180`}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(1)}
       >
-        <ChevronsLeft size={18} />
+        <ChevronsRight size={18} strokeWidth={1.7} />
       </button>
       <button
         type="button"
         aria-label="الصفحة السابقة"
         disabled={currentPage === 1}
-        className={`${arrowButtonClass} rotate-180`}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(currentPage - 1)}
       >
-        <ArrowGlyph />
+        <ChevronRight size={18} strokeWidth={1.7} />
       </button>
 
-      {pages.map((page) => (
-        <button
-          key={page}
-          type="button"
-          className={`grid h-8 w-8 place-items-center rounded-full ${
-            page === currentPage ? "bg-cyan-400 text-white" : ""
-          }`}
-          onClick={() => onPageChange(page)}
-        >
-          {page}
-        </button>
-      ))}
+      {pages.map((page) =>
+        page === "ellipsis" ? (
+          <span key="ellipsis">...</span>
+        ) : (
+          <button
+            key={page}
+            type="button"
+            className={`grid h-[28px] w-[28px] place-items-center rounded-full ${
+              page === currentPage ? "bg-[#38bfd7] text-white" : ""
+            }`}
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </button>
+        ),
+      )}
 
       <button
         type="button"
         aria-label="الصفحة التالية"
         disabled={currentPage === totalPages}
-        className={arrowButtonClass}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(currentPage + 1)}
       >
-        <ArrowGlyph />
+        <ChevronLeft size={18} strokeWidth={1.7} />
       </button>
       <button
         type="button"
         aria-label="الصفحة الأخيرة"
         disabled={currentPage === totalPages}
-        className={arrowButtonClass}
+        className="disabled:opacity-30"
         onClick={() => onPageChange(totalPages)}
       >
-        <ChevronsLeft size={18} />
+        <ChevronsLeft size={18} strokeWidth={1.7} />
       </button>
     </div>
   );
 }
 
-function ConfirmAppointmentDeleteModal({ count, onCancel, onConfirm }) {
+function getPaginationPages(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  return [1, 2, 3, 4, "ellipsis", totalPages].filter((page, index, items) => {
+    if (page === "ellipsis") return true;
+    return items.indexOf(page) === index;
+  });
+}
+
+function ConfirmDeleteModal({ onCancel, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
-      <div className="w-full max-w-[350px] rounded-xl bg-white p-6 text-center shadow-2xl dark:bg-[#454545]">
-        <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-700 text-3xl font-bold text-white">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
+      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
+        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
           !
         </div>
-        <h2 className="mb-5 text-xl font-bold text-red-700 dark:text-red-300">
-          {count > 1
-            ? `هل أنت متأكد من حذف ${count} مواعيد؟`
-            : "هل أنت متأكد من حذف هذا الموعد؟"}
+        <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
+          هل أنت متأكد من حذف هذا العنصر
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
           <button
             type="button"
-            className="h-11 rounded-lg border-2 border-cyan-400 font-semibold text-cyan-500"
+            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
             onClick={onConfirm}
           >
             نعم
           </button>
           <button
             type="button"
-            className="h-11 rounded-lg bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
+            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
             onClick={onCancel}
           >
             لا
@@ -533,4 +679,17 @@ function ConfirmAppointmentDeleteModal({ count, onCancel, onConfirm }) {
       </div>
     </div>
   );
+}
+
+function formatAppointmentDate(date, time) {
+  return `${formatDateOnly(date)} - ${formatAppointmentTime(time)}`;
+}
+
+function formatDateOnly(date) {
+  const [year, month, day] = date.split("-").map(Number);
+  return `${day} ${arabicMonths[month - 1]} ${year}`;
+}
+
+function formatAppointmentTime(time) {
+  return time.replace(" ص", " صباحا").replace(" م", " مساءا");
 }
