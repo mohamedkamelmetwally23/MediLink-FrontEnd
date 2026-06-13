@@ -1,5 +1,5 @@
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
-import { Children, isValidElement, useState } from "react";
+import { Children, isValidElement, useEffect, useRef, useState } from "react";
 
 export function Field({ label, error, children, className = "" }) {
   return (
@@ -39,10 +39,25 @@ function DropdownSelect({
   onChange,
 }) {
   const [open, setOpen] = useState(false);
+  const selectRef = useRef(null);
   const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!selectRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
 
   return (
     <div
+      ref={selectRef}
       className="relative"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -153,6 +168,20 @@ export function PasswordInput({ error, ...props }) {
 
 export function WorkDaysPicker({ value, onChange, options, error }) {
   const [open, setOpen] = useState(false);
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!pickerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
 
   const toggleDay = (day) => {
     const nextValue = value.includes(day)
@@ -162,7 +191,7 @@ export function WorkDaysPicker({ value, onChange, options, error }) {
   };
 
   return (
-    <div className="relative">
+    <div ref={pickerRef} className="relative">
       <div
         role="button"
         tabIndex={0}
@@ -185,7 +214,7 @@ export function WorkDaysPicker({ value, onChange, options, error }) {
               <button
                 key={day}
                 type="button"
-                className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#f6ffff] px-3 text-xs text-[#111] transition hover:bg-cyan-50 dark:bg-[#3a3a3a] dark:text-white"
+                className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#f6ffff] px-3 text-xs text-[#111] transition hover:bg-cyan-50 dark:bg-[#3a3a3a] dark:text-white dark:hover:bg-[#0f6f82] dark:hover:text-white"
                 onClick={(event) => {
                   event.stopPropagation();
                   toggleDay(day);
@@ -209,8 +238,8 @@ export function WorkDaysPicker({ value, onChange, options, error }) {
               type="button"
               className={`block w-full rounded-lg px-3 py-2 text-right text-sm transition ${
                 value.includes(day)
-                  ? "bg-cyan-50 text-[#16b9d3] dark:bg-[#505050] dark:text-cyan-300"
-                  : "text-[#333] hover:bg-gray-50 dark:text-white dark:hover:bg-[#505050]"
+                  ? "bg-cyan-50 text-[#16b9d3] hover:bg-cyan-100 dark:bg-[#505050] dark:text-cyan-300 dark:hover:bg-[#0f6f82] dark:hover:text-white"
+                  : "text-[#333] hover:bg-gray-50 dark:text-white dark:hover:bg-[#0f6f82]"
               }`}
               onClick={() => toggleDay(day)}
             >
@@ -268,12 +297,26 @@ export function WorkHoursRange({
   endError,
 }) {
   const [open, setOpen] = useState(false);
+  const rangeRef = useRef(null);
   const error = startError || endError;
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!rangeRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
   const displayValue =
     start && end ? `${formatWorkTime(start)} - ${formatWorkTime(end)}` : "اختر ساعات العمل";
 
   return (
-    <div className="relative">
+    <div ref={rangeRef} className="relative">
       <button
         type="button"
         dir="ltr"

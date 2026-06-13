@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Banknote,
@@ -5,7 +6,6 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronLeft,
-  Search,
   Stethoscope,
   TrendingDown,
   TrendingUp,
@@ -109,7 +109,35 @@ const pieColors = [
   "#1689c9",
 ];
 
+function useDarkTheme() {
+  const getIsDark = () =>
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+
+  const [isDark, setIsDark] = useState(getIsDark);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setIsDark(getIsDark()));
+
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
+}
+
 export default function Dashboard() {
+  const isDark = useDarkTheme();
+  const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
+  const axisLineColor = isDark ? "#d1d5db" : "#3f4b52";
+  const gridColor = isDark ? "#6b7280" : "#d9e2e7";
+  const tickStyle = {
+    fontSize: 11,
+    fill: axisColor,
+    fontWeight: 600,
+  };
+
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
       <Header />
@@ -139,21 +167,21 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid
-                  stroke="#d9e2e7"
+                  stroke={gridColor}
                   strokeDasharray="0"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="month"
-                  axisLine={{ stroke: "#7e8a91" }}
+                  axisLine={{ stroke: axisLineColor }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  tick={tickStyle}
                   tickMargin={11}
                 />
                 <YAxis
-                  axisLine={false}
+                  axisLine={{ stroke: axisLineColor }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  tick={tickStyle}
                   ticks={[0, 500, 1000, 1500]}
                   domain={[0, 1500]}
                   width={43}
@@ -195,22 +223,22 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid
-                  stroke="#d9e2e7"
+                  stroke={gridColor}
                   strokeDasharray="0"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="name"
-                  axisLine={false}
+                  axisLine={{ stroke: axisLineColor }}
                   tickLine={false}
                   interval={0}
-                  tick={{ fontSize: 10, fill: "#6e767b" }}
+                  tick={{ ...tickStyle, fontSize: 10 }}
                   tickMargin={8}
                 />
                 <YAxis
-                  axisLine={false}
+                  axisLine={{ stroke: axisLineColor }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#6e767b" }}
+                  tick={tickStyle}
                   ticks={[0, 50, 100, 150, 200]}
                   domain={[0, 220]}
                   width={43}
@@ -332,13 +360,6 @@ function Header() {
         </p>
       </div>
 
-      <label className="flex h-[56px] w-full items-center gap-3 rounded-[12px] border border-[#d7d7d7] bg-[#fbfbfb] px-[18px] text-[#9a9a9a] shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)] dark:border-white/20 dark:bg-transparent dark:text-gray-200 lg:w-[351px]">
-        <Search size={20} strokeWidth={1.8} />
-        <input
-          className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-[#9a9a9a]"
-          placeholder="إبحث هنا..."
-        />
-      </label>
     </header>
   );
 }

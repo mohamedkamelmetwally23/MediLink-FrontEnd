@@ -25,9 +25,25 @@ export const specialtyAliases = {
   "أنف وأذن": "أنف وأذن",
 };
 
+function foldArabicText(text = "") {
+  return text
+    .trim()
+    .normalize("NFKC")
+    .replace(/\u0640/g, "")
+    .replace(/\p{M}/gu, "")
+    .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\s+/g, " ");
+}
+
 export function normalizeSpecialtyLabel(specialty = "") {
   const normalized = specialty.trim().replace(/\s+/g, " ");
-  return specialtyAliases[normalized] || normalized;
+  const folded = foldArabicText(normalized);
+  const alias = Object.entries(specialtyAliases).find(
+    ([aliasName]) => foldArabicText(aliasName) === folded,
+  );
+
+  return alias?.[1] || normalized;
 }
 
 export const initialUsers = [

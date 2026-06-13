@@ -24,7 +24,6 @@ export default function UsersPage() {
   } = useUsersStore();
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,12 +35,12 @@ export default function UsersPage() {
       const fullName = `${user.firstName} ${user.lastName}`;
 
       return (
+        user.role === "patient" &&
         (!query || fullName.includes(query) || user.phone.includes(query)) &&
-        (!roleFilter || user.role === roleFilter) &&
         (!statusFilter || user.status === statusFilter)
       );
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -107,12 +106,7 @@ export default function UsersPage() {
               <TableHeader
                 allVisibleSelected={allVisibleSelected}
                 onToggleAll={toggleAllVisible}
-                roleFilter={roleFilter}
                 statusFilter={statusFilter}
-                onRoleChange={(value) => {
-                  setRoleFilter(value);
-                  setCurrentPage(1);
-                }}
                 onStatusChange={(value) => {
                   setStatusFilter(value);
                   setCurrentPage(1);
@@ -229,9 +223,7 @@ function SelectionBar({ count, onClear, onDelete }) {
 function TableHeader({
   allVisibleSelected,
   onToggleAll,
-  roleFilter,
   statusFilter,
-  onRoleChange,
   onStatusChange,
 }) {
   return (
@@ -241,14 +233,7 @@ function TableHeader({
       </div>
       <span className="text-center">الأسم</span>
       <span className="text-center">رقم الهاتف</span>
-      <FilterSelect value={roleFilter} onChange={onRoleChange} label="الدور">
-        <option value="">الدور</option>
-        {Object.entries(userRoles).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </FilterSelect>
+      <span className="text-center">{userRoles.patient}</span>
       <FilterSelect
         value={statusFilter}
         onChange={onStatusChange}

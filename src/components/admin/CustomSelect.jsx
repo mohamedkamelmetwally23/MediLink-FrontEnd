@@ -1,4 +1,5 @@
-import { Children, isValidElement, useState } from "react";
+import { Children, isValidElement, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
 function optionsFromChildren(children) {
@@ -24,6 +25,9 @@ export default function CustomSelect({
   menuClassName = "",
 }) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState(null);
+  const selectRef = useRef(null);
+  const menuRef = useRef(null);
   const selectOptions = options ?? optionsFromChildren(children);
   const selectedOption = selectOptions.find((option) => option.value === value);
   const label = displayLabel ?? selectedOption?.label ?? placeholder;
@@ -31,8 +35,52 @@ export default function CustomSelect({
     buttonClassName ||
     "flex h-[52px] w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 text-[#333] outline-none transition focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/30 dark:bg-[#454545] dark:text-white";
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      const target = event.target;
+
+      if (
+        !selectRef.current?.contains(target) &&
+        !menuRef.current?.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const updateMenuPosition = () => {
+      const rect = selectRef.current?.getBoundingClientRect();
+
+      if (!rect) return;
+
+      setMenuStyle({
+        left: rect.left,
+        top: rect.bottom + 8,
+        width: rect.width,
+      });
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open]);
+
   return (
     <div
+      ref={selectRef}
       className={`relative ${className}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -57,9 +105,11 @@ export default function CustomSelect({
         </span>
       </button>
 
-      {open && !disabled && (
+      {open && !disabled && menuStyle && createPortal(
         <div
-          className={`absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-[240px] overflow-y-auto rounded-xl border border-gray-100 bg-white p-2 shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:border-[#555] dark:bg-[#3a3a3a] ${menuClassName}`}
+          ref={menuRef}
+          style={menuStyle}
+          className={`fixed z-[100] max-h-[240px] overflow-y-auto rounded-xl border border-gray-100 bg-white p-2 shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:border-[#555] dark:bg-[#3a3a3a] ${menuClassName}`}
         >
           {selectOptions.map((option) => (
             <button
@@ -80,7 +130,8 @@ export default function CustomSelect({
               {option.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
