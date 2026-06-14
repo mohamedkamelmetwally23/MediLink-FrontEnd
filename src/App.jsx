@@ -26,6 +26,12 @@ import AppointmentsPage from "./pages/admin/appointments/AppointmentsPage";
 import ReceptionistsPage from "./pages/admin/receptionists/ReceptionistsPage";
 import AddReceptionistPage from "./pages/admin/receptionists/AddReceptionistPage";
 import EditReceptionistPage from "./pages/admin/receptionists/EditReceptionistPage";
+import DoctorLayout from "./pages/doctor/layout/DoctorLayout";
+import DoctorDashboard from "./pages/doctor/Dashboard";
+import DoctorAppointmentsPage from "./pages/doctor/AppointmentsPage";
+import DoctorPatientsPage from "./pages/doctor/PatientsPage";
+import DoctorPatientProfilePage from "./pages/doctor/PatientProfilePage";
+import DoctorActivityPage from "./pages/doctor/ActivityPage";
 import RouteSkeleton from "./components/RouteSkeleton";
 import ScrollLoadingBar from "./components/ScrollLoadingBar";
 
@@ -74,6 +80,14 @@ function App() {
             path="receptionists/:receptionistId/edit"
             element={<EditReceptionistPage />}
           />
+        </Route>
+        <Route path="/doctor" element={<DoctorLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<DoctorDashboard />} />
+          <Route path="activity" element={<DoctorActivityPage />} />
+          <Route path="appointments" element={<DoctorAppointmentsPage />} />
+          <Route path="patients" element={<DoctorPatientsPage />} />
+          <Route path="patients/:patientId/profile" element={<DoctorPatientProfilePage />} />
         </Route>
       </Routes>
 
