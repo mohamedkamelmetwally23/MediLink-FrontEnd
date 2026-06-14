@@ -2,6 +2,8 @@ import img8 from "../assets/landingPage/8.png";
 import img9 from "../assets/landingPage/9.png";
 import img10 from "../assets/landingPage/10.png";
 import img11 from "../assets/landingPage/11.png";
+import rowDown from "../assets/landingPage/rowdown.png";
+import rowUp from "../assets/landingPage/rowdup.png";
 
 const features = [
   {
@@ -17,40 +19,40 @@ const features = [
       "احجز موعدك في دقائق قليلة من خلال منصة سهلة الاستخدام دون الحاجة إلى الاتصالات الهاتفية.",
   },
   {
-    image: img10,
-    title: "مساعد مدعوم بالذكاء الاصطناعي",
-    description:
-      "يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات مبنية على الأعراض والاحتياجات الطبية.",
-  },
-  {
     image: img11,
     title: "تجربة آمنة ومريحة",
     description:
       "نحافظ على خصوصية بيانات المرضى ونوفر تجربة رقمية سلسة وآمنة على جميع الأجهزة.",
   },
+  {
+    image: img10,
+    title: "مساعد مدعوم بالذكاء الاصطناعي",
+    description:
+      "يساعدك في الوصول إلى التخصص المناسب بسرعة من خلال اقتراحات مبنية على الأعراض والاحتياجات الطبية.",
+  },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <h2 className="mb-10 text-center text-3xl font-bold sm:text-4xl">
-        لماذا <span className="text-[#05ADE8]">ميدلينك؟</span>
+    <section id="features" className="features-section">
+      <h2 className="features-section__title">
+        لماذا <span>ميدلينك؟</span>
       </h2>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="features-section__path" aria-label="مميزات ميدلينك">
+        <img className="features-section__line features-section__line--first" src={rowDown} alt="" />
+        <img className="features-section__line features-section__line--second" src={rowUp} alt="" />
+        <img className="features-section__line features-section__line--third" src={rowDown} alt="" />
+
         {features.map((feature, index) => (
           <article
             key={feature.title}
             style={{ "--reveal-delay": `${index * 90}ms` }}
-            className="reveal-item flex h-full flex-col items-center rounded-xl bg-white p-5 text-center shadow-sm dark:bg-[#252525]"
+            className={`features-section__item features-section__item--${index + 1} reveal-item`}
           >
-            <img src={feature.image} alt="" className="mb-4 h-20 w-20 object-contain" />
-            <h3 className="mb-2 text-lg font-bold text-gray-900 dark:text-[#F0F0F0]">
-              {feature.title}
-            </h3>
-            <p className="text-sm leading-7 text-[#636363] dark:text-[#D2D2D2]">
-              {feature.description}
-            </p>
+            <img className="features-section__icon" src={feature.image} alt="" />
+            <h3>{feature.title}</h3>
+            <p>{feature.description}</p>
           </article>
         ))}
       </div>
