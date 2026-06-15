@@ -1,17 +1,10 @@
-import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
-import {
-  Home,
-  LogOut,
-  Menu,
-  Stethoscope,
-  UsersRound,
-  X,
-} from "lucide-react";
-import doctorAvatar from "../../../assets/landingPage/admin.png";
+import { useMemo, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Home, LogOut, Menu, Stethoscope, UsersRound, X } from "lucide-react";
+import doctorAvatar from "../../../assets/landingPage/doctor1.png";
+import currentPatientAvatar from "../../../assets/landingPage/admin.png";
 import patientAvatarOne from "../../../assets/landingPage/12 1.png";
 import patientAvatarTwo from "../../../assets/landingPage/12 1 (1).png";
-import patientAvatarThree from "../../../assets/landingPage/12 1 (2).png";
 
 const navItems = [
   { label: "لوحة التحكم", icon: Home, to: "/doctor/dashboard" },
@@ -21,32 +14,29 @@ const navItems = [
 
 const waitingList = [
   {
-    name: "أحمد الفقي",
+    id: 5,
+    name: "أحمد الألفي",
     time: "4:00 م - 3:30 م",
     status: "الآن",
     statusTone: "now",
-    image: doctorAvatar,
+    image: currentPatientAvatar,
+    current: true,
   },
   {
+    id: 6,
     name: "خليل محمد",
-    time: "4:30 م - 4:00 م",
-    status: "قادم",
+    time: "5:00 م - 4:30 م",
+    status: "التالي",
     statusTone: "soon",
     image: patientAvatarOne,
   },
   {
-    name: "بني علي",
+    id: 7,
+    name: "يمنى علاء",
     time: "5:30 م - 5:00 م",
-    status: "قادم",
+    status: "التالي",
     statusTone: "soon",
     image: patientAvatarTwo,
-  },
-  {
-    name: "على محمود",
-    time: "6:00 م - 5:30 م",
-    status: "قادم",
-    statusTone: "soon",
-    image: patientAvatarThree,
   },
 ];
 
@@ -56,7 +46,7 @@ export default function DoctorLayout() {
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white"
+      className="min-h-screen bg-white text-[#333] dark:bg-[#2e2e2e] dark:text-white"
     >
       <div className="flex min-h-screen">
         {isSidebarOpen && (
@@ -93,7 +83,7 @@ export default function DoctorLayout() {
 function Sidebar({ isOpen, onClose }) {
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(260px,85vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[244px] lg:translate-x-0 lg:shadow-none ${
+      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       }`}
     >
@@ -106,60 +96,72 @@ function Sidebar({ isOpen, onClose }) {
         <X />
       </button>
 
-      <div className="relative h-[197px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5ccfd3] text-center">
+      <DoctorBadge onClose={onClose} />
+      <MainNav onClose={onClose} />
+      <WaitingList onClose={onClose} />
+    </aside>
+  );
+}
+
+function DoctorBadge({ onClose }) {
+  return (
+    <>
+      <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#0caee0] to-[#63d0ca] text-center">
         <Link
           to="/doctor"
-          className="block pt-[35px] text-[17px] font-bold leading-6 text-white"
+          className="block pt-[43px] text-[24px] font-bold leading-7 text-white"
           onClick={onClose}
         >
           Medilink
         </Link>
 
-        <div className="absolute bottom-0 h-[36px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
+        <div className="absolute bottom-0 h-[46px] w-full rounded-t-[48%] bg-white dark:bg-[#3a3a3a]" />
 
-        <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2">
-          <div className="h-[94px] w-[94px] overflow-hidden rounded-full ring-[5px] ring-white dark:ring-[#3a3a3a]">
+        <div className="absolute bottom-[-16px] left-1/2 -translate-x-1/2">
+          <div className="h-[130px] w-[130px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
             <img
               src={doctorAvatar}
               alt="د. توفيق عبد الله"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-top"
             />
           </div>
-          <span className="absolute bottom-[12px] right-[4px] h-[13px] w-[13px] rounded-full bg-[#22c55e] ring-[3px] ring-white dark:ring-[#3a3a3a]" />
+          <span className="absolute bottom-[20px] right-[10px] h-[18px] w-[18px] rounded-full bg-[#25c976] ring-[4px] ring-white dark:ring-[#3a3a3a]" />
         </div>
       </div>
 
-      <div className="mt-[14px] text-center">
-        <h2 className="text-[14px] font-bold leading-5 text-[#333] dark:text-white">
-          د. توفيق عبد الله
+      <div className="mt-[17px] text-center">
+        <h2 className="text-[17px] font-bold leading-6 text-[#333] dark:text-white">
+          توفيق عبد الله
         </h2>
-        <p className="mt-1 text-[10px] leading-4 text-[#888] dark:text-gray-300">
+        <p className="mt-1 text-[12px] leading-4 text-[#8d8d8d] dark:text-gray-300">
           طبيب
         </p>
       </div>
+    </>
+  );
+}
 
-      <nav className="mt-[27px] space-y-[16px] px-[38px] text-[14px] font-bold">
-        {navItems.map((item) => (
-          <SideItem
-            key={`${item.label}-${item.to}`}
-            {...item}
-            onClick={onClose}
-          />
-        ))}
+function MainNav({ onClose }) {
+  return (
+    <nav className="mt-[35px] space-y-[20px] px-[42px] text-[18px] font-bold">
+      {navItems.map((item) => (
+        <SideItem
+          key={`${item.label}-${item.to}`}
+          {...item}
+          onClick={onClose}
+        />
+      ))}
 
-        <div className="mx-auto h-px w-full bg-[#f0f0f0] dark:bg-white/20" />
+      <div className="mx-auto h-px w-full bg-[#eeeeee] dark:bg-white/15" />
 
-        <button
-          type="button"
-          className="flex h-[36px] w-full items-center justify-start gap-[22px] rounded-xl px-0 text-[#ff7b7b]"
-        >
-          <LogOut size={21} strokeWidth={1.8} />
-          <span>تسجيل الخروج</span>
-        </button>
-      </nav>
-
-      <WaitingList />
-    </aside>
+      <button
+        type="button"
+        className="flex h-[42px] w-full items-center justify-start gap-[22px] rounded-xl px-0 text-[#ff8383]"
+      >
+        <LogOut size={25} strokeWidth={1.8} />
+        <span>تسجيل الخروج</span>
+      </button>
+    </nav>
   );
 }
 
@@ -170,60 +172,106 @@ function SideItem({ icon: Icon, label, to, onClick }) {
       end={to === "/doctor/dashboard"}
       onClick={onClick}
       className={({ isActive }) =>
-        `flex h-[36px] items-center justify-start gap-[22px] rounded-xl px-0 transition ${
+        `flex h-[42px] items-center justify-start gap-[22px] rounded-xl px-0 transition ${
           isActive
             ? "text-[#30bfd6]"
             : "text-[#b8b8b8] hover:text-[#30bfd6] dark:text-gray-300"
         }`
       }
     >
-      <Icon size={21} strokeWidth={1.8} />
+      <Icon size={25} strokeWidth={1.8} />
       <span className="whitespace-nowrap">{label}</span>
     </NavLink>
   );
 }
 
-function WaitingList() {
+function WaitingList({ onClose }) {
   return (
-    <section className="mt-[42px] border-t border-[#f0f0f0] px-[20px] pt-[17px] dark:border-white/20">
-      <div className="flex items-center justify-between text-[12px] font-bold text-[#333] dark:text-white">
+    <section className="mt-[88px] px-[24px] pb-8">
+      <div className="flex items-center justify-between text-[14px] font-bold text-[#333] dark:text-white">
         <h3>قائمة الإنتظار</h3>
-        <span>باقي : 2</span>
+        <span className="font-medium">باقي : 2</span>
       </div>
 
-      <div className="mt-[15px] space-y-[13px]">
+      <div className="mt-[20px] space-y-[10px]">
         {waitingList.map((item) => (
-          <WaitingItem key={`${item.name}-${item.time}`} item={item} />
+          <WaitingItem key={`${item.name}-${item.time}`} item={item} onClose={onClose} />
         ))}
       </div>
     </section>
   );
 }
 
-function WaitingItem({ item }) {
+function WaitingItem({ item, onClose }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isInExamination = useMemo(
+    () => location.pathname.startsWith(`/doctor/patients/${item.id}/profile`),
+    [item.id, location.pathname],
+  );
   const toneClass =
     item.statusTone === "now"
-      ? "bg-[#dff8f5] text-[#24b7a6]"
-      : "bg-[#fff1cd] text-[#d79a16]";
+      ? "bg-[#dff8f5] text-[#24b7a6] dark:bg-[#1d5f59] dark:text-[#8ff2e8]"
+      : "bg-[#fff1cd] text-[#d79a16] dark:bg-[#5a4515] dark:text-[#ffd36f]";
+
+  const openExamination = () => {
+    navigate(`/doctor/patients/${item.id}/profile`);
+    onClose();
+  };
+
+  if (item.current) {
+    return (
+      <article className="rounded-[8px] bg-[#effcfc] px-[14px] py-[14px] dark:bg-[#24484b]">
+        <div className="grid grid-cols-[42px_minmax(0,1fr)_36px] items-center gap-[10px]">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="h-[42px] w-[42px] rounded-full object-cover"
+          />
+          <div className="min-w-0 text-right">
+            <h4 className="truncate text-[15px] font-bold leading-5 text-[#333] dark:text-white">
+              {item.name}
+            </h4>
+            <p className="mt-[2px] truncate text-[12px] leading-4 text-[#555] dark:text-gray-300">
+              {item.time}
+            </p>
+          </div>
+          <span className={`grid h-[25px] place-items-center rounded-[7px] text-[11px] font-bold ${toneClass}`}>
+            الآن
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className={`mt-[12px] h-[52px] w-full rounded-[8px] text-[17px] font-semibold shadow-sm transition ${
+            isInExamination
+              ? "border-2 border-[#969696] bg-transparent text-[#9a9a9a] hover:border-[#7f7f7f] hover:text-[#808080] dark:border-[#b8c0c2] dark:text-[#d3dada] dark:hover:text-white"
+              : "bg-gradient-to-l from-[#67cbc5] to-[#08ace0] text-white hover:brightness-105"
+          }`}
+          onClick={openExamination}
+        >
+          {isInExamination ? "يتم الكشف الآن" : "بدء الكشف"}
+        </button>
+      </article>
+    );
+  }
 
   return (
-    <article className="grid h-[50px] grid-cols-[34px_minmax(0,1fr)_46px] items-center gap-[8px]">
+    <article className="grid h-[73px] grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-[9px] rounded-[8px] bg-[#fffdf7] px-[12px] dark:bg-[#484235]">
       <img
         src={item.image}
         alt={item.name}
-        className="h-[34px] w-[34px] rounded-full object-cover"
+        className="h-[42px] w-[42px] rounded-full object-cover"
       />
       <div className="min-w-0 text-right">
-        <h4 className="truncate text-[11px] font-bold leading-4 text-[#333] dark:text-white">
+        <h4 className="truncate text-[15px] font-bold leading-5 text-[#969696] dark:text-gray-200">
           {item.name}
         </h4>
-        <p className="mt-[2px] truncate text-[9px] leading-3 text-[#969696] dark:text-gray-300">
+        <p className="mt-[2px] truncate text-[12px] leading-4 text-[#9b9b9b] dark:text-gray-300">
           {item.time}
         </p>
       </div>
-      <span
-        className={`grid h-[24px] place-items-center rounded-[6px] text-[9px] font-bold ${toneClass}`}
-      >
+      <span className={`grid h-[25px] place-items-center rounded-[7px] text-[11px] font-bold ${toneClass}`}>
         {item.status}
       </span>
     </article>
