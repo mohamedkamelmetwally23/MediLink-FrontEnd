@@ -7,6 +7,7 @@ import PrimaryButton from "../ui/PrimaryButton";
 export default function ResetPasswordForm({ onOtpRequested }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
+  const [forceDisabled, setForceDisabled] = useState(false);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -14,12 +15,14 @@ export default function ResetPasswordForm({ onOtpRequested }) {
     if (!phoneNumber.trim()) {
       setError("رقم الهاتف مطلوب");
       toast.error("رقم الهاتف مطلوب");
+      setForceDisabled(true);
       return;
     }
 
     if (!/^01[0-9]{9}$/.test(phoneNumber)) {
       setError("رقم الهاتف غير صحيح");
       toast.error("رقم الهاتف غير صحيح");
+      setForceDisabled(true);
       return;
     }
 
@@ -59,10 +62,13 @@ export default function ResetPasswordForm({ onOtpRequested }) {
             }}
             autoComplete="tel"
             error={error}
+            showErrorText={false}
           />
         </div>
 
-        <PrimaryButton disabled={false}>إرسال كود التحقق</PrimaryButton>
+        <PrimaryButton disabled={forceDisabled || phoneNumber.trim().length === 0}>
+          إرسال كود التحقق
+        </PrimaryButton>
 
         <p className="mt-5 text-center text-sm text-gray-900 dark:text-[#F0F0F0]">
           هل تذكرت كلمة المرور؟{" "}

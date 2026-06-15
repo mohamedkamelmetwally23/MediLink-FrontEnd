@@ -92,7 +92,7 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
+      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       }`}
     >
@@ -105,9 +105,11 @@ function Sidebar({ isOpen, onClose }) {
         <X />
       </button>
 
-      <DoctorBadge onClose={onClose} />
-      <MainNav onClose={onClose} onLogout={handleLogout} />
-      <WaitingList onClose={onClose} />
+      <div className="h-full flex flex-col overflow-y-auto">
+        <DoctorBadge onClose={onClose} />
+        <MainNav onClose={onClose} onLogout={handleLogout} />
+        <WaitingList onClose={onClose} />
+      </div>
     </aside>
   );
 }

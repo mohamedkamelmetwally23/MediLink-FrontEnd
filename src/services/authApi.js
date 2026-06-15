@@ -33,7 +33,7 @@ function toArabicErrorMessage(message, fallback) {
       normalized.includes("registered") ||
       normalized.includes("used"))
   ) {
-    return "رقم الهاتف مستخدم بالفعل";
+    return "PHONE_ALREADY_EXISTS";
   }
 
   if (normalized.includes("password")) {
@@ -192,7 +192,11 @@ function readRoleFrom(value) {
 function readAdminFlag(value) {
   if (!value || typeof value !== "object") return false;
 
-  if (value.isAdmin === true || value.admin === true || value.is_admin === true) {
+  if (
+    value.isAdmin === true ||
+    value.admin === true ||
+    value.is_admin === true
+  ) {
     return true;
   }
 
@@ -207,7 +211,14 @@ export function isAdminAccount(data) {
   if (readAdminFlag(data)) return true;
 
   const role = normalizeRoleValue(readRoleFrom(data));
-  return ["admin", "administrator", "super_admin", "superadmin", "ادمن", "مدير"].includes(role);
+  return [
+    "admin",
+    "administrator",
+    "super_admin",
+    "superadmin",
+    "ادمن",
+    "مدير",
+  ].includes(role);
 }
 
 export function getAccountRole(data) {

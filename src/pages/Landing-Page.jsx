@@ -27,11 +27,11 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="w-full overflow-x-hidden">
       <div className="fixed inset-x-0 top-0 z-50 bg-white/95 shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1)] backdrop-blur dark:bg-[#2E2E2E]/95">
         <Navbar />
       </div>
-      <main className="pt-[72px]">
+      <main className="w-full pt-[72px] overflow-x-hidden">
         <ScrollReveal>
           <Hero />
         </ScrollReveal>

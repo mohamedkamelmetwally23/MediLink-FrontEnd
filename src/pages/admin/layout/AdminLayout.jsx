@@ -90,7 +90,7 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
+      className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       }`}
     >
@@ -102,6 +102,8 @@ function Sidebar({ isOpen, onClose }) {
       >
         <X />
       </button>
+
+      <div className="h-full flex flex-col overflow-y-auto">
 
       <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5acbd0] text-center">
         <Link
@@ -155,6 +157,7 @@ function Sidebar({ isOpen, onClose }) {
           <span>تسجيل الخروج</span>
         </button>
       </nav>
+      </div>
     </aside>
   );
 }

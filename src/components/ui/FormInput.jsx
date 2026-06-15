@@ -11,6 +11,7 @@ export default function FormInput({
   required = false,
   value,
   onChange,
+  showErrorText = true,
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -95,7 +96,17 @@ export default function FormInput({
         )}
       </div>
 
-      {error && <p className="mt-1 text-xs text-[#C51F26]">{error}</p>}
+      {showErrorText && error && (
+        Array.isArray(error) ? (
+          <div className="mt-1 space-y-1 text-xs text-[#C51F26]">
+            {error.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 text-xs text-[#C51F26]">{error}</p>
+        )
+      )}
     </div>
   );
 }

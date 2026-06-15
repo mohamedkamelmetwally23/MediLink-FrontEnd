@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forceDisabled, setForceDisabled] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -23,6 +24,7 @@ export default function LoginForm() {
       [name]: value,
     }));
     setErrors({});
+    setForceDisabled(false);
   };
 
   const handleSubmit = async (event) => {
@@ -41,7 +43,8 @@ export default function LoginForm() {
     }
 
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+      setErrors({ ...newErrors, general: "رقم الهاتف أو كلمة المرور غير صحيحة" });
+      setForceDisabled(true);
       return;
     }
 
@@ -68,10 +71,14 @@ export default function LoginForm() {
         password: " ",
         general: error.message || "رقم الهاتف أو كلمة المرور غير صحيحة",
       });
+      setForceDisabled(true);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isInputFilled =
+    formData.phoneNumber.trim().length > 0 && formData.password.trim().length > 0;
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
@@ -102,6 +109,7 @@ export default function LoginForm() {
             onChange={handleChange}
             autoComplete="tel"
             error={errors.phoneNumber}
+            showErrorText={false}
           />
         </div>
 
@@ -116,6 +124,7 @@ export default function LoginForm() {
             onChange={handleChange}
             autoComplete="current-password"
             error={errors.password}
+            showErrorText={false}
           />
         </div>
 
@@ -144,7 +153,7 @@ export default function LoginForm() {
           </p>
         )}
 
-        <PrimaryButton disabled={isSubmitting}>
+        <PrimaryButton disabled={isSubmitting || forceDisabled || !isInputFilled}>
           {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل دخول"}
         </PrimaryButton>
 

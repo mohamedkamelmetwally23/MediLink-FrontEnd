@@ -11,6 +11,7 @@ export default function NewPasswordForm({ onSuccess }) {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forceDisabled, setForceDisabled] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -20,13 +21,13 @@ export default function NewPasswordForm({ onSuccess }) {
       [name]: value,
     }));
     setErrors({});
+    setForceDisabled(false);
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
     const nextErrors = {};
-
     const passwordError = validateStrongPassword(formData.password);
 
     if (passwordError) {
@@ -41,6 +42,7 @@ export default function NewPasswordForm({ onSuccess }) {
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      setForceDisabled(true);
       toast.error("راجع بيانات كلمة المرور");
       return;
     }
@@ -52,6 +54,8 @@ export default function NewPasswordForm({ onSuccess }) {
       onSuccess?.();
     }, 700);
   };
+
+  const isFormFilled = formData.password.trim().length > 0 && formData.confirmPassword.trim().length > 0;
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
@@ -82,6 +86,7 @@ export default function NewPasswordForm({ onSuccess }) {
             onChange={handleChange}
             autoComplete="new-password"
             error={errors.password}
+            showErrorText={false}
           />
 
           <FormInput
@@ -94,11 +99,12 @@ export default function NewPasswordForm({ onSuccess }) {
             onChange={handleChange}
             autoComplete="new-password"
             error={errors.confirmPassword}
+            showErrorText={false}
           />
         </div>
 
         <div className="mt-7">
-          <PrimaryButton disabled={isSubmitting}>
+          <PrimaryButton disabled={isSubmitting || forceDisabled || !isFormFilled}>
             {isSubmitting ? "جاري الحفظ..." : "حفظ كلمة المرور"}
           </PrimaryButton>
         </div>

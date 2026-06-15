@@ -1,5 +1,17 @@
-export default function RegisterErrorModal({ isOpen, onClose }) {
+import { useNavigate } from "react-router-dom";
+
+export default function RegisterErrorModal({ isOpen, onClose, onLogin }) {
+  const navigate = useNavigate();
+
   if (!isOpen) return null;
+
+  const handleLoginClick = () => {
+    if (onLogin) {
+      onLogin();
+    } else {
+      navigate("/login");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/35 px-4">
@@ -19,6 +31,7 @@ export default function RegisterErrorModal({ isOpen, onClose }) {
 
         <button
           type="button"
+          onClick={handleLoginClick}
           className="btn mb-3 h-11 w-full rounded-lg border-none bg-gradient-to-r from-[#05ADE8] to-[#6CCCC8] text-white hover:from-[#05ADE8] hover:to-[#6CCCC8]"
         >
           تسجيل دخول

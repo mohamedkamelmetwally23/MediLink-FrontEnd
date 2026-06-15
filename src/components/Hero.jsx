@@ -20,7 +20,6 @@ export default function Hero() {
   const badges = [
     { icon: dark ? img1Dark : img1, label: "آمن وموثوق" },
     { icon: dark ? img2Dark : img2, label: "سهل الاستخدام" },
-    { icon: dark ? img3Dark : img3, label: "دعم فني 24/7" },
   ];
 
   return (

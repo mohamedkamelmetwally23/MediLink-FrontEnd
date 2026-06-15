@@ -33,7 +33,6 @@ import DoctorPatientsPage from "./pages/doctor/PatientsPage";
 import DoctorPatientProfilePage from "./pages/doctor/PatientProfilePage";
 import DoctorActivityPage from "./pages/doctor/ActivityPage";
 import RouteSkeleton from "./components/RouteSkeleton";
-import ScrollLoadingBar from "./components/ScrollLoadingBar";
 
 function App() {
   const { dark } = useTheme();
@@ -41,20 +40,20 @@ function App() {
 
   return (
     <div
-      dir="rtl"
-      className="min-h-screen w-full bg-white text-black dark:bg-[#2E2E2E] dark:text-[#F0F0F0]"
+      lang="ar"
+      className="w-full min-h-screen bg-white text-black dark:bg-[#2E2E2E] dark:text-[#F0F0F0] overflow-x-hidden"
     >
-      <ScrollLoadingBar />
+      <div dir="rtl" className="w-full overflow-x-hidden">
+      
 
-      <RouteLoadingOverlay
-        key={`${location.pathname}${location.search}`}
-        pathname={location.pathname}
-      />
+        <RouteLoadingOverlay
+          key={`${location.pathname}${location.search}`}
+          pathname={location.pathname}
+        />
 
-      <Routes>
+        <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/terms" element={<LegalPage type="terms" />} />
-        <Route path="/conditions" element={<LegalPage type="conditions" />} />
+        <Route path="/legal" element={<LegalPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
@@ -89,9 +88,9 @@ function App() {
           <Route path="patients" element={<DoctorPatientsPage />} />
           <Route path="patients/:patientId/profile" element={<DoctorPatientProfilePage />} />
         </Route>
-      </Routes>
+        </Routes>
 
-      <ToastContainer
+        <ToastContainer
         position="top-center"
         autoClose={2500}
         hideProgressBar={false}
@@ -103,7 +102,8 @@ function App() {
         rtl
         theme={dark ? "dark" : "light"}
       />
-      <ThemeToggle />
+        <ThemeToggle />
+      </div>
     </div>
   );
 }

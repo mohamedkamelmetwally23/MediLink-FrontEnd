@@ -21,9 +21,7 @@ const legalContent = {
   },
 };
 
-export default function LegalPage({ type = "terms" }) {
-  const content = legalContent[type] ?? legalContent.terms;
-
+export default function LegalPage() {
   return (
     <main className="min-h-screen bg-white px-5 py-10 text-right text-gray-900 dark:bg-[#2E2E2E] dark:text-[#F0F0F0]">
       <section className="mx-auto max-w-3xl rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-[#3A3A3A] dark:bg-[#252525] sm:p-8">
@@ -34,23 +32,33 @@ export default function LegalPage({ type = "terms" }) {
           الرجوع للتسجيل
         </Link>
 
-        <h1 className="text-3xl font-bold">{content.title}</h1>
+        <h1 className="text-3xl font-bold">الشروط والأحكام</h1>
         <p className="mt-3 leading-7 text-gray-600 dark:text-[#D2D2D2]">
-          {content.subtitle}
+          الشروط والأحكام الخاصة بمنصة MediLink مُجمعة في صفحة واحدة.
         </p>
 
-        <div className="mt-8 space-y-4">
-          {content.sections.map((section, index) => (
-            <div
-              key={section}
-              className="rounded-lg bg-[#F5F7F8] p-4 leading-7 dark:bg-[#303030]"
-            >
-              <span className="ml-2 font-bold text-[#05ADE8]">
-                {index + 1}.
-              </span>
-              {section}
-            </div>
-          ))}
+        <div className="mt-8 space-y-8">
+          {["terms", "conditions"].map((key) => {
+            const content = legalContent[key];
+            return (
+              <div key={key}>
+                <h2 className="mb-3 text-2xl font-bold text-[#05ADE8]">{content.title}</h2>
+                <p className="mb-4 text-sm text-gray-600 dark:text-[#D2D2D2]">{content.subtitle}</p>
+
+                <div className="space-y-4">
+                  {content.sections.map((section, index) => (
+                    <div
+                      key={section}
+                      className="rounded-lg bg-[#F5F7F8] p-4 leading-7 dark:bg-[#303030]"
+                    >
+                      <span className="ml-2 font-bold text-[#05ADE8]">{index + 1}.</span>
+                      {section}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </main>

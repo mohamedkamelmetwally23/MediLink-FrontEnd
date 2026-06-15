@@ -146,6 +146,7 @@ export default function RegisterForm({
   }));
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forceDisabled, setForceDisabled] = useState(false);
   const birthDateInputRef = useRef(null);
   const birthDateLimits = getBirthDateLimits();
   const minBirthDate = formatDateInputValue(birthDateLimits.min);
@@ -164,6 +165,7 @@ export default function RegisterForm({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
+    setForceDisabled(false);
   };
 
   const handleBirthDateChange = (event) => {
@@ -204,7 +206,7 @@ export default function RegisterForm({
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "اسم العائلة مطلوب";
+      newErrors.lastName = "اسم الاخير مطلوب";
     }
 
     const birthDate = parseBirthDate(formData);
@@ -248,6 +250,7 @@ export default function RegisterForm({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      setForceDisabled(true);
       showRegisterError("راجع بيانات التسجيل");
       return;
     }
@@ -307,9 +310,9 @@ export default function RegisterForm({
           <FormInput
             id="registerLastName"
             name="lastName"
-            label="اسم العائلة"
+            label="اسم الاخير"
             required
-            placeholder="اسم العائلة"
+            placeholder="اسم الاخير"
             value={formData.lastName}
             onChange={handleChange}
             autoComplete="family-name"
@@ -424,6 +427,7 @@ export default function RegisterForm({
             onChange={handleChange}
             autoComplete="tel"
             error={errors.phoneNumber}
+            showErrorText={false}
           />
 
           <FormInput
@@ -437,6 +441,7 @@ export default function RegisterForm({
             onChange={handleChange}
             autoComplete="new-password"
             error={errors.password}
+            showErrorText={true}
           />
 
           <FormInput
@@ -450,6 +455,7 @@ export default function RegisterForm({
             onChange={handleChange}
             autoComplete="new-password"
             error={errors.confirmPassword}
+            showErrorText={false}
           />
         </div>
 
@@ -466,18 +472,8 @@ export default function RegisterForm({
             <label htmlFor="registerTerms" className="cursor-pointer">
               أوافق على جميع
             </label>
-            <Link
-              to="/terms"
-              className="font-semibold text-[#05ADE8] underline underline-offset-4"
-            >
-              الشروط
-            </Link>
-            <span>و</span>
-            <Link
-              to="/conditions"
-              className="font-semibold text-[#05ADE8] underline underline-offset-4"
-            >
-              الأحكام
+            <Link to="/legal" className="font-semibold text-[#05ADE8] underline underline-offset-4">
+              الشروط والأحكام
             </Link>
           </div>
           {errors.terms && (
@@ -486,7 +482,22 @@ export default function RegisterForm({
         </div>
 
         <div className="mt-7">
-          <PrimaryButton disabled={isSubmitting}>
+          <PrimaryButton
+            disabled={
+              isSubmitting ||
+              forceDisabled ||
+              !formData.firstName.trim() ||
+              !formData.lastName.trim() ||
+              !formData.birthDay ||
+              !formData.birthMonth ||
+              !formData.birthYear ||
+              !formData.gender ||
+              !formData.phoneNumber.trim() ||
+              !formData.password.trim() ||
+              !formData.confirmPassword.trim() ||
+              !formData.terms
+            }
+          >
             {isSubmitting ? "جاري إنشاء الحساب..." : "إنشاء حساب"}
           </PrimaryButton>
         </div>

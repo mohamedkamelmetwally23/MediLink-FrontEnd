@@ -12,18 +12,8 @@ export default function TermsCheckbox() {
       </label>
 
       <div className="flex items-center gap-2 text-sm">
-        <Link
-          to="/terms"
-          className="font-semibold text-[#05ADE8] underline underline-offset-4"
-        >
-          الشروط
-        </Link>
-        <span>و</span>
-        <Link
-          to="/conditions"
-          className="font-semibold text-[#05ADE8] underline underline-offset-4"
-        >
-          الأحكام
+        <Link to="/legal" className="font-semibold text-[#05ADE8] underline underline-offset-4">
+          الشروط والأحكام
         </Link>
       </div>
     </div>

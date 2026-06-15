@@ -12,18 +12,17 @@ import { toast } from "react-toastify";
 import logo from "../assets/landingPage/logo.png";
 
 const columns = [
-  {
-    title: "روابط سريعة",
-    items: [
-      { label: "الرئيسية", href: "#home" },
-      { label: "من نحن", href: "#features" },
-      { label: "خدماتنا", href: "#features" },
-      { label: "التخصصات", href: "#specialties" },
-      { label: "الأطباء", href: "#doctors" },
-      { label: "الشروط", to: "/terms" },
-      { label: "الأحكام", to: "/conditions" },
-    ],
-  },
+      {
+        title: "روابط سريعة",
+        items: [
+          { label: "الرئيسية", href: "#home" },
+          { label: "من نحن", href: "#features" },
+          { label: "خدماتنا", href: "#features" },
+          { label: "التخصصات", href: "#specialties" },
+          { label: "الأطباء", href: "#doctors" },
+          { label: "الشروط والأحكام", to: "/legal" },
+        ],
+      },
   {
     title: "خدماتنا",
     items: [

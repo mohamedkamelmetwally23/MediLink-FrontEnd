@@ -6,6 +6,7 @@ import AuthSkeleton from "../../components/Auth/AuthSkeleton";
 import AuthSuccess from "../../components/Auth/AuthSuccess";
 import OtpForm from "../../components/Auth/OtpForm";
 import RegisterForm from "../../components/Auth/RegisterForm";
+import RegisterErrorModal from "../../components/Auth/RegisterErrorModal";
 import { extractOtp, signupUser, verifyOtp } from "../../services/authApi";
 
 const initialRegisterFormData = {
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const [registerFormData, setRegisterFormData] = useState(initialRegisterFormData);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpHint, setOtpHint] = useState("");
+  const [isDuplicatePhoneModalOpen, setIsDuplicatePhoneModalOpen] = useState(false);
   const stepParam = new URLSearchParams(location.search).get("step");
   const visibleStep = step === "otp" && stepParam !== "otp" ? "form" : step;
 
@@ -37,23 +39,42 @@ export default function RegisterPage() {
   };
 
   const handleOtpRequested = async (signupPayload) => {
-    const signupResponse = await signupUser(signupPayload);
-    const nextOtpHint = extractOtp(signupResponse);
+    try {
+      const signupResponse = await signupUser(signupPayload);
+      const nextOtpHint = extractOtp(signupResponse);
 
-    setPhoneNumber(signupPayload.phone);
-    setOtpHint(nextOtpHint);
-    toast.success(
-      nextOtpHint
-        ? "تم إنشاء الحساب، استخدم كود التحقق الظاهر أمامك"
-        : "تم إنشاء الحساب، راجع response للحصول على كود التحقق"
-    );
-    setStep("otp");
-    navigate("/register?step=otp");
+      setPhoneNumber(signupPayload.phone);
+      setOtpHint(nextOtpHint);
+      toast.success(
+        nextOtpHint
+          ? "تم إنشاء الحساب، استخدم كود التحقق الظاهر أمامك"
+          : "تم إنشاء الحساب، راجع response للحصول على كود التحقق"
+      );
+      setStep("otp");
+      navigate("/register?step=otp");
+    } catch (error) {
+      if (error.message === "PHONE_ALREADY_EXISTS") {
+        setIsDuplicatePhoneModalOpen(true);
+      } else {
+        toast.error(error.message || "حدث خطأ أثناء إنشاء الحساب");
+      }
+    }
   };
 
   const handleOtpVerified = async (otp) => {
     await verifyOtp({ phone: phoneNumber, otp });
     setStep("success");
+  };
+
+  const handleLoginClick = () => {
+    setIsDuplicatePhoneModalOpen(false);
+    navigate("/login");
+  };
+
+  const handleUseAnotherNumber = () => {
+    setIsDuplicatePhoneModalOpen(false);
+    setStep("form");
+    navigate("/register", { replace: true });
   };
 
   const renderContent = () => {
@@ -105,6 +126,12 @@ export default function RegisterPage() {
         )}
         {renderContent()}
       </div>
+
+      <RegisterErrorModal
+        isOpen={isDuplicatePhoneModalOpen}
+        onClose={handleUseAnotherNumber}
+        onLogin={handleLoginClick}
+      />
     </main>
   );
 }

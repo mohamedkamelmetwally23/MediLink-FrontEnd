@@ -31,6 +31,7 @@ export default function OtpForm({
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(false);
+  const [forceDisabled, setForceDisabled] = useState(false);
   const inputsRef = useRef([]);
   const maskedPhoneNumber = maskPhoneNumber(phoneNumber);
 
@@ -46,6 +47,7 @@ export default function OtpForm({
     nextDigits[index] = nextValue;
     setDigits(nextDigits);
     setError("");
+    setForceDisabled(false);
 
     if (nextValue && index < OTP_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
@@ -81,6 +83,7 @@ export default function OtpForm({
     if (otpValue.length !== OTP_LENGTH) {
       setError("أدخل كود التحقق كاملًا");
       toast.error("أدخل كود التحقق كاملًا");
+      setForceDisabled(true);
       return;
     }
 
@@ -91,6 +94,7 @@ export default function OtpForm({
     } catch (error) {
       setError(error.message || "كود التحقق غير صحيح");
       toast.error(error.message || "كود التحقق غير صحيح");
+      setForceDisabled(true);
     } finally {
       setIsChecking(false);
     }
@@ -107,6 +111,8 @@ export default function OtpForm({
     setError("");
     inputsRef.current[0]?.focus();
   };
+
+  const isOtpFilled = otpValue.length === OTP_LENGTH;
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
@@ -174,7 +180,7 @@ export default function OtpForm({
           </p>
         )}
 
-        <PrimaryButton disabled={isChecking}>
+        <PrimaryButton disabled={isChecking || forceDisabled || !isOtpFilled}>
           {isChecking ? "جاري التأكيد..." : submitText}
         </PrimaryButton>
 
