@@ -1,546 +1,1219 @@
-import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   CalendarDays,
-  ClipboardPlus,
-  Droplets,
-  Search,
-  Stethoscope,
+  Check,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
   X,
 } from "lucide-react";
 import patientImage from "../../assets/landingPage/admin.png";
+import cigaretteIcon from "../../assets/doctor departement/ph_cigarette.png";
+import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
+import scaleIcon from "../../assets/doctor departement/ion_scale-outline.png";
+import heightIcon from "../../assets/doctor departement/Group 640 (1).png";
+import recordIcon from "../../assets/doctor departement/Monotone add.png";
+import xrayImageOne from "../../assets/doctor departement/image 12.png";
+import reportImage from "../../assets/doctor departement/image 12 (1).png";
+import xrayImageTwo from "../../assets/doctor departement/image 12 (2).png";
+import xrayImageThree from "../../assets/doctor departement/image 12 (3).png";
+import xrayImageFour from "../../assets/doctor departement/image 12 (4).png";
 
-const patients = {
-  1: {
-    name: "محمد علي",
-    phone: "01237652086",
-    age: "35 سنة",
-    gender: "ذكر",
-    lastVisit: "2026/05/01",
-    registrationDate: "2025/04/10",
-  },
-  2: {
-    name: "سما محمد",
-    phone: "01237652086",
-    age: "29 سنة",
-    gender: "أنثى",
-    lastVisit: "2026/05/01",
-    registrationDate: "2025/04/10",
-  },
-  5: {
-    name: "خالد طارق",
-    phone: "01237652086",
-    age: "35 سنة",
-    gender: "ذكر",
-    lastVisit: "2026/05/01",
-    registrationDate: "2025/04/10",
-  },
+const patient = {
+  name: "خالد طارق",
+  role: "مريض",
+  status: "مفعل",
+  gender: "ذكر",
+  age: "33 سنة",
+  phone: "0107338300",
 };
 
-const fallbackPatient = patients[5];
-
-const stats = [
-  { label: "مواعيد", value: "160", icon: CalendarDays },
-  { label: "كشف", value: "70", icon: ClipboardPlus },
-  { label: "تحاليل", value: "50", icon: Droplets },
-  { label: "متابعة", value: "7 أيام", icon: Stethoscope },
+const menuItems = [
+  { id: "booking", label: "تفاصيل الحجز" },
+  { id: "info", label: "معلومات المريض" },
+  { id: "files", label: "الملفات الطبية" },
+  { id: "records", label: "السجل الطبي" },
+  { id: "medicines", label: "الأدوية والجرعات السابقة" },
 ];
 
-const tabs = [
-  { id: "followup", label: "معلومات إضافية" },
-  { id: "records", label: "السجل المرضي" },
-  { id: "prescriptions", label: "الوصفات الطبية" },
-];
-
-const prescriptions = [
-  {
-    date: "2026/يونيه/30",
-    medicine: "Ventolin",
-    dose: "1 حباية",
-    duration: "كل 6 ساعات",
-    period: "3 أيام",
-  },
-  {
-    date: "2026/يونيه/30",
-    medicine: "Paracetamol",
-    dose: "1 حباية",
-    duration: "كل 8 ساعات",
-    period: "7 أيام",
-  },
-  {
-    date: "2026/يونيه/3",
-    medicine: "Ventolin",
-    dose: "1 حباية",
-    duration: "كل 6 ساعات",
-    period: "3 أيام",
-  },
-  {
-    date: "2026/يونيه/3",
-    medicine: "Panacetamol",
-    dose: "1 حباية",
-    duration: "كل 8 ساعات",
-    period: "7 أيام",
-  },
-  {
-    date: "2025/ديسمبر/24",
-    medicine: "Ventolin",
-    dose: "1 حباية",
-    duration: "كل 6 ساعات",
-    period: "3 أيام",
-  },
-  {
-    date: "2025/ديسمبر/24",
-    medicine: "Panacetamol",
-    dose: "1 حباية",
-    duration: "كل 8 ساعات",
-    period: "7 أيام",
-  },
+const steps = [
+  { number: 5, label: "ملخص" },
+  { number: 4, label: "المراجعة" },
+  { number: 3, label: "الأدوية والجرعات" },
+  { number: 2, label: "التشخيص" },
+  { number: 1, label: "ملف المريض" },
 ];
 
 const medicalRecords = [
   {
-    date: "2026/مايو/17",
+    id: 1,
+    date: "2026/مايو/3",
     title: "حساسية شديدة",
-    summary: "ملاحظات: سعال شديد واحمرار في الأنف والعينين",
+    summary: "ملاحظات: سعال شديد واحتقان في الأنف والحنجرة",
+    diagnosis: "التهاب خفيف بالجهاز التنفسي العلوي مصحوب باحتقان بالحلق وسعال متقطع.",
+    notes:
+      "يعاني المريض من عطس متكرر واحتقان بالأنف، وتم وصف العلاج المناسب مع تجنب مسببات الحساسية قدر الإمكان.\n\nينصح بالراحة وشرب السوائل بكثرة مع متابعة الأعراض خلال الأيام القادمة، والعودة للفحص في حال استمرار الأعراض أو تفاقمها.",
   },
   {
+    id: 2,
+    date: "2026/فبراير/24",
+    title: "حساسية موسمية",
+    summary: "ملاحظات: تجنب مسببات الحساسية",
+    diagnosis: "حساسية موسمية مع احتقان متكرر في الأنف.",
+    notes: "تمت التوصية بمضاد حساسية يومي وتجنب الأتربة والروائح النفاذة.",
+  },
+  {
+    id: 3,
+    date: "2026/يناير/30",
+    title: "حساسية شديدة",
+    summary: "ملاحظات: سعال شديد واحتقان في الأنف والحنجرة",
+    diagnosis: "التهاب بالحلق مع أعراض حساسية حادة.",
+    notes: "تحتاج الحالة لمتابعة بعد ثلاثة أيام في حال استمرار السعال.",
+  },
+  {
+    id: 4,
+    date: "2026/يناير/3",
+    title: "التهاب الجيوب الأنفية",
+    summary: "ملاحظة: سعال شديد واحتقان في الأنف",
+    diagnosis: "التهاب جيوب أنفية متوسط.",
+    notes: "استخدام بخاخ الأنف حسب الجرعة وشرب سوائل دافئة.",
+  },
+  {
+    id: 5,
     date: "2025/ديسمبر/12",
     title: "حساسية شديدة",
-    summary: "ملاحظات: سعال شديد واحمرار في الأنف والعينين",
-  },
-  {
-    date: "2025/نوفمبر/12",
-    title: "حساسية شديدة",
-    summary: "ملاحظات: سعال شديد واحمرار في الأنف والعينين",
-  },
-  {
-    date: "2025/أكتوبر/12",
-    title: "حساسية شديدة",
-    summary: "ملاحظات: سعال شديد واحمرار في الأنف والعينين",
+    summary: "ملاحظات: سعال شديد واحتقان في الأنف والحنجرة",
+    diagnosis: "حساسية صدرية خفيفة.",
+    notes: "تم وصف موسع شعب عند اللزوم ومراجعة الأعراض بعد أسبوع.",
   },
 ];
 
 const followupData = {
-  diseases: [
-    "السكري (النوع الثاني)",
-    "ارتفاع ضغط الدم",
-    "ارتفاع ضغط الدم",
-    "السكري (النوع الثاني)",
-    "السكري (النوع الثاني)",
-  ],
+  diseases: ["السكري (النوع الثاني)", "ارتفاع ضغط الدم"],
   allergies: ["أكزيما", "حساسية اللاكتوز"],
-  medicines: ["ميتفورمين", "كوفالون", "لوراتادين"],
+  medicines: ["ميتفورمين", "كورتيزون", "لوراتادين"],
 };
 
+const prescriptions = [
+  {
+    date: "2026/يناير/30",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
+  {
+    date: "2026/يناير/3",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
+  {
+    date: "2025/ديسمبر/24",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
+];
+
 export default function DoctorPatientProfilePage() {
-  const navigate = useNavigate();
-  const { patientId } = useParams();
-  const [activeTab, setActiveTab] = useState("followup");
-  const [search, setSearch] = useState("");
-  const patient = patients[patientId] || fallbackPatient;
+  const [consultationStep, setConsultationStep] = useState("patient");
+  const [activeSection, setActiveSection] = useState("info");
+  const [selectedRecordId, setSelectedRecordId] = useState(null);
+  const [diagnosis, setDiagnosis] = useState(
+    "التهاب خفيف بالجهاز التنفسي العلوي مصحوب باحتقان بالحلق وسعال متقطع.",
+  );
+  const [notes, setNotes] = useState(
+    "يعاني المريض من عطس متكرر واحتقان بالأنف، وتم وصف العلاج المناسب مع تجنب مسببات الحساسية قدر الإمكان.\nينصح بالراحة وشرب السوائل بكثرة مع متابعة الأعراض خلال الأيام القادمة، والعودة للفحص في حال استمرار الأعراض أو تفاقمها.",
+  );
+  const [medicineDate, setMedicineDate] = useState("2025-06-22");
+  const [medicineRows, setMedicineRows] = useState([
+    {
+      id: 1,
+      name: "Vontolin",
+      dose: "حباية 1",
+      schedule: "كل 6 ساعات",
+      duration: "3 أيام",
+    },
+    {
+      id: 2,
+      name: "Paracetamol",
+      dose: "حباية 1",
+      schedule: "كل 8 ساعات",
+      duration: "7 أيام",
+    },
+    {
+      id: 3,
+      name: "Panadol",
+      dose: "حباية 1",
+      schedule: "كل 12 ساعات",
+      duration: "عند اللزوم",
+    },
+  ]);
+  const [reviewDate, setReviewDate] = useState("2025-06-22");
+  const [reviewNotes, setReviewNotes] = useState(
+    "في حالة الإستجابة للدواء واختفاء الأعراض لا داعي للمراجعة",
+  );
+  const selectedRecord = useMemo(
+    () => medicalRecords.find((record) => record.id === selectedRecordId),
+    [selectedRecordId],
+  );
 
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
+  const openSection = (sectionId) => {
+    setActiveSection(sectionId);
+    if (sectionId !== "records") {
+      setSelectedRecordId(null);
     }
+  };
 
-    navigate("/doctor/patients");
+  const openRecord = (recordId) => {
+    setActiveSection("records");
+    setSelectedRecordId(recordId);
   };
 
   return (
-    <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
-      <header className="relative flex min-h-[100px] items-start justify-start bg-white px-4 pt-[20px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[24px]">
-        <div className="text-right">
-          <h1 className="text-[20px] font-bold leading-7 text-[#333] dark:text-white">
-            ملف المريض
-          </h1>
-          <p className="mt-1 text-[11px] leading-5 text-[#8a8a8a] dark:text-gray-300">
-            المرضى / ملف المريض
-          </p>
-        </div>
+    <section className="min-h-screen bg-white text-[#333] dark:bg-[#2e2e2e] dark:text-white">
+      <main className="min-h-screen w-full px-3 pb-[24px] pt-[34px] sm:px-6 sm:pb-[34px] sm:pt-[48px] xl:px-[32px] 2xl:px-[48px]">
+        <Stepper currentStep={consultationStep} />
 
-        <button
-          type="button"
-          className="absolute left-5 top-[26px] flex items-center gap-[6px] text-[11px] font-bold text-[#30bfd6] lg:left-[24px]"
-          onClick={handleBack}
-        >
-          <ArrowRight size={13} strokeWidth={2} />
-          رجوع
-        </button>
-      </header>
+        {consultationStep === "patient" && (
+          <>
+            <div className="mt-[32px] grid w-full gap-[16px] lg:mt-[69px] lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[376px_minmax(0,1fr)] 2xl:grid-cols-[390px_minmax(0,1fr)]">
+              <ConsultationMenu activeSection={activeSection} onSectionChange={openSection} />
 
-      <main className="px-4 pb-[28px] pt-[22px] sm:px-6 lg:px-[24px]">
-        <section
-          className="grid gap-[16px] xl:grid-cols-[250px_minmax(0,1fr)]"
-          dir="ltr"
-        >
-          <PatientInfoCard patient={patient} />
+              <section className="min-w-0">
+                {activeSection !== "records" || !selectedRecord ? (
+                  <PatientCard />
+                ) : (
+                  <BackButton onClick={() => setSelectedRecordId(null)} />
+                )}
 
-          <div className="space-y-[14px]" dir="rtl">
-            <ProfileCard patient={patient} />
-            <StatsGrid />
-          </div>
-        </section>
+                <div className="mt-[18px] min-h-[360px] sm:mt-[31px] lg:min-h-[560px]">
+                  {activeSection === "booking" && <BookingDetails />}
+                  {activeSection === "info" && <PatientInformation />}
+                  {activeSection === "files" && <MedicalFiles large />}
+                  {activeSection === "records" && !selectedRecord && (
+                    <MedicalRecords onOpenRecord={openRecord} />
+                  )}
+                  {activeSection === "records" && selectedRecord && (
+                    <MedicalRecordDetails record={selectedRecord} />
+                  )}
+                  {activeSection === "medicines" && <PreviousMedicines />}
+                </div>
+              </section>
+            </div>
 
-        <section className="mt-[18px]">
-          <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <button
+              type="button"
+              className="mt-[21px] h-[52px] w-full rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+              onClick={() => setConsultationStep("diagnosis")}
+            >
+              التالي
+            </button>
+          </>
+        )}
 
-          <div className="mt-[20px] flex justify-end">
-            <SearchBox value={search} onChange={setSearch} />
-          </div>
+        {consultationStep === "diagnosis" && (
+          <DiagnosisStep
+            diagnosis={diagnosis}
+            notes={notes}
+            onDiagnosisChange={setDiagnosis}
+            onNotesChange={setNotes}
+            onBack={() => setConsultationStep("patient")}
+            onNext={() => setConsultationStep("medicines")}
+          />
+        )}
 
-          <div className="mt-[18px] min-h-[285px]">
-            {activeTab === "prescriptions" && (
-              <PrescriptionsTab search={search} />
-            )}
-            {activeTab === "records" && <MedicalRecordsTab search={search} />}
-            {activeTab === "followup" && <FollowupTab search={search} />}
-          </div>
-        </section>
+        {consultationStep === "medicines" && (
+          <MedicinesStep
+            diagnosis={diagnosis}
+            notes={notes}
+            onNotesChange={setNotes}
+            date={medicineDate}
+            onDateChange={setMedicineDate}
+            medicineRows={medicineRows}
+            onMedicineRowsChange={setMedicineRows}
+            onBack={() => setConsultationStep("diagnosis")}
+            onNext={() => setConsultationStep("review")}
+          />
+        )}
+
+        {consultationStep === "review" && (
+          <ReviewAppointmentStep
+            reviewDate={reviewDate}
+            onReviewDateChange={setReviewDate}
+            reviewNotes={reviewNotes}
+            onReviewNotesChange={setReviewNotes}
+            onBack={() => setConsultationStep("medicines")}
+            onNext={() => setConsultationStep("summary")}
+          />
+        )}
+
+        {consultationStep === "summary" && (
+          <SummaryStep
+            diagnosis={diagnosis}
+            notes={notes}
+            medicineRows={medicineRows}
+            reviewDate={reviewDate}
+            reviewNotes={reviewNotes}
+            onBack={() => setConsultationStep("review")}
+          />
+        )}
       </main>
     </section>
   );
 }
 
-function PatientInfoCard({ patient }) {
-  const rows = [
-    { label: "آخر الكشف", value: patient.lastVisit },
-    { label: "العمر", value: patient.age },
-    { label: "الجنس", value: patient.gender },
-    { label: "رقم الهاتف", value: patient.phone },
-    { label: "تاريخ التسجيل", value: patient.registrationDate },
-  ];
-
+function Stepper({ currentStep }) {
   return (
-    <section
-      className="rounded-[8px] bg-white px-[18px] py-[22px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
-      dir="rtl"
-    >
-      <h2 className="mb-[14px] text-right text-[13px] font-bold text-[#333] dark:text-white">
-        معلومات المريض
-      </h2>
-
-      {rows.map((row) => (
-        <div
-          key={row.label}
-          className="flex h-[34px] items-center justify-between border-b border-[#eeeeee] text-[10px] text-[#555] last:border-b-0 dark:border-white/15 dark:text-gray-200"
-        >
-          <span>{row.label}</span>
-          <span>{row.value}</span>
-        </div>
-      ))}
-    </section>
+    <div className="pb-2">
+      <div className="mx-auto grid w-full max-w-[1120px] grid-cols-5 items-start gap-0" dir="ltr">
+        {steps.map((step, index) => (
+          <StepItem
+            key={step.label}
+            step={step}
+            index={index}
+            currentStep={currentStep}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
-function ProfileCard({ patient }) {
+function StepItem({ step, index, currentStep }) {
+  const isDone =
+    (currentStep !== "patient" && step.number === 1) ||
+    (["medicines", "review", "summary"].includes(currentStep) && step.number === 2) ||
+    (["review", "summary"].includes(currentStep) && step.number === 3) ||
+    (currentStep === "summary" && step.number === 4);
+  const isActive =
+    (currentStep === "patient" && step.number === 1) ||
+    (currentStep === "diagnosis" && step.number === 2) ||
+    (currentStep === "medicines" && step.number === 3) ||
+    (currentStep === "review" && step.number === 4) ||
+    (currentStep === "summary" && step.number === 5);
+
   return (
-    <section className="grid min-h-[176px] place-items-center rounded-[8px] bg-white px-6 py-[16px] text-center shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <div>
-        <div className="mx-auto h-[104px] w-[104px] overflow-hidden rounded-full border-[4px] border-[#eeeeee]">
+    <div className="relative text-center">
+            {index < steps.length - 1 && (
+              <span className="absolute left-[calc(50%+19px)] top-[15px] h-[2px] w-[62%] bg-[#30b9d6] dark:bg-[#5ad4de] sm:left-[calc(50%+31px)] sm:top-[21px] sm:h-[3px] sm:w-[66%] lg:left-[calc(50%+39px)] lg:top-[26px]" />
+            )}
+            <span
+              className={`relative z-10 mx-auto grid h-[32px] w-[32px] place-items-center rounded-full border-[2px] border-[#31b9d6] text-[12px] sm:h-[44px] sm:w-[44px] sm:border-[3px] sm:text-[16px] lg:h-[54px] lg:w-[54px] lg:text-[20px] ${
+                isDone
+                  ? "bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-white"
+                  : "bg-white text-[#28b9d6] dark:bg-[#2e2e2e]"
+              } ${
+                isActive && !isDone
+                  ? "after:h-[11px] after:w-[11px] after:rounded-full after:bg-[#51c3d1] after:content-[''] sm:after:h-[15px] sm:after:w-[15px] lg:after:h-[19px] lg:after:w-[19px]"
+                  : ""
+              }`}
+            >
+              {isDone ? (
+                <Check size={30} strokeWidth={2.6} />
+              ) : isActive ? null : (
+                step.number
+              )}
+            </span>
+            <p
+              className={`mt-[7px] px-0.5 text-[10px] font-bold leading-4 sm:mt-[10px] sm:text-[17px] sm:leading-7 lg:mt-[18px] lg:text-[24px] xl:text-[27px] ${
+                isDone
+                  ? "text-[#2ec1d8]"
+                  : isActive
+                    ? "text-[#3c3c3c] dark:text-white"
+                    : "text-[#8f8f8f]"
+              }`}
+            >
+              {step.label}
+            </p>
+    </div>
+  );
+}
+
+function DiagnosisStep({
+  diagnosis,
+  notes,
+  onDiagnosisChange,
+  onNotesChange,
+  onBack,
+  onNext,
+}) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isRecording) return undefined;
+
+    const timer = window.setInterval(() => {
+      setSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isRecording]);
+
+  return (
+    <section className="mt-[32px] min-h-[720px] lg:mt-[56px]">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col items-center">
+        <button
+          type="button"
+          aria-label={isRecording ? "إيقاف التسجيل" : "بدء التسجيل"}
+          className={`doctor-record-button grid h-[118px] w-[118px] place-items-center rounded-full transition sm:h-[156px] sm:w-[156px] ${
+            isRecording ? "is-recording" : ""
+          }`}
+          onClick={() => setIsRecording((current) => !current)}
+        >
           <img
-            src={patientImage}
-            alt={patient.name}
-            className="h-full w-full object-cover"
+            src={recordIcon}
+            alt=""
+            className="h-[34px] w-[34px] object-contain sm:h-[43px] sm:w-[43px]"
           />
+        </button>
+
+        <div className="mt-[18px] flex w-full max-w-[290px] items-center justify-between sm:mt-[23px]">
+          <ControlButton
+            label="إلغاء التسجيل"
+            onClick={() => {
+              setIsRecording(false);
+              setSeconds(0);
+            }}
+          >
+            <X size={23} strokeWidth={2.7} />
+          </ControlButton>
+
+          <span className="text-[18px] font-semibold text-[#333] dark:text-white sm:text-[20px]">
+            {formatTime(seconds)}
+          </span>
+
+          <ControlButton
+            label={isRecording ? "إيقاف مؤقت" : "استكمال التسجيل"}
+            onClick={() => setIsRecording((current) => !current)}
+          >
+            {isRecording ? (
+              <Pause size={22} fill="currentColor" strokeWidth={2.5} />
+            ) : (
+              <Play size={23} fill="currentColor" strokeWidth={2.2} />
+            )}
+          </ControlButton>
         </div>
-        <h2 className="mt-[10px] text-[15px] font-bold leading-5 text-[#333] dark:text-white">
-          {patient.name}
-        </h2>
-        <div className="mt-[4px] flex items-center justify-center gap-[6px] text-[9px] text-[#8a8a8a]">
-          <span>مريض</span>
-          <span className="h-[7px] w-[7px] rounded-full bg-[#26c461]" />
-        </div>
+
+        <Waveform isRecording={isRecording} />
+      </div>
+
+      <div className="mt-[30px] space-y-[16px] sm:mt-[37px]">
+        <EditableMedicalField
+          label="التشخيص"
+          value={diagnosis}
+          onChange={onDiagnosisChange}
+          minHeight="min-h-[58px]"
+          showEditButton
+        />
+        <EditableMedicalField
+          label="ملاحظات"
+          value={notes}
+          onChange={onNotesChange}
+          minHeight="min-h-[172px]"
+          multiline
+        />
+      </div>
+
+      <div className="mt-[48px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+          onClick={onNext}
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          التالي
+        </button>
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
+          onClick={onBack}
+        >
+          السابق
+          <ArrowRight size={23} strokeWidth={2.2} />
+        </button>
       </div>
     </section>
   );
 }
 
-function StatsGrid() {
-  return (
-    <div className="grid grid-cols-2 gap-[10px] md:grid-cols-4">
-      {stats.map((stat) => (
-        <section
-          key={stat.label}
-          className="grid min-h-[86px] place-items-center rounded-[8px] bg-white px-3 py-3 text-center shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
-        >
-          <div>
-            <stat.icon
-              size={21}
-              strokeWidth={1.8}
-              className="mx-auto text-[#26bed6]"
-            />
-            <p className="mt-[7px] text-[10px] font-bold leading-4 text-[#26bed6]">
-              {stat.label}
-            </p>
-            <p className="text-[11px] font-bold leading-4 text-[#26bed6]">
-              {stat.value}
-            </p>
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
+function MedicinesStep({
+  diagnosis,
+  notes,
+  onNotesChange,
+  date,
+  onDateChange,
+  medicineRows,
+  onMedicineRowsChange,
+  onBack,
+  onNext,
+}) {
+  const dateInputRef = useRef(null);
 
-function Tabs({ activeTab, onTabChange }) {
-  return (
-    <div className="grid h-[36px] grid-cols-3 border-b border-[#d7d7d7] text-[11px] font-bold text-[#b5b5b5] dark:border-white/15">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          className={`relative transition ${
-            activeTab === tab.id ? "text-[#26bed6]" : "hover:text-[#26bed6]"
-          }`}
-          onClick={() => onTabChange(tab.id)}
-        >
-          {tab.label}
-          {activeTab === tab.id && (
-            <span className="absolute inset-x-0 bottom-[-1px] mx-auto h-[2px] w-full bg-[#26bed6]" />
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SearchBox({ value, onChange }) {
-  return (
-    <label
-      className="flex h-[37px] w-full items-center gap-[8px] rounded-[7px] border border-[#d7d7d7] bg-[#fbfbfb] px-[11px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[245px]"
-      dir="ltr"
-    >
-      {value && (
-        <button
-          type="button"
-          aria-label="مسح البحث"
-          className="grid h-5 w-5 place-items-center"
-          onClick={() => onChange("")}
-        >
-          <X size={13} strokeWidth={1.7} />
-        </button>
-      )}
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-right text-[10px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
-        dir="rtl"
-      />
-      <Search size={15} strokeWidth={1.7} />
-    </label>
-  );
-}
-
-function PrescriptionsTab({ search }) {
-  const filteredPrescriptions = useMemo(() => {
-    const query = search.trim();
-
-    if (!query) return prescriptions;
-
-    return prescriptions.filter((item) =>
-      [item.date, item.medicine, item.dose, item.duration, item.period].some(
-        (value) => value.includes(query),
+  const updateMedicine = (id, key, value) => {
+    onMedicineRowsChange((currentRows) =>
+      currentRows.map((row) =>
+        row.id === id ? { ...row, [key]: value } : row,
       ),
     );
-  }, [search]);
+  };
 
-  if (filteredPrescriptions.length === 0) {
-    return <EmptyState text="لا يوجد وصفات طبية حتى الآن" />;
-  }
+  const addMedicine = () => {
+    onMedicineRowsChange((currentRows) => [
+      ...currentRows,
+      {
+        id: Date.now(),
+        name: "",
+        dose: "",
+        schedule: "",
+        duration: "",
+      },
+    ]);
+  };
 
-  const groups = groupPrescriptionsByDate(filteredPrescriptions);
+  const deleteMedicine = (id) => {
+    onMedicineRowsChange((currentRows) =>
+      currentRows.length > 1
+        ? currentRows.filter((row) => row.id !== id)
+        : currentRows,
+    );
+  };
 
   return (
-    <div className="space-y-[25px]">
-      {groups.map(([date, items]) => (
-        <section key={date} className="overflow-x-auto">
-          <div className="min-w-[720px]">
-            <p className="mb-[8px] text-right text-[10px] font-bold text-[#26bed6]">
-              {date}
-            </p>
+    <section className="mt-[38px] min-h-[720px] lg:mt-[82px]">
+      <div className="grid gap-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(260px,344px)] lg:items-end lg:gap-[48px]" dir="rtl">
+        <div className="text-right">
+          <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
+            التشخيص
+          </label>
+          <input
+            value={diagnosis}
+            readOnly
+            className="h-[52px] w-full rounded-[8px] bg-[#fafafa] px-[18px] text-right text-[18px] text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]"
+          />
+        </div>
+
+        <div className="text-right">
+          <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
+            التاريخ
+          </label>
+          <button
+            type="button"
+            className="grid h-[52px] w-full grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#fafafa] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100"
+            dir="ltr"
+            onClick={() => openDatePicker(dateInputRef)}
+          >
+            <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
+            <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
+              {formatDisplayDate(date)}
+            </span>
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={date}
+              onChange={(event) => onDateChange(event.target.value)}
+              className="sr-only"
+              tabIndex={-1}
+            />
+          </button>
+        </div>
+      </div>
+
+      <section className="mt-[48px] text-right">
+        <h2 className="mb-[23px] text-[20px] font-semibold text-[#333] dark:text-white">
+          الأدوية والجرعات
+        </h2>
+
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[760px]">
             <div
-              className="grid h-[28px] grid-cols-4 items-center rounded-[6px] text-[10px] font-bold text-[#555] dark:text-gray-200"
-              dir="rtl"
+              className="grid grid-cols-[44px_repeat(4,minmax(130px,1fr))] gap-[8px] pr-[44px] text-[15px] font-semibold text-[#111] dark:text-gray-200"
+              dir="ltr"
             >
-              <span className="px-[10px] text-right">اسم الدواء</span>
-              <span className="px-[10px] text-right">الجرعة</span>
-              <span className="px-[10px] text-right">ميعاد الجرعة</span>
-              <span className="px-[10px] text-right">لمدة</span>
+              <span />
+              <span className="text-right">لمدة</span>
+              <span className="text-right">معاد الجرعة</span>
+              <span className="text-right">الجرعة</span>
+              <span className="text-right">اسم الدواء</span>
             </div>
 
-            {items.map((item) => (
-              <div
-                key={`${item.date}-${item.medicine}-${item.period}`}
-                className="grid h-[36px] grid-cols-4 items-center gap-[3px] text-[11px] text-[#333] dark:text-white"
-                dir="rtl"
-              >
-                <span className="h-[28px] rounded-[6px] bg-[#f7f7f7] px-[10px] pt-[7px] text-right dark:bg-[#444]">
-                  {item.medicine}
-                </span>
-                <span className="h-[28px] rounded-[6px] bg-[#f7f7f7] px-[10px] pt-[7px] text-right dark:bg-[#444]">
-                  {item.dose}
-                </span>
-                <span className="h-[28px] rounded-[6px] bg-[#f7f7f7] px-[10px] pt-[7px] text-right dark:bg-[#444]">
-                  {item.duration}
-                </span>
-                <span className="h-[28px] rounded-[6px] bg-[#f7f7f7] px-[10px] pt-[7px] text-right dark:bg-[#444]">
-                  {item.period}
-                </span>
-              </div>
+            <div className="mt-[10px] space-y-[8px]">
+              {medicineRows.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[44px_repeat(4,minmax(130px,1fr))] items-center gap-[8px]"
+                  dir="ltr"
+                >
+                  <button
+                    type="button"
+                    aria-label="حذف الدواء"
+                    className="grid h-[50px] place-items-center text-[#ff2626] transition hover:text-[#d51212]"
+                    onClick={() => deleteMedicine(row.id)}
+                  >
+                    <Trash2 size={23} strokeWidth={1.8} />
+                  </button>
+                  <MedicineInput
+                    value={row.duration}
+                    onChange={(value) => updateMedicine(row.id, "duration", value)}
+                  />
+                  <MedicineInput
+                    value={row.schedule}
+                    onChange={(value) => updateMedicine(row.id, "schedule", value)}
+                  />
+                  <MedicineInput
+                    value={row.dose}
+                    onChange={(value) => updateMedicine(row.id, "dose", value)}
+                  />
+                  <MedicineInput
+                    value={row.name}
+                    onChange={(value) => updateMedicine(row.id, "name", value)}
+                    dir="ltr"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="mt-[14px]  flex h-[52px] flex-row-reverse items-center gap-[8px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] px-[18px] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105"
+          onClick={addMedicine}
+        >
+          <Plus size={22} strokeWidth={2} />
+          إضافة دواء
+        </button>
+      </section>
+
+      <section className="mt-[61px] text-right">
+        <label className="mb-[10px] block text-[17px] font-semibold text-[#111] dark:text-white">
+          ملاحظات
+        </label>
+        <textarea
+          value={notes}
+          onChange={(event) => onNotesChange(event.target.value)}
+          rows={3}
+          className="min-h-[90px] w-full resize-none rounded-[8px] bg-[#fafafa] px-[18px] py-[16px] text-right text-[17px] leading-8 text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]"
+        />
+      </section>
+
+      <div className="mt-[63px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+          onClick={onNext}
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          التالي
+        </button>
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
+          onClick={onBack}
+        >
+          السابق
+          <ArrowRight size={23} strokeWidth={2.2} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function MedicineInput({ value, onChange, dir = "rtl" }) {
+  return (
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      dir={dir}
+      className="h-[52px] min-w-0 rounded-[8px] bg-[#fafafa] px-[14px] text-right text-[18px] text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]"
+    />
+  );
+}
+
+function ReviewAppointmentStep({
+  reviewDate,
+  onReviewDateChange,
+  reviewNotes,
+  onReviewNotesChange,
+  onBack,
+  onNext,
+}) {
+  const reviewDateInputRef = useRef(null);
+
+  return (
+    <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
+      <div className="w-full max-w-[544px] space-y-[31px] text-right">
+        <div className="w-auto">
+          <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
+            التاريخ
+          </label>
+          <button
+            type="button"
+            className="grid h-[52px] w-full grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#fafafa] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100"
+            dir="ltr"
+            onClick={() => openDatePicker(reviewDateInputRef)}
+          >
+            <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
+            <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
+              {formatDisplayDate(reviewDate)}
+            </span>
+            <input
+              ref={reviewDateInputRef}
+              type="date"
+              value={reviewDate}
+              onChange={(event) => onReviewDateChange(event.target.value)}
+              className="sr-only"
+              tabIndex={-1}
+            />
+          </button>
+        </div>
+
+        <div>
+          <label className="mb-[10px] block text-[17px] font-semibold text-[#111] dark:text-white">
+            ملاحظات
+          </label>
+          <textarea
+            value={reviewNotes}
+            onChange={(event) => onReviewNotesChange(event.target.value)}
+            rows={2}
+            className="min-h-[56px] w-full resize-none rounded-[8px] bg-[#fafafa] px-[18px] py-[12px] text-right text-[17px] leading-8 text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]"
+          />
+        </div>
+      </div>
+
+      <div className="mt-[180px] grid gap-[12px] sm:grid-cols-2 lg:mt-[499px]" dir="ltr">
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+          onClick={onNext}
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          التالي
+        </button>
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
+          onClick={onBack}
+        >
+          السابق
+          <ArrowRight size={23} strokeWidth={2.2} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SummaryStep({
+  diagnosis,
+  notes,
+  medicineRows,
+  reviewDate,
+  reviewNotes,
+  onBack,
+}) {
+  return (
+    <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
+      <article className="grid min-h-[108px] items-center rounded-[10px] bg-white px-[22px] py-[18px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[120px_minmax(0,1fr)] sm:px-[34px]" dir="ltr">
+        <span className="text-left text-[10px] text-[#456] dark:text-gray-300">
+          {formatDisplayDate(reviewDate)}
+        </span>
+        <div dir="rtl">
+          <h2 className="text-[18px] font-bold leading-7 text-[#111] dark:text-white">
+            {diagnosis}
+          </h2>
+          <p className="mt-[6px] text-[12px] leading-5 text-[#333] dark:text-gray-200">
+            ملاحظات: {notes}
+          </p>
+        </div>
+      </article>
+
+      <section className="mt-[48px] rounded-[10px] bg-[#F0FAF9] px-[22px] py-[22px] text-right dark:bg-[#24484b] sm:px-[24px]">
+        <h2 className="mb-[28px] text-[22px] font-semibold text-[#333] dark:text-white">
+          الأدوية والجرعات
+        </h2>
+
+        <div className="overflow-x-auto pb-1">
+          <div className="min-w-[720px]">
+            <div className="grid grid-cols-4 gap-[8px] text-[16px] font-semibold text-[#111] dark:text-gray-100">
+              <span>اسم الدواء</span>
+              <span>الجرعة</span>
+              <span>معاد الجرعة</span>
+              <span>لمدة</span>
+            </div>
+            <div className="mt-[11px] space-y-[8px]">
+              {medicineRows.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-4 gap-[8px] text-[18px] text-[#333] dark:text-white sm:text-[20px]"
+                >
+                  <SummaryCell>{row.name}</SummaryCell>
+                  <SummaryCell>{row.dose}</SummaryCell>
+                  <SummaryCell>{row.schedule}</SummaryCell>
+                  <SummaryCell>{row.duration}</SummaryCell>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <h3 className="mb-[11px] mt-[27px] text-[16px] font-semibold text-[#111] dark:text-white">
+          ملاحظات
+        </h3>
+        <div className="min-h-[90px] rounded-[8px] bg-[#FAFAFA] px-[22px] py-[17px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]">
+          {notes}
+        </div>
+      </section>
+
+      <section className="mt-[48px] rounded-[10px] bg-[#F0FAF9] px-[22px] py-[22px] text-right dark:bg-[#24484b] sm:px-[24px]">
+        <h2 className="mb-[28px] text-[22px] font-semibold text-[#333] dark:text-white">
+          المراجعة
+        </h2>
+
+        <div className="grid gap-[16px] lg:grid-cols-[minmax(260px,344px)_minmax(0,1fr)] lg:items-end">
+          <div className="text-right">
+            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
+              التاريخ
+            </label>
+            <div className="grid h-[52px] grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#FAFAFA] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100" dir="ltr">
+              <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
+              <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
+                {formatDisplayDate(reviewDate)}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
+              ملاحظات
+            </label>
+            <div className="min-h-[52px] rounded-[8px] bg-[#FAFAFA] px-[18px] py-[12px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]">
+              {reviewNotes}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mt-[60px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[15px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[17px]"
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          إنهاء الزيارة وحفظ البيانات
+        </button>
+        <button
+          type="button"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
+          onClick={onBack}
+        >
+          السابق
+          <ArrowRight size={23} strokeWidth={2.2} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SummaryCell({ children }) {
+  return (
+    <span className="rounded-[8px] bg-[#FAFAFA] px-[14px] py-[10px] dark:bg-[#3d3d3d]">
+      {children}
+    </span>
+  );
+}
+
+function ControlButton({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="grid h-[52px] w-[52px] place-items-center rounded-full bg-[#edfafd] text-[#333] transition hover:bg-[#ddf4f8] hover:text-[#111] dark:bg-[#27494e] dark:text-white dark:hover:bg-[#e8f8fb] dark:hover:text-[#222] sm:h-[57px] sm:w-[57px]"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Waveform({ isRecording }) {
+  const bars = [
+    26, 38, 24, 42, 30, 52, 36, 47, 58, 33, 49, 41, 53, 29, 37, 45, 31, 27, 35,
+    48, 43, 55, 39, 34, 51, 60, 32, 44, 36, 28, 46, 54, 39, 50, 62, 35, 47, 41,
+    33, 57, 45, 31, 52, 38, 26, 34, 43, 30, 40, 24,
+  ];
+
+  return (
+      <div
+      className={`mt-[29px] h-[82px] w-full max-w-[704px] overflow-hidden px-1 ${
+        isRecording ? "is-recording" : "opacity-45"
+      }`}
+      aria-hidden="true"
+      dir="ltr"
+    >
+      <div className="doctor-wave-track flex h-full w-[200%] items-center">
+        {[0, 1].map((group) => (
+          <div
+            key={group}
+            className="flex h-full w-1/2 shrink-0 items-center justify-around px-1"
+          >
+            {bars.map((height, index) => (
+              <span
+                key={`${group}-${height}-${index}`}
+                className="doctor-wave-bar w-[3px] rounded-full"
+                style={{ height }}
+              />
             ))}
           </div>
-        </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EditableMedicalField({
+  label,
+  value,
+  onChange,
+  minHeight,
+  multiline = false,
+  showEditButton = false,
+}) {
+  return (
+    <section className="text-right">
+      <label className="mb-[10px] block text-[18px] font-semibold text-[#2f2f2f] dark:text-white sm:text-[20px]">
+        {label}
+      </label>
+      <div className={`relative rounded-[8px] bg-[#fafafa] dark:bg-[#3d3d3d] ${minHeight}`}>
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          rows={multiline ? 5 : 2}
+          className={`block w-full resize-none rounded-[8px] bg-transparent px-[18px] py-[13px] text-right text-[17px] leading-8 text-[#333] outline-none dark:text-gray-100 sm:px-[31px] sm:text-[20px] ${
+            multiline ? "min-h-[172px]" : "min-h-[58px]"
+          }`}
+        />
+        {(multiline || showEditButton) && (
+          <button
+            type="button"
+            className="absolute bottom-[12px] left-[16px] flex h-[36px] items-center gap-[9px] rounded-[9px] border border-[#21bdd7] px-[15px] text-[14px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:hover:bg-white/5"
+          >
+            تعديل
+            <Pencil size={17} strokeWidth={1.8} />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function formatTime(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `00:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function openDatePicker(inputRef) {
+  const input = inputRef.current;
+
+  if (!input) return;
+
+  if (typeof input.showPicker === "function") {
+    input.showPicker();
+    return;
+  }
+
+  input.focus();
+  input.click();
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "";
+
+  const [year, month, day] = value.split("-");
+  return `${Number(day)}/${Number(month)}/${year}`;
+}
+
+function ConsultationMenu({ activeSection, onSectionChange }) {
+  return (
+    <aside className="overflow-hidden rounded-[10px] bg-white shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] lg:min-h-[784px]">
+      <nav className="flex gap-0 overflow-x-auto p-[6px] text-center text-[15px] font-bold text-[#666] dark:text-gray-200 sm:text-[17px] lg:block lg:p-0 lg:pt-[8px] lg:text-[22px]">
+        {menuItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`h-[48px] min-w-[170px] rounded-[8px] px-3 transition lg:block lg:h-[74px] lg:w-full lg:min-w-0 lg:rounded-none ${
+              activeSection === item.id
+                ? "bg-[#eafaff] text-[#2ec1d8] dark:bg-[#254d52]"
+                : "hover:bg-[#f5fcfd] hover:text-[#2ec1d8] dark:hover:bg-white/5"
+            }`}
+            onClick={() => onSectionChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+function PatientCard() {
+  return (
+    <section className="grid min-h-[205px] gap-4 rounded-[10px] bg-white px-[18px] py-[18px] shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:px-[24px] md:grid-cols-[190px_minmax(0,1fr)] md:px-[31px]">
+      <div className="h-[120px] w-[120px] overflow-hidden rounded-full border-[5px] border-[#eeeeee] justify-self-center dark:border-[#555] sm:h-[132px] sm:w-[132px] sm:justify-self-start md:h-[144px] md:w-[144px]">
+        <img src={patientImage} alt={patient.name} className="h-full w-full object-cover" />
+      </div>
+
+      <div className="text-center sm:text-right">
+        <h1 className="text-[23px] font-bold leading-9 text-[#2f2f2f] dark:text-white sm:text-[27px] sm:leading-10">
+          {patient.name}
+        </h1>
+        <div className="mt-[7px] flex items-center justify-center gap-[13px] text-[14px] text-[#6d6d6d] dark:text-gray-300 sm:justify-start">
+          <span>{patient.role}</span>
+          <span className="rounded-[6px] bg-[#e2f8e9] px-[8px] py-[2px] text-[11px] font-bold text-[#229b4e] dark:bg-[#234f35] dark:text-[#8ee3aa]">
+            {patient.status}
+          </span>
+        </div>
+        <p className="mt-[17px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
+          {patient.gender}
+          <span className="mx-[18px]">{patient.age}</span>
+        </p>
+        <p className="mt-[4px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
+          {patient.phone}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function BackButton({ onClick }) {
+  return (
+    <div className="flex h-[72px] items-center justify-start">
+      <button
+        type="button"
+        className="flex items-center gap-[13px] text-[18px] font-semibold text-[#30bfd6]"
+        onClick={onClick}
+      >
+        <ArrowLeft size={18} strokeWidth={2} />
+        رجوع
+      </button>
+    </div>
+  );
+}
+
+function PatientInformation() {
+  const stats = [
+    { label: "مدخن", value: "نعم", icon: cigaretteIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "فصيلة الدم", value: "O+", icon: bloodIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "الوزن", value: "70", icon: scaleIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "الطول", value: "166", icon: heightIcon, iconClass: "h-[38px] w-[50px] sm:h-[48px] sm:w-[64px]" },
+  ];
+
+  return (
+    <div className="space-y-[24px] sm:space-y-[31px]">
+      <div className="grid grid-cols-2 gap-[10px] sm:gap-[12px] md:grid-cols-4">
+        {stats.map((item) => (
+          <article
+            key={item.label}
+            className="grid h-[132px] place-items-center rounded-[10px] bg-white text-center shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:h-[154px] xl:h-[171px]"
+          >
+            <div className="text-[#27bfd8]">
+              <img
+                src={item.icon}
+                alt=""
+                className={`mx-auto object-contain ${item.iconClass}`}
+              />
+              <p className="mt-[12px] text-[14px] leading-6 sm:mt-[18px] sm:text-[16px]">{item.label}</p>
+              <p className="mt-[5px] text-[17px] font-bold leading-7 sm:mt-[9px] sm:text-[20px]">{item.value}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <PatientTags title="الأمراض المزمنة" values={followupData.diseases} />
+      <PatientTags title="الحساسيات" values={followupData.allergies} />
+      <PatientTags title="الأدوية" values={followupData.medicines} />
+    </div>
+  );
+}
+
+function PatientTags({ title, values }) {
+  return (
+    <section className="text-right">
+      <h2 className="text-[16px] font-bold text-[#333] dark:text-white">{title}</h2>
+      <div className="mt-[13px] flex flex-wrap justify-start gap-[8px] sm:gap-[12px]">
+        {values.map((value) => (
+          <span
+            key={value}
+            className="rounded-[9px] bg-[#eafbfd] px-[16px] py-[8px] text-[14px] font-medium text-[#25bdd5] dark:bg-[#244d52] dark:text-[#70ddec] sm:px-[25px] sm:py-[10px] sm:text-[16px]"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MedicalRecords({ onOpenRecord }) {
+  return (
+    <div className="space-y-[9px]">
+      {medicalRecords.map((record) => (
+        <button
+          key={record.id}
+          type="button"
+          className="grid min-h-[91px] w-full gap-[10px] rounded-[10px] bg-white px-[16px] py-[13px] text-right shadow-[0_5px_20px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_9px_24px_rgba(0,0,0,0.11)] dark:bg-[#3d3d3d] sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center sm:gap-[18px] sm:px-[31px]"
+          dir="ltr"
+          onClick={() => onOpenRecord(record.id)}
+        >
+          <span className="rounded-full bg-[#effcfc] px-[8px] py-[4px] text-left text-[10px] font-medium text-[#667] dark:bg-[#274d52] dark:text-gray-200">
+            {record.date}
+          </span>
+          <span className="min-w-0 text-right" dir="rtl">
+            <span className="block text-[17px] font-bold text-[#222] dark:text-white">
+              {record.title}
+            </span>
+            <span className="mt-[6px] block truncate text-[12px] text-[#555] dark:text-gray-300">
+              {record.summary}
+            </span>
+          </span>
+        </button>
       ))}
     </div>
   );
 }
 
-function groupPrescriptionsByDate(items) {
-  return items.reduce((groups, item) => {
-    const group = groups.find(([date]) => date === item.date);
+function MedicalRecordDetails({ record }) {
+  return (
+    <section className="pt-[9px] text-right">
+      <h2 className="text-[17px] font-semibold text-[#2f2f2f] dark:text-white sm:text-[19px]">التشخيص</h2>
+      <div className="mt-[12px] rounded-[10px] bg-[#fafafa] px-[18px] py-[12px] text-[16px] leading-7 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[29px] sm:py-[14px] sm:text-[20px] sm:leading-8">
+        {record.diagnosis}
+      </div>
 
-    if (group) {
-      group[1].push(item);
-      return groups;
-    }
-
-    return [...groups, [item.date, [item]]];
-  }, []);
+      <h2 className="mt-[15px] text-[17px] font-semibold text-[#2f2f2f] dark:text-white sm:text-[19px]">
+        ملاحظات
+      </h2>
+      <div className="mt-[12px] whitespace-pre-line rounded-[10px] bg-[#fafafa] px-[18px] py-[15px] text-[16px] leading-7 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[29px] sm:py-[19px] sm:text-[20px] sm:leading-8">
+        {record.notes}
+      </div>
+    </section>
+  );
 }
 
-function MedicalRecordsTab({ search }) {
-  const records = useMemo(() => {
-    const query = search.trim();
+function PreviousMedicines() {
+  return (
+    <section className="overflow-x-auto text-right">
+      <h2 className="mb-[18px] text-[19px] font-semibold text-[#333] dark:text-white sm:mb-[25px] sm:text-[23px]">
+        الأدوية والجرعات السابقة
+      </h2>
 
-    if (!query) return medicalRecords;
+      <div className="min-w-[620px] space-y-[28px]">
+        {prescriptions.map((group) => (
+          <section key={group.date}>
+            <p className="mb-[17px] text-[15px] font-medium text-[#28bfd8]">{group.date}</p>
+            <div className="grid grid-cols-4 gap-[9px] text-[15px] font-semibold text-[#666] dark:text-gray-300">
+              <span>اسم الدواء</span>
+              <span>الجرعة</span>
+              <span>معاد الجرعة</span>
+              <span>لمدة</span>
+            </div>
+            <div className="mt-[8px] space-y-[8px]">
+              {group.rows.map((row) => (
+                <div
+                  key={`${group.date}-${row.join("-")}`}
+                  className="grid grid-cols-4 gap-[9px] text-[17px] text-[#333] dark:text-white sm:text-[20px]"
+                >
+                  {row.map((cell) => (
+                    <span
+                      key={cell}
+                      className="rounded-[8px] bg-[#fafafa] px-[15px] py-[9px] dark:bg-[#3d3d3d]"
+                    >
+                      {cell}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-    return medicalRecords.filter((item) =>
-      [item.date, item.title, item.summary].some((value) => value.includes(query)),
-    );
-  }, [search]);
+function BookingDetails() {
+  return (
+    <section className="space-y-[31px] text-right">
+      <div>
+        <h2 className="mb-[10px] text-[17px] font-bold text-[#333] dark:text-white">
+          سبب الزيارة
+        </h2>
+        <div className="rounded-[8px] bg-[#f1f1f1] px-[18px] py-[12px] text-[17px] text-[#333] dark:bg-[#3d3d3d] dark:text-white sm:px-[26px] sm:text-[21px]">
+          سعال شديد وألم في الصدر
+        </div>
+      </div>
 
-  if (records.length === 0) {
-    return <EmptyState text="لا يوجد سجل مرضي حتى الآن" />;
-  }
+      <div>
+        <h2 className="mb-[15px] text-[17px] font-bold text-[#333] dark:text-white">
+          الملفات المرفقة
+        </h2>
+        <MedicalFiles compact />
+      </div>
+    </section>
+  );
+}
+
+function MedicalFiles({ compact = false, large = false }) {
+  const files = large
+    ? [
+        { type: "xray", image: xrayImageOne },
+        { type: "report", image: reportImage },
+        { type: "xray", image: xrayImageTwo },
+        { type: "xray", image: xrayImageThree },
+        { type: "xray", image: xrayImageFour },
+        { type: "report", image: reportImage },
+      ]
+    : [
+        { type: "report", image: reportImage },
+        { type: "xray", image: xrayImageOne },
+      ];
 
   return (
-    <div className="space-y-[12px]">
-      {records.map((record) => (
+    <div className={`grid gap-[12px] ${large ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
+      {files.map((file, index) => (
         <article
-          key={`${record.date}-${record.title}`}
-          className="grid min-h-[62px] grid-cols-[105px_minmax(0,1fr)] items-center gap-[18px] rounded-[7px] bg-white px-[16px] py-[10px] shadow-[0_3px_14px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
-          dir="ltr"
+          key={`${file.type}-${index}`}
+          className={`grid grid-cols-[minmax(0,1fr)_96px] items-center rounded-[10px] bg-white px-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[minmax(0,1fr)_128px] sm:px-[26px] ${
+            compact ? "h-[178px] sm:h-[202px]" : "h-[178px] sm:h-[202px]"
+          }`}
         >
-          <span className="text-left text-[9px] font-bold text-[#26bed6]">
-            {record.date}
-          </span>
-          <div className="min-w-0 text-right" dir="rtl">
-            <h3 className="text-[12px] font-bold leading-5 text-[#333] dark:text-white">
-              {record.title}
-            </h3>
-            <p className="mt-[2px] truncate text-[10px] leading-4 text-[#555] dark:text-gray-300">
-              {record.summary}
-            </p>
-          </div>
+          <h3 className="self-start pt-[18px] text-left text-[16px] font-medium text-black dark:text-white sm:text-[20px]" dir="ltr">
+            20042026.PNG
+          </h3>
+          <FilePreview file={file} />
         </article>
       ))}
     </div>
   );
 }
 
-function FollowupTab({ search }) {
-  const sections = [
-    { label: "الأمراض المزمنة", values: followupData.diseases },
-    { label: "الحساسيات", values: followupData.allergies },
-    { label: "الأدوية", values: followupData.medicines },
-  ].map((section) => ({
-    ...section,
-    values: filterValues(section.values, search),
-  }));
-
-  const hasValues = sections.some((section) => section.values.length > 0);
-
-  if (!hasValues) {
-    return <FollowupEmpty />;
-  }
-
+function FilePreview({ file }) {
   return (
-    <div className="space-y-[30px] pt-[4px]" dir="rtl">
-      {sections.map((section) => (
-        <section
-          key={section.label}
-          className="text-right"
-        >
-          <h3 className="text-[11px] font-bold text-[#333] dark:text-white">
-            {section.label}
-          </h3>
-
-          <div className="mt-[12px] flex flex-wrap justify-start gap-[8px]">
-            {section.values.length === 0 ? (
-              <span
-                className="rounded-[7px] bg-[#eafbfd] px-[14px] py-[6px] text-[10px] font-bold text-[#25b8d1]"
-              >
-                لا يوجد
-              </span>
-            ) : (
-              section.values.map((value, index) => (
-                <span
-                  key={`${value}-${index}`}
-                  className="rounded-[7px] bg-[#eafbfd] px-[14px] py-[6px] text-[10px] font-bold text-[#25b8d1]"
-                >
-                  {value}
-                </span>
-              ))
-            )}
-          </div>
-
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function filterValues(values, search) {
-  const query = search.trim();
-
-  if (!query) return values;
-
-  return values.filter((value) => value.includes(query));
-}
-
-function FollowupEmpty() {
-  const rows = [
-    ["الأمراض المزمنة", "لا يوجد"],
-    ["الحساسيات", "لا يوجد"],
-    ["الأدوية", "لا يوجد"],
-  ];
-
-  return (
-    <div className="space-y-[30px] pt-[4px] text-right" dir="rtl">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <h3 className="text-[11px] font-bold text-[#333] dark:text-white">
-            {label}
-          </h3>
-          <div className="mt-[12px] flex justify-start">
-            <span className="rounded-[7px] bg-[#eafbfd] px-[14px] py-[6px] text-[10px] font-bold text-[#25b8d1]">
-              {value}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ text }) {
-  return (
-    <div className="grid min-h-[290px] place-items-center text-[13px] font-bold text-[#333] dark:text-white">
-      {text}
+    <div className="h-[142px] w-[96px] overflow-hidden rounded-[10px] bg-[#eef3f5] shadow-inner sm:h-[170px] sm:w-[126px]">
+      <img
+        src={file.image}
+        alt=""
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
