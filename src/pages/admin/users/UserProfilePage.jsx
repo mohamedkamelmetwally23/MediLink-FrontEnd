@@ -1,4 +1,4 @@
-import { ArrowRight, Bell, Star } from "lucide-react";
+import { ArrowRight, Star } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
@@ -28,13 +28,6 @@ const fallbackProfileImages = {
   doctor: doctorImage,
   receptionist: adminImage,
 };
-
-const activityItems = [
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم إلغاء موعد",
-  "تم تحديث البيانات",
-];
 
 export default function UserProfilePage() {
   const navigate = useNavigate();
@@ -96,7 +89,7 @@ export default function UserProfilePage() {
 
 function buildProfile(user, searchParams) {
   const fullName =
-    user ? `${user.firstName} ${user.lastName}` : searchParams.get("name") || "محمد حسن";
+    user ? `${user.firstName} ${user.lastName}`.trim() : searchParams.get("name") || "غير متوفر";
   const [firstName, ...rest] = fullName.split(" ");
   const lastName = rest.join(" ");
   const role = user?.role || searchParams.get("role") || "patient";
@@ -106,23 +99,64 @@ function buildProfile(user, searchParams) {
     lastName: user?.lastName || lastName,
     fullName,
     role,
-    status: user?.status || searchParams.get("status") || "active",
-    phone: user?.phone || searchParams.get("phone") || "0107338300",
-    gender: role === "doctor" ? "أنثى" : "ذكر",
-    birthDate: "1/مايو/2003",
-    age: "23",
-    registrationDate: "10/أبريل/2026",
-    workDays: user?.workDays?.join("، ") || "السبت، الإثنين، الأربعاء",
+    status: user?.status || searchParams.get("status") || "inactive",
+    phone: user?.phone || searchParams.get("phone") || "غير متوفر",
+    gender: formatGender(user?.gender || searchParams.get("gender")),
+    birthDate: formatDate(user?.birthDate || searchParams.get("birthDate")),
+    age: getAge(user?.birthDate || searchParams.get("birthDate")),
+    registrationDate: formatDate(user?.registrationDate || user?.raw?.createdAt),
+    workDays: user?.workDays?.length ? user.workDays.join("، ") : "غير متوفر",
     workHours:
       user?.workStart && user?.workEnd
         ? `${formatWorkTime(user.workStart)} - ${formatWorkTime(user.workEnd)}`
-        : "9:00 صباحا - 3:00 مساءا",
-    specialty: user?.specialty || "فم وأسنان",
-    education: user?.education || "كلية تجارة جامعة طنطا",
-    experience: user?.experience ? `${user.experience} سنوات` : "8 سنوات",
-    appointmentsCount: user?.caseCount ?? user?.appointmentsCount ?? 143,
+        : "غير متوفر",
+    specialty: user?.specialty || searchParams.get("specialty") || "غير متوفر",
+    education: user?.education || "غير متوفر",
+    experience: user?.experience ? `${user.experience} سنوات` : "غير متوفر",
+    appointmentsCount: user?.caseCount ?? user?.appointmentsCount ?? 0,
+    completedAppointmentsCount: user?.completedAppointmentsCount ?? 0,
+    cancelledAppointmentsCount: user?.cancelledAppointmentsCount ?? 0,
     image: getProfileImage(role),
   };
+}
+
+function formatGender(gender) {
+  if (gender === "female") return "أنثى";
+  if (gender === "male") return "ذكر";
+  return "غير متوفر";
+}
+
+function formatDate(value) {
+  if (!value) return "غير متوفر";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString("ar-EG", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function getAge(value) {
+  if (!value) return "غير متوفر";
+
+  const birthDate = new Date(value);
+  if (Number.isNaN(birthDate.getTime())) return "غير متوفر";
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return `${age} سنة`;
 }
 
 function getProfileImage(role) {
@@ -260,8 +294,8 @@ function getStats(profile) {
 
   return [
     { label: "إجمالي الحجوزات", value: profile.appointmentsCount },
-    { label: "الحجوزات المكتملة", value: 7 },
-    { label: "الحجوزات الملغية", value: 2 },
+    { label: "الحجوزات المكتملة", value: profile.completedAppointmentsCount },
+    { label: "الحجوزات الملغية", value: profile.cancelledAppointmentsCount },
   ];
 }
 
@@ -282,25 +316,9 @@ function ActivityPanel() {
         النشاط الأخير
       </h2>
 
-      {activityItems.map((text, index) => (
-        <div
-          key={`${text}-${index}`}
-          className="flex h-[56px] items-center justify-between border-b border-[#eeeeee] px-[10px] last:border-b-0 dark:border-white/15"
-          dir="ltr"
-        >
-          <span className="text-[12px] text-[#777] dark:text-gray-300">
-            منذ 10 دقائق
-          </span>
-          <div className="flex items-center gap-[16px]" dir="ltr">
-            <span className="text-[17px] font-medium" dir="rtl">
-              {text}
-            </span>
-            <span className="grid h-[40px] w-[40px] place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
-              <Bell size={19} />
-            </span>
-          </div>
-        </div>
-      ))}
+      <div className="grid min-h-[120px] place-items-center text-[16px] font-medium text-[#666] dark:text-gray-200">
+        لا يوجد نشاط من قاعدة البيانات حتى الآن
+      </div>
     </section>
   );
 }

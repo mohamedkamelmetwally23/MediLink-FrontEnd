@@ -1,0 +1,107 @@
+export const API_ORIGIN =
+  import.meta.env.VITE_API_ORIGIN ||
+  "https://medilink-backend-production-0364.up.railway.app";
+
+export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, "")}/api/v1`;
+
+const TOKEN_KEYS = ["medilinkToken", "token", "accessToken"];
+
+export class ApiError extends Error {
+  constructor(message, { status, data } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+export function getStoredToken() {
+  if (typeof localStorage === "undefined") return "";
+
+  for (const key of TOKEN_KEYS) {
+    const token = localStorage.getItem(key);
+    if (token) return token;
+  }
+
+  return "";
+}
+
+function getErrorMessage(data, fallback) {
+  if (!data) return fallback;
+
+  if (typeof data === "string") return data || fallback;
+
+  return (
+    data.message ||
+    data.error ||
+    data.errors?.[0]?.message ||
+    data.errors?.[0] ||
+    fallback
+  );
+}
+
+async function parseResponse(response) {
+  const text = await response.text();
+
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+export async function apiRequest(path, options = {}) {
+  const {
+    method = "GET",
+    body,
+    headers = {},
+    signal,
+  } = options;
+  const token = getStoredToken();
+  const requestHeaders = {
+    ...headers,
+  };
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
+  if (body !== undefined && !isFormData) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    requestHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
+      signal,
+    });
+  } catch {
+    throw new ApiError(
+      "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u062E\u0627\u062F\u0645",
+    );
+  }
+
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    throw new ApiError(
+      getErrorMessage(
+        data,
+        "\u062D\u062F\u062B \u062E\u0637\u0623\u060C \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649",
+      ),
+      {
+        status: response.status,
+        data,
+      },
+    );
+  }
+
+  return data;
+}

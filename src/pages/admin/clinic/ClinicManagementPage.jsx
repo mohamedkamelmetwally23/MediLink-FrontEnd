@@ -10,45 +10,45 @@ const tabs = [
 ];
 
 const initialClinicInfo = {
-  name: "ميدلينك",
-  country: "مصر",
-  governorate: "القاهرة",
-  city: "مدينة نصر",
-  description: "نقدم أفضل الخدمات الطبية بأحدث التقنيات لرعاية صحية متكاملة.",
-  phone: "0144527289",
-  email: "info@medilink.com",
+  name: "",
+  country: "",
+  governorate: "",
+  city: "",
+  description: "",
+  phone: "",
+  email: "",
 };
 
 const initialPayment = {
-  consultationPrice: "250",
-  followUpPrice: "100",
-  refundOnCancel: true,
-  bookingGraceHours: "6",
-  lateCancelDiscount: "20",
+  consultationPrice: "",
+  followUpPrice: "",
+  refundOnCancel: false,
+  bookingGraceHours: "",
+  lateCancelDiscount: "",
   paymentMethods: {
-    cash: true,
-    card: true,
-    instapay: true,
-    wallet: true,
+    cash: false,
+    card: false,
+    instapay: false,
+    wallet: false,
   },
-  hasDiscounts: true,
-  discountPercentage: "20",
-  discountedVisitPrice: "250",
+  hasDiscounts: false,
+  discountPercentage: "",
+  discountedVisitPrice: "",
 };
 
 const initialWorkingDays = [
-  { id: "sat", name: "السبت", active: true, from: "9:00 ص", to: "9:00 م" },
-  { id: "sun", name: "الأحد", active: true, from: "9:00 ص", to: "9:00 م" },
-  { id: "mon", name: "الإثنين", active: true, from: "9:00 ص", to: "9:00 م" },
-  { id: "tue", name: "الثلاثاء", active: true, from: "9:00 ص", to: "9:00 م" },
-  { id: "wed", name: "الأربعاء", active: true, from: "9:00 ص", to: "9:00 م" },
-  { id: "thu", name: "الخميس", active: true, from: "9:00 ص", to: "9:00 م" },
+  { id: "sat", name: "السبت", active: false, from: "", to: "" },
+  { id: "sun", name: "الأحد", active: false, from: "", to: "" },
+  { id: "mon", name: "الإثنين", active: false, from: "", to: "" },
+  { id: "tue", name: "الثلاثاء", active: false, from: "", to: "" },
+  { id: "wed", name: "الأربعاء", active: false, from: "", to: "" },
+  { id: "thu", name: "الخميس", active: false, from: "", to: "" },
   { id: "fri", name: "الجمعة", active: false, from: "", to: "" },
 ];
 
 const initialAppointmentSettings = {
-  duration: "25",
-  dailyLimit: "8",
+  duration: "",
+  dailyLimit: "",
 };
 
 const inputClass =
@@ -457,8 +457,8 @@ function WorkingHoursForm({
             ? {
                 ...day,
                 active: value,
-                from: value ? day.from || "9:00 ص" : "",
-                to: value ? day.to || "9:00 م" : "",
+                from: value ? day.from : "",
+                to: value ? day.to : "",
               }
             : {
                 ...day,
@@ -491,8 +491,8 @@ function WorkingHoursForm({
                       current.map((day) => ({
                         ...day,
                         active: event.target.checked,
-                        from: event.target.checked ? day.from || "9:00 ص" : "",
-                        to: event.target.checked ? day.to || "9:00 م" : "",
+                        from: event.target.checked ? day.from : "",
+                        to: event.target.checked ? day.to : "",
                       })),
                     )
                   }

@@ -19,58 +19,9 @@ import {
 } from "./useSpecialtiesStore";
 
 const pageSize = 7;
-const PRICE_STORAGE_KEY = "medilink-admin-specialty-prices";
-
-const defaultSpecialtyPrices = {
-  "الفم والأسنان": "200",
-  "أمراض الباطنة": "150",
-  الأطفال: "150",
-  "طب العيون": "70",
-  "مخ وأعصاب": "100",
-  "أنف وأذن": "100",
-  "جلدية وتجميل": "140",
-};
-
-const defaultSpecialtyStats = {
-  "الفم والأسنان": { doctorsCount: 3, appointmentsCount: 453 },
-  "أمراض الباطنة": { doctorsCount: 2, appointmentsCount: 233 },
-  الأطفال: { doctorsCount: 4, appointmentsCount: 233 },
-  "طب العيون": { doctorsCount: 2, appointmentsCount: 233 },
-  "مخ وأعصاب": { doctorsCount: 0, appointmentsCount: 0 },
-  "أنف وأذن": { doctorsCount: 0, appointmentsCount: 0 },
-  "جلدية وتجميل": { doctorsCount: 0, appointmentsCount: 0 },
-};
 
 function getDoctorAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
-}
-
-function loadSpecialtyPrices() {
-  if (typeof window === "undefined") {
-    return defaultSpecialtyPrices;
-  }
-
-  try {
-    const savedPrices = window.localStorage.getItem(PRICE_STORAGE_KEY);
-    if (!savedPrices) {
-      return defaultSpecialtyPrices;
-    }
-
-    const parsedPrices = JSON.parse(savedPrices);
-    return Object.entries(parsedPrices).reduce(
-      (prices, [name, price]) => ({
-        ...prices,
-        [normalizeSpecialtyLabel(name)]: String(price),
-      }),
-      { ...defaultSpecialtyPrices },
-    );
-  } catch {
-    return defaultSpecialtyPrices;
-  }
-}
-
-function persistSpecialtyPrices(nextPrices) {
-  window.localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(nextPrices));
 }
 
 function normalizePrice(price) {
@@ -79,9 +30,14 @@ function normalizePrice(price) {
 
 export default function SpecialtiesPage() {
   const { users, updateUsersSpecialty, clearUsersSpecialties } = useUsersStore();
-  const { specialties, addSpecialty, updateSpecialty, deleteSpecialties } =
-    useSpecialtiesStore();
-  const [prices, setPrices] = useState(loadSpecialtyPrices);
+  const {
+    specialties,
+    specialtyItems,
+    addSpecialty,
+    updateSpecialty,
+    deleteSpecialties,
+  } = useSpecialtiesStore();
+  const [prices, setPrices] = useState({});
   const [selectedNames, setSelectedNames] = useState([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,6 +54,9 @@ export default function SpecialtiesPage() {
     () =>
       specialties.map((name) => {
         const normalizedName = normalizeSpecialtyLabel(name);
+        const specialtyItem = specialtyItems.find(
+          (specialty) => normalizeSpecialtyLabel(specialty.name) === normalizedName,
+        );
         const specialtyDoctors = doctors.filter(
           (doctor) => normalizeSpecialtyLabel(doctor.specialty) === normalizedName,
         );
@@ -108,16 +67,15 @@ export default function SpecialtiesPage() {
             0,
           ),
         };
-        const displayStats = defaultSpecialtyStats[normalizedName] || actualStats;
 
         return {
           name: normalizedName,
-          doctorsCount: displayStats.doctorsCount,
-          appointmentsCount: displayStats.appointmentsCount,
-          price: prices[normalizedName] || "",
+          doctorsCount: actualStats.doctorsCount,
+          appointmentsCount: actualStats.appointmentsCount,
+          price: specialtyItem?.price || prices[normalizedName] || "",
         };
       }),
-    [specialties, doctors, prices],
+    [specialties, specialtyItems, doctors, prices],
   );
 
   const filteredSpecialties = useMemo(() => {
@@ -142,9 +100,7 @@ export default function SpecialtiesPage() {
 
   const updatePrices = (getNextPrices) => {
     setPrices((currentPrices) => {
-      const nextPrices = getNextPrices(currentPrices);
-      persistSpecialtyPrices(nextPrices);
-      return nextPrices;
+      return getNextPrices(currentPrices);
     });
   };
 
@@ -162,7 +118,7 @@ export default function SpecialtiesPage() {
     setFormErrors({});
   };
 
-  const handleSubmitSpecialty = ({ name, price }) => {
+  const handleSubmitSpecialty = async ({ name, price }) => {
     const normalizedName = normalizeSpecialtyLabel(name);
     const normalizedPrice = normalizePrice(price);
     const errors = {};
@@ -185,25 +141,32 @@ export default function SpecialtiesPage() {
       return;
     }
 
-    if (formState.mode === "edit") {
-      updateSpecialty(formState.name, normalizedName);
-      updateUsersSpecialty(formState.name, normalizedName);
-      updatePrices((currentPrices) => {
-        const nextPrices = { ...currentPrices };
-        delete nextPrices[formState.name];
-        nextPrices[normalizedName] = normalizedPrice;
-        return nextPrices;
+    try {
+      if (formState.mode === "edit") {
+        await updateSpecialty(formState.name, normalizedName, normalizedPrice);
+        updateUsersSpecialty(formState.name, normalizedName);
+        updatePrices((currentPrices) => {
+          const nextPrices = { ...currentPrices };
+          delete nextPrices[formState.name];
+          nextPrices[normalizedName] = normalizedPrice;
+          return nextPrices;
+        });
+        setSelectedNames((current) =>
+          current.map((item) => (item === formState.name ? normalizedName : item)),
+        );
+      } else {
+        await addSpecialty(normalizedName, normalizedPrice);
+        updatePrices((currentPrices) => ({
+          ...currentPrices,
+          [normalizedName]: normalizedPrice,
+        }));
+        setCurrentPage(1);
+      }
+    } catch (error) {
+      setFormErrors({
+        general: error.message || "تعذر حفظ التخصص",
       });
-      setSelectedNames((current) =>
-        current.map((item) => (item === formState.name ? normalizedName : item)),
-      );
-    } else {
-      addSpecialty(normalizedName);
-      updatePrices((currentPrices) => ({
-        ...currentPrices,
-        [normalizedName]: normalizedPrice,
-      }));
-      setCurrentPage(1);
+      return;
     }
 
     closeForm();
@@ -227,16 +190,23 @@ export default function SpecialtiesPage() {
     });
   };
 
-  const removeSpecialties = (names) => {
-    deleteSpecialties(names);
-    clearUsersSpecialties(names);
-    updatePrices((currentPrices) => {
-      const nextPrices = { ...currentPrices };
-      names.forEach((name) => delete nextPrices[name]);
-      return nextPrices;
-    });
-    setSelectedNames((current) => current.filter((name) => !names.includes(name)));
-    setPendingDelete(null);
+  const removeSpecialties = async (names) => {
+    try {
+      await deleteSpecialties(names);
+      clearUsersSpecialties(names);
+      updatePrices((currentPrices) => {
+        const nextPrices = { ...currentPrices };
+        names.forEach((name) => delete nextPrices[name]);
+        return nextPrices;
+      });
+      setSelectedNames((current) => current.filter((name) => !names.includes(name)));
+      setPendingDelete(null);
+    } catch (error) {
+      setFormErrors({
+        general: error.message || "تعذر حذف التخصص",
+      });
+      setPendingDelete(null);
+    }
   };
 
   return (
@@ -570,6 +540,7 @@ function SpecialtyModal({
   const [price, setPrice] = useState(initialPrice);
   const nameError = errors.name;
   const priceError = errors.price;
+  const generalError = errors.general;
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -633,9 +604,9 @@ function SpecialtyModal({
           </div>
         </label>
 
-        {(nameError || priceError) && (
+        {(nameError || priceError || generalError) && (
           <p className="mt-[14px] text-center text-[17px] font-medium text-[#c92626]">
-            {nameError || priceError}
+            {nameError || priceError || generalError}
           </p>
         )}
 

@@ -28,6 +28,11 @@ import patientAvatarOne from "../../assets/landingPage/12 1.png";
 import patientAvatarTwo from "../../assets/landingPage/12 1 (1).png";
 import patientAvatarThree from "../../assets/landingPage/12 1 (2).png";
 import patientAvatarFour from "../../assets/landingPage/12 1 (3).png";
+import {
+  getCurrentDoctorId,
+  listDoctorAppointments,
+} from "../../services/medilinkApi";
+import { useUsersStore } from "../admin/users/useUsersStore";
 
 const stats = [
   {
@@ -151,6 +156,8 @@ function useDarkTheme() {
 
 export default function DoctorDashboard() {
   const isDark = useDarkTheme();
+  const { users } = useUsersStore();
+  const [doctorAppointments, setDoctorAppointments] = useState([]);
   const axisColor = isDark ? "#f3f4f6" : "#777";
   const axisLineColor = isDark ? "#d1d5db" : "#cad6dd";
   const gridColor = isDark ? "#6b7280" : "#e8eef2";
@@ -159,6 +166,39 @@ export default function DoctorDashboard() {
     fill: axisColor,
     fontWeight: 600,
   };
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayCount = doctorAppointments.filter(
+    (appointment) => appointment.date === todayIso,
+  ).length;
+  const dashboardStats = stats.map((item, index) => {
+    const values = [
+      doctorAppointments.length > 0 ? todayCount : item.value,
+      users.filter((user) => user.role === "patient").length,
+      doctorAppointments.length || item.value,
+      item.value,
+    ];
+
+    return {
+      ...item,
+      value: String(values[index]),
+    };
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    listDoctorAppointments(getCurrentDoctorId())
+      .then((fetchedAppointments) => {
+        if (mounted) {
+          setDoctorAppointments(fetchedAppointments);
+        }
+      })
+      .catch(() => null);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
@@ -166,7 +206,7 @@ export default function DoctorDashboard() {
 
       <main className="space-y-[18px] px-4 py-[24px] sm:px-6 lg:px-[24px]">
         <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((item) => (
+          {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}
         </div>

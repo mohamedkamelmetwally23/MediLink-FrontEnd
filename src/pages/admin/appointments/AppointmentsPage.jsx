@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronLeft,
@@ -10,121 +10,12 @@ import {
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
+import {
+  deleteAppointment,
+  listAppointments,
+} from "../../../services/medilinkApi";
 
 const pageSize = 10;
-
-const initialAppointments = [
-  {
-    id: 1,
-    patient: "محمد حسن",
-    doctor: "د.محمد خالد",
-    specialty: "أسنان",
-    phone: "01237652086",
-    date: "2026-05-24",
-    time: "1:00 م",
-    status: "confirmed",
-    payment: "paid",
-  },
-  {
-    id: 2,
-    patient: "يوسف أمين",
-    doctor: "د.عادل شوقي",
-    specialty: "باطنة",
-    phone: "01127652086",
-    date: "2026-05-24",
-    time: "1:00 م",
-    status: "pending",
-    payment: "waiting",
-  },
-  {
-    id: 3,
-    patient: "محمد حسني",
-    doctor: "د.يحيى الفقي",
-    specialty: "أطفال",
-    phone: "01037652086",
-    date: "2026-05-24",
-    time: "4:00 م",
-    status: "confirmed",
-    payment: "paid",
-  },
-  {
-    id: 4,
-    patient: "عبد الرحمن نصر الله",
-    doctor: "د.مروان يوسف",
-    specialty: "جلدية",
-    phone: "01537652086",
-    date: "2026-05-24",
-    time: "5:00 م",
-    status: "pending",
-    payment: "unpaid",
-  },
-  {
-    id: 5,
-    patient: "خالد فتحي",
-    doctor: "د.عادل شوقي",
-    specialty: "أسنان",
-    phone: "01287652086",
-    date: "2026-05-24",
-    time: "10:00 ص",
-    status: "confirmed",
-    payment: "paid",
-  },
-  {
-    id: 6,
-    patient: "سارة عبد الله",
-    doctor: "د.مروة خالد",
-    specialty: "باطنة",
-    phone: "01233652086",
-    date: "2026-05-23",
-    time: "10:00 ص",
-    status: "cancelled",
-    payment: "refunded",
-  },
-  {
-    id: 7,
-    patient: "سما سامي",
-    doctor: "د.عادل شوقي",
-    specialty: "أطفال",
-    phone: "01097652086",
-    date: "2026-05-23",
-    time: "12:30 ص",
-    status: "pending",
-    payment: "waiting",
-  },
-  {
-    id: 8,
-    patient: "ياسمين أحمد",
-    doctor: "د.عادل شوقي",
-    specialty: "جلدية",
-    phone: "01187652086",
-    date: "2026-05-23",
-    time: "12:00 ص",
-    status: "confirmed",
-    payment: "paid",
-  },
-  {
-    id: 9,
-    patient: "نورا أيمن",
-    doctor: "د.مروة خالد",
-    specialty: "أسنان",
-    phone: "01587652086",
-    date: "2026-05-23",
-    time: "6:00 ص",
-    status: "completed",
-    payment: "refunded",
-  },
-  {
-    id: 10,
-    patient: "محمد توفيق",
-    doctor: "د.مروة خالد",
-    specialty: "أسنان",
-    phone: "01237652086",
-    date: "2026-05-22",
-    time: "5:00 ص",
-    status: "cancelled",
-    payment: "refunded",
-  },
-];
 
 const bookingStatusLabels = {
   confirmed: "تم التأكيد",
@@ -167,7 +58,7 @@ const arabicMonths = [
 ];
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState(initialAppointments);
+  const [appointments, setAppointments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
@@ -176,6 +67,33 @@ export default function AppointmentsPage() {
   const [paymentFilter, setPaymentFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    listAppointments()
+      .then((fetchedAppointments) => {
+        if (mounted) {
+          setAppointments(fetchedAppointments);
+        }
+      })
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError.message || "تعذر تحميل المواعيد");
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const doctors = useMemo(
     () => Array.from(new Set(appointments.map((appointment) => appointment.doctor))),
@@ -243,11 +161,23 @@ export default function AppointmentsPage() {
   };
 
   const deleteAppointments = (ids) => {
-    setAppointments((current) =>
-      current.filter((appointment) => !ids.includes(appointment.id)),
-    );
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
+    const apiIds = ids.filter((id) => String(id).length > 12);
+    const removeFromState = () => {
+      setAppointments((current) =>
+        current.filter((appointment) => !ids.includes(appointment.id)),
+      );
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
+      setPendingDelete(null);
+    };
+
+    if (apiIds.length === 0) {
+      removeFromState();
+      return;
+    }
+
+    Promise.all(apiIds.map(deleteAppointment))
+      .then(removeFromState)
+      .catch(() => setPendingDelete(null));
   };
 
   return (
@@ -296,8 +226,12 @@ export default function AppointmentsPage() {
                 }
               />
 
-              {filteredAppointments.length === 0 ? (
-                <EmptyState />
+              {loading ? (
+                <TableState text="جاري تحميل المواعيد..." />
+              ) : error ? (
+                <TableState text={error} />
+              ) : filteredAppointments.length === 0 ? (
+                <TableState text="لا يوجد مواعيد في قاعدة البيانات حتى الآن" />
               ) : (
                 pageAppointments.map((appointment) => (
                   <AppointmentRow
@@ -568,10 +502,10 @@ function StatusBadge({ value, labels }) {
   );
 }
 
-function EmptyState() {
+function TableState({ text }) {
   return (
     <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
-      لا يوجد مواعيد حتى الآن
+      {text}
     </div>
   );
 }
@@ -686,10 +620,25 @@ function formatAppointmentDate(date, time) {
 }
 
 function formatDateOnly(date) {
+  if (!date) return "";
+
   const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return date;
+
   return `${day} ${arabicMonths[month - 1]} ${year}`;
 }
 
 function formatAppointmentTime(time) {
+  if (!time) return "";
+
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (timeMatch) {
+    const hour24 = Number(timeMatch[1]);
+    const hour12 = hour24 % 12 || 12;
+    const period = hour24 >= 12 ? "مساءا" : "صباحا";
+
+    return `${hour12}:${timeMatch[2]} ${period}`;
+  }
+
   return time.replace(" ص", " صباحا").replace(" م", " مساءا");
 }

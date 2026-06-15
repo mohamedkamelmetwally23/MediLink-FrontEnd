@@ -1,22 +1,5 @@
-import { ArrowRight, Bell } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const activities = [
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم حجز موعد جديد",
-  "تم إلغاء موعد",
-  "تم تحديث البيانات",
-  "تم تحديث البيانات",
-  "تم تحديث البيانات",
-  "تم تحديث البيانات",
-];
 
 export default function ActivityPage() {
   return (
@@ -43,35 +26,11 @@ export default function ActivityPage() {
 
       <main className="px-4 py-[30px] sm:px-6 lg:px-[32px]">
         <section className="min-h-[805px] rounded-[10px] bg-white px-[12px] py-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-          {activities.map((text, index) => (
-            <ActivityRow key={`${text}-${index}`} text={text} />
-          ))}
+          <div className="grid min-h-[740px] place-items-center text-[22px] font-medium text-[#666] dark:text-gray-200">
+            لا يوجد نشاط من قاعدة البيانات حتى الآن
+          </div>
         </section>
       </main>
     </section>
-  );
-}
-
-function ActivityRow({ text }) {
-  return (
-    <div
-      className="flex h-[56px] items-center justify-between gap-5 border-b border-[#e9eef1] px-[16px] last:border-b-0 dark:border-white/15"
-      dir="ltr"
-    >
-      <span className="shrink-0 text-[12px] text-[#777] dark:text-gray-300">
-        منذ 10 دقائق
-      </span>
-      <div className="flex min-w-0 items-center gap-4" dir="ltr">
-        <span
-          className="truncate text-[17px] font-medium text-[#333] dark:text-white"
-          dir="rtl"
-        >
-          {text}
-        </span>
-        <span className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
-          <Bell size={19} />
-        </span>
-      </div>
-    </div>
   );
 }

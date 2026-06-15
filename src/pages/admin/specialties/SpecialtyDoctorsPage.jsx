@@ -17,14 +17,6 @@ const doctorImages = [
   doctorDarkImage,
 ];
 
-const fallbackDoctors = [
-  { name: "خالد أسامة", rating: "4.0" },
-  { name: "سارة محمد", rating: "4.3" },
-  { name: "أماني توفيق", rating: "4.1" },
-  { name: "ندى حسين", rating: "4.2" },
-  { name: "جلال عبد الله", rating: "4.3" },
-];
-
 export default function SpecialtyDoctorsPage() {
   const navigate = useNavigate();
   const { specialtyName = "" } = useParams();
@@ -42,7 +34,7 @@ export default function SpecialtyDoctorsPage() {
   };
 
   const doctors = useMemo(() => {
-    const specialtyDoctors = users
+    return users
       .filter(
         (user) =>
           user.role === "doctor" &&
@@ -51,23 +43,10 @@ export default function SpecialtyDoctorsPage() {
       .map((doctor, index) => ({
         id: doctor.id,
         name: `${doctor.firstName} ${doctor.lastName}`.replace("د.", "").trim(),
-        rating: doctor.rating || getFallbackRating(index),
+        rating: doctor.rating || "",
         image: doctorImages[index % doctorImages.length],
         to: `/admin/users/${doctor.id}/profile`,
       }));
-
-    return specialtyDoctors.length > 0
-      ? specialtyDoctors
-      : fallbackDoctors.map((doctor, index) => ({
-          ...doctor,
-          image: doctorImages[index % doctorImages.length],
-          to: `/admin/users/profile?${new URLSearchParams({
-            name: doctor.name,
-            role: "doctor",
-            status: "active",
-            specialty: decodedName,
-          }).toString()}`,
-        }));
   }, [decodedName, users]);
 
   const filteredDoctors = useMemo(() => {
@@ -168,7 +147,7 @@ function DoctorCard({ doctor }) {
           className="mt-[4px] flex items-center justify-center gap-[6px] text-[15px] font-medium text-black dark:text-white"
           dir="ltr"
         >
-          <span>{doctor.rating}</span>
+          <span>{doctor.rating || "-"}</span>
           <span className="flex gap-[2px] text-[#ffb000]">
             {Array.from({ length: 5 }, (_, index) => (
               <Star
@@ -189,8 +168,4 @@ function DoctorCard({ doctor }) {
       </div>
     </article>
   );
-}
-
-function getFallbackRating(index) {
-  return fallbackDoctors[index % fallbackDoctors.length].rating;
 }

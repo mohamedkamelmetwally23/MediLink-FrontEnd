@@ -1,93 +1,180 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  normalizeSpecialtyLabel,
-  specialties as initialSpecialties,
-} from "../users/usersData";
-
-const STORAGE_KEY = "medilink-admin-specialties";
+  createSpecialization,
+  deleteSpecialization,
+  listSpecializations,
+  listSpecializationsFromDoctors,
+  updateSpecialization,
+} from "../../../services/medilinkApi";
+import { normalizeSpecialtyLabel } from "../users/usersData";
 
 function normalizeSpecialtyName(name) {
   return normalizeSpecialtyLabel(name);
 }
 
-function normalizeSpecialties(specialties, includeDefaults = false) {
-  const normalizedSpecialties = specialties
-    .map(normalizeSpecialtyName)
-    .filter(Boolean);
-
-  return Array.from(
-    new Set([
-      ...(includeDefaults ? initialSpecialties : []),
-      ...normalizedSpecialties,
-    ]),
-  );
-}
-
-function loadSpecialties() {
-  try {
-    const savedSpecialties = localStorage.getItem(STORAGE_KEY);
-    if (!savedSpecialties) {
-      return initialSpecialties;
-    }
-
-    const parsedSpecialties = JSON.parse(savedSpecialties);
-    const hasLegacyNames = parsedSpecialties.some(
-      (specialty) => normalizeSpecialtyName(specialty) !== specialty,
-    );
-    const normalizedSpecialties = normalizeSpecialties(
-      parsedSpecialties,
-      hasLegacyNames,
-    );
-
-    return normalizedSpecialties.length > 0
-      ? normalizedSpecialties
-      : initialSpecialties;
-  } catch {
-    return initialSpecialties;
+function toSpecialtyItem(value) {
+  if (typeof value === "string") {
+    return {
+      id: "",
+      name: normalizeSpecialtyName(value),
+      price: "",
+    };
   }
+
+  return {
+    id: value.id || value._id || "",
+    name: normalizeSpecialtyName(value.name || ""),
+    price: value.price ?? value.consultationFee ?? "",
+  };
 }
 
-function persistSpecialties(nextSpecialties) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSpecialties));
+function normalizeSpecialtyItems(items) {
+  const itemMap = new Map();
+
+  items.map(toSpecialtyItem).forEach((item) => {
+    if (!item.name) return;
+    itemMap.set(item.name, item);
+  });
+
+  return Array.from(itemMap.values());
 }
 
 export function useSpecialtiesStore() {
-  const [specialties, setSpecialties] = useState(loadSpecialties);
+  const [specialtyItems, setSpecialtyItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const specialties = useMemo(
+    () => specialtyItems.map((specialty) => specialty.name),
+    [specialtyItems],
+  );
 
   const commitSpecialties = (getNextSpecialties) => {
-    setSpecialties((currentSpecialties) => {
+    setSpecialtyItems((currentSpecialties) => {
       const nextSpecialties = getNextSpecialties(currentSpecialties);
-      persistSpecialties(nextSpecialties);
       return nextSpecialties;
     });
   };
 
-  const addSpecialty = (name) => {
-    const normalizedName = normalizeSpecialtyName(name);
-    commitSpecialties((currentSpecialties) => [normalizedName, ...currentSpecialties]);
+  const refreshSpecialties = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const fetchedSpecialties = await listSpecializations().catch(() =>
+        listSpecializationsFromDoctors(),
+      );
+
+      commitSpecialties(() => normalizeSpecialtyItems(fetchedSpecialties));
+    } catch (requestError) {
+      setError(requestError.message || "");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateSpecialty = (oldName, nextName) => {
+  useEffect(() => {
+    let mounted = true;
+
+    listSpecializations()
+      .catch(() => listSpecializationsFromDoctors())
+      .then((fetchedSpecialties) => {
+        if (!mounted) return;
+        commitSpecialties(() => normalizeSpecialtyItems(fetchedSpecialties));
+      })
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError.message || "");
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const addSpecialty = async (name, price = "") => {
+    const normalizedName = normalizeSpecialtyName(name);
+    const createdSpecialty = await createSpecialization({
+      name: normalizedName,
+      price,
+    });
+    const nextSpecialty = toSpecialtyItem({
+      ...createdSpecialty,
+      name: createdSpecialty.name || normalizedName,
+      price: createdSpecialty.price || price,
+    });
+
+    commitSpecialties((currentSpecialties) => [nextSpecialty, ...currentSpecialties]);
+    return nextSpecialty;
+  };
+
+  const updateSpecialty = async (oldName, nextName, price = "") => {
     const normalizedName = normalizeSpecialtyName(nextName);
+    const currentSpecialty = specialtyItems.find(
+      (specialty) => specialty.name === oldName,
+    );
+    const updatedSpecialty = currentSpecialty?.id
+      ? await updateSpecialization(currentSpecialty.id, {
+          name: normalizedName,
+          price,
+        })
+      : { ...currentSpecialty, name: normalizedName, price };
+    const nextSpecialty = toSpecialtyItem({
+      ...updatedSpecialty,
+      id: updatedSpecialty.id || currentSpecialty?.id || "",
+      name: updatedSpecialty.name || normalizedName,
+      price: updatedSpecialty.price || price,
+    });
+
     commitSpecialties((currentSpecialties) =>
       currentSpecialties.map((specialty) =>
-        specialty === oldName ? normalizedName : specialty,
+        specialty.name === oldName ? nextSpecialty : specialty,
       ),
+    );
+
+    return nextSpecialty;
+  };
+
+  const deleteSpecialties = async (names) => {
+    const namesSet = new Set(names);
+    const targetSpecialties = specialtyItems.filter((specialty) =>
+      namesSet.has(specialty.name),
+    );
+
+    await Promise.all(
+      targetSpecialties
+        .filter((specialty) => specialty.id)
+        .map((specialty) => deleteSpecialization(specialty.id)),
+    );
+
+    commitSpecialties((currentSpecialties) =>
+      currentSpecialties.filter((specialty) => !namesSet.has(specialty.name)),
     );
   };
 
-  const deleteSpecialties = (names) => {
-    const namesSet = new Set(names);
-    commitSpecialties((currentSpecialties) =>
-      currentSpecialties.filter((specialty) => !namesSet.has(specialty)),
-    );
-  };
+  const getSpecialtyId = (name) =>
+    specialtyItems.find((specialty) => specialty.name === name)?.id || "";
+
+  const getSpecialtyPrice = (name) =>
+    specialtyItems.find((specialty) => specialty.name === name)?.price || "";
 
   return {
     specialties,
+    specialtyItems,
+    loading,
+    error,
+    refreshSpecialties,
     addSpecialty,
     updateSpecialty,
     deleteSpecialties,
+    getSpecialtyId,
+    getSpecialtyPrice,
   };
 }
 

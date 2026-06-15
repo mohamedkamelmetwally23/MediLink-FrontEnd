@@ -10,101 +10,36 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useUsersStore } from "../admin/users/useUsersStore";
 
 const pageSize = 10;
-
-const initialPatients = [
-  {
-    id: 1,
-    name: "محمد علي",
-    phone: "01237652086",
-    casesCount: 3,
-    status: "active",
-  },
-  {
-    id: 2,
-    name: "سما محمد",
-    phone: "01237652086",
-    casesCount: 6,
-    status: "active",
-  },
-  {
-    id: 3,
-    name: "حسام محمد",
-    phone: "01237652086",
-    casesCount: 3,
-    status: "active",
-  },
-  {
-    id: 4,
-    name: "مريم خالد",
-    phone: "01237652086",
-    casesCount: 1,
-    status: "inactive",
-  },
-  {
-    id: 5,
-    name: "خالد محمد",
-    phone: "01237652086",
-    casesCount: 2,
-    status: "inactive",
-  },
-  {
-    id: 6,
-    name: "أنس طارق",
-    phone: "01237652086",
-    casesCount: 7,
-    status: "active",
-  },
-  {
-    id: 7,
-    name: "أحمد الفقي",
-    phone: "01237652086",
-    casesCount: 6,
-    status: "active",
-  },
-  {
-    id: 8,
-    name: "أسامة خليل",
-    phone: "01237652086",
-    casesCount: 5,
-    status: "active",
-  },
-  {
-    id: 9,
-    name: "إسماعيل حسام",
-    phone: "01237652086",
-    casesCount: 2,
-    status: "inactive",
-  },
-  {
-    id: 10,
-    name: "محمد خالد",
-    phone: "01237652086",
-    casesCount: 12,
-    status: "active",
-  },
-  {
-    id: 11,
-    name: "يوسف محمد",
-    phone: "01237652086",
-    casesCount: 11,
-    status: "active",
-  },
-];
 
 const statusLabels = {
   active: "نشط",
   inactive: "غير نشط",
 };
 
+function toPatientRow(user) {
+  return {
+    id: user.id,
+    name: user.name || `${user.firstName} ${user.lastName}`.trim(),
+    phone: user.phone || "",
+    casesCount: user.casesCount ?? user.appointmentsCount ?? 0,
+    status: user.status || "active",
+  };
+}
+
 export default function DoctorPatientsPage() {
-  const [patients, setPatients] = useState(initialPatients);
+  const { users, deleteUsers: removeUsers } = useUsersStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const patients = useMemo(
+    () => users.filter((user) => user.role === "patient").map(toPatientRow),
+    [users],
+  );
 
   const filteredPatients = useMemo(() => {
     const query = search.trim();
@@ -155,7 +90,7 @@ export default function DoctorPatientsPage() {
   };
 
   const deletePatients = (ids) => {
-    setPatients((current) => current.filter((patient) => !ids.includes(patient.id)));
+    removeUsers(ids);
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setPendingDelete(null);
   };

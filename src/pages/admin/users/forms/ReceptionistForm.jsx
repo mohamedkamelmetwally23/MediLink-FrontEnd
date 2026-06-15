@@ -38,13 +38,14 @@ export default function ReceptionistForm({
   const navigate = useNavigate();
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const setField = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validateReceptionist(values, {
       requirePassword: mode === "create",
@@ -52,8 +53,18 @@ export default function ReceptionistForm({
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length === 0) {
-      onSubmit?.(values);
-      navigate(returnTo);
+      setIsSubmitting(true);
+
+      try {
+        await onSubmit?.(values);
+        navigate(returnTo);
+      } catch (error) {
+        setErrors({
+          general: error.message || "تعذر حفظ بيانات موظف الاستقبال",
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -180,15 +191,23 @@ export default function ReceptionistForm({
           />
         </Field>
 
+        {errors.general && (
+          <p className="text-center text-sm font-semibold text-red-500 lg:col-span-2">
+            {errors.general}
+          </p>
+        )}
+
         <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2">
           <button
             type="submit"
+            disabled={isSubmitting}
             className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
           >
             {mode === "edit" ? "حفظ التعديلات" : "إنشاء الحساب"}
           </button>
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={() => navigate(returnTo)}
             className="h-[54px] rounded-xl border-2 border-cyan-400 font-semibold text-cyan-500"
           >

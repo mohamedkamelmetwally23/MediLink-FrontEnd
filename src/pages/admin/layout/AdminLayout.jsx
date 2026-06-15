@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
   CalendarCheck,
@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import doctor from "../../../assets/landingPage/admin.png";
+import { clearAuthSession } from "../../../services/authApi";
 import { useUsersStore } from "../users/useUsersStore";
 
 const navItems = [
@@ -77,8 +78,15 @@ export default function AdminLayout() {
 
 function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const forcedActiveTo = getProfileActiveRoute(location, getUser);
+
+  const handleLogout = () => {
+    clearAuthSession();
+    onClose?.();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <aside
@@ -140,6 +148,7 @@ function Sidebar({ isOpen, onClose }) {
 
         <button
           type="button"
+          onClick={handleLogout}
           className="flex h-[47px] w-full items-center justify-start gap-[34px] rounded-xl px-0 text-[#ff7b7b]"
         >
           <LogOut size={27} strokeWidth={1.8} />

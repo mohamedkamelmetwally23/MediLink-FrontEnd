@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  getCurrentDoctorId,
+  listDoctorAppointments,
+} from "../../services/medilinkApi";
 
 const views = [
   { id: "day", label: "يوم" },
@@ -32,7 +36,7 @@ const weekHours = [
   { label: "8م", value: 20 },
 ];
 
-const appointments = [
+const fallbackAppointments = [
   {
     day: 13,
     hour: 13,
@@ -279,8 +283,60 @@ const statusMeta = {
   },
 };
 
+function getCalendarDay(date, fallbackDay) {
+  if (!date) return fallbackDay;
+
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return fallbackDay;
+
+  return parsedDate.getDate();
+}
+
+function getCalendarHour(time, fallbackHour) {
+  const match = /^(\d{1,2}):/.exec(time || "");
+  if (!match) return fallbackHour;
+
+  return Number(match[1]);
+}
+
+function getCalendarStatus(status) {
+  if (status === "completed") return "completed";
+  if (status === "cancelled") return "cancelled";
+  return "waiting";
+}
+
+function toCalendarAppointment(appointment, index) {
+  const fallback = fallbackAppointments[index % fallbackAppointments.length];
+
+  return {
+    day: getCalendarDay(appointment.date, fallback.day),
+    hour: getCalendarHour(appointment.time, fallback.hour),
+    patient: appointment.patient || fallback.patient,
+    time: appointment.time || fallback.time,
+    status: getCalendarStatus(appointment.status),
+  };
+}
+
 export default function DoctorAppointmentsPage() {
   const [activeView, setActiveView] = useState("week");
+  const [calendarAppointments, setCalendarAppointments] =
+    useState(fallbackAppointments);
+
+  useEffect(() => {
+    let mounted = true;
+
+    listDoctorAppointments(getCurrentDoctorId())
+      .then((fetchedAppointments) => {
+        if (mounted && fetchedAppointments.length > 0) {
+          setCalendarAppointments(fetchedAppointments.map(toCalendarAppointment));
+        }
+      })
+      .catch(() => null);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
@@ -292,7 +348,7 @@ export default function DoctorAppointmentsPage() {
 
           <div className="mt-[16px] overflow-x-auto">
             {activeView === "month" && <MonthView />}
-            {activeView === "week" && <WeekView />}
+            {activeView === "week" && <WeekView appointments={calendarAppointments} />}
             {activeView === "day" && <DayView />}
           </div>
         </section>
@@ -442,7 +498,7 @@ function MonthCell({ day, muted }) {
   );
 }
 
-function WeekView() {
+function WeekView({ appointments }) {
   return (
     <div className="min-w-[900px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
       <div className="grid h-[48px] grid-cols-[42px_repeat(7,minmax(0,1fr))] bg-white text-[10px] font-bold text-[#555] dark:bg-[#505050] dark:text-gray-100">
@@ -489,6 +545,7 @@ function WeekView() {
               day={day.day}
               hour={hour.value}
               highlighted={day.muted}
+              appointments={appointments}
             />
           ))}
         </div>
@@ -497,7 +554,7 @@ function WeekView() {
   );
 }
 
-function WeekCell({ day, hour, highlighted }) {
+function WeekCell({ day, hour, highlighted, appointments }) {
   const cellEvents = appointments.filter(
     (appointment) => appointment.day === day && appointment.hour === hour,
   );

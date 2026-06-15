@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,8 +23,9 @@ import reportImage from "../../assets/doctor departement/image 12 (1).png";
 import xrayImageTwo from "../../assets/doctor departement/image 12 (2).png";
 import xrayImageThree from "../../assets/doctor departement/image 12 (3).png";
 import xrayImageFour from "../../assets/doctor departement/image 12 (4).png";
+import { useUsersStore } from "../admin/users/useUsersStore";
 
-const patient = {
+const defaultPatient = {
   name: "خالد طارق",
   role: "مريض",
   status: "مفعل",
@@ -31,6 +33,60 @@ const patient = {
   age: "33 سنة",
   phone: "0107338300",
 };
+
+const fallbackPatients = {
+  1: {
+    ...defaultPatient,
+    name: "محمد علي",
+    phone: "01237652086",
+    age: "35 سنة",
+  },
+  2: {
+    ...defaultPatient,
+    name: "سما محمد",
+    phone: "01237652086",
+    age: "29 سنة",
+    gender: "أنثى",
+  },
+  5: defaultPatient,
+};
+
+function getAgeFromBirthDate(birthDate) {
+  if (!birthDate) return "";
+
+  const date = new Date(birthDate);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+
+  return `${age} سنة`;
+}
+
+function buildPatientFromUser(user) {
+  if (!user) return null;
+
+  const name = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
+  return {
+    ...defaultPatient,
+    name: name || defaultPatient.name,
+    phone: user.phone || defaultPatient.phone,
+    age: getAgeFromBirthDate(user.birthDate) || user.age || defaultPatient.age,
+    gender:
+      user.gender === "female"
+        ? "أنثى"
+        : user.gender === "male"
+          ? "ذكر"
+          : defaultPatient.gender,
+    status: user.status === "inactive" ? "غير مفعل" : defaultPatient.status,
+  };
+}
 
 const menuItems = [
   { id: "booking", label: "تفاصيل الحجز" },
@@ -123,6 +179,8 @@ const prescriptions = [
 ];
 
 export default function DoctorPatientProfilePage() {
+  const { patientId } = useParams();
+  const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
   const [activeSection, setActiveSection] = useState("info");
   const [selectedRecordId, setSelectedRecordId] = useState(null);
@@ -164,6 +222,10 @@ export default function DoctorPatientProfilePage() {
     () => medicalRecords.find((record) => record.id === selectedRecordId),
     [selectedRecordId],
   );
+  const patient =
+    buildPatientFromUser(getUser(patientId)) ||
+    fallbackPatients[patientId] ||
+    defaultPatient;
 
   const openSection = (sectionId) => {
     setActiveSection(sectionId);
@@ -189,7 +251,7 @@ export default function DoctorPatientProfilePage() {
 
               <section className="min-w-0">
                 {activeSection !== "records" || !selectedRecord ? (
-                  <PatientCard />
+                  <PatientCard patient={patient} />
                 ) : (
                   <BackButton onClick={() => setSelectedRecordId(null)} />
                 )}
@@ -965,7 +1027,7 @@ function ConsultationMenu({ activeSection, onSectionChange }) {
   );
 }
 
-function PatientCard() {
+function PatientCard({ patient }) {
   return (
     <section className="grid min-h-[205px] gap-4 rounded-[10px] bg-white px-[18px] py-[18px] shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:px-[24px] md:grid-cols-[190px_minmax(0,1fr)] md:px-[31px]">
       <div className="h-[120px] w-[120px] overflow-hidden rounded-full border-[5px] border-[#eeeeee] justify-self-center dark:border-[#555] sm:h-[132px] sm:w-[132px] sm:justify-self-start md:h-[144px] md:w-[144px]">

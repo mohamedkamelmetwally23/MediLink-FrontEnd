@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Banknote,
-  Bell,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
   Stethoscope,
-  TrendingDown,
-  TrendingUp,
   UserRound,
 } from "lucide-react";
 import {
@@ -25,78 +22,34 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { listAppointments } from "../../services/medilinkApi";
+import { useUsersStore } from "./users/useUsersStore";
 
-const stats = [
+const statsConfig = [
   {
     title: "إجمالي المستخدمين",
-    value: "2,449",
-    change: "+13%",
     icon: UserRound,
     color: "text-[#4fc5b9]",
     bg: "bg-[#eefcfa]",
   },
   {
     title: "إجمالي الحجوزات",
-    value: "3,848",
-    change: "-5%",
     icon: CalendarDays,
     color: "text-[#ffb21d]",
     bg: "bg-[#fff3d8]",
   },
   {
     title: "إجمالي الأطباء",
-    value: "32",
-    change: "+5%",
     icon: Stethoscope,
     color: "text-[#1d77c8]",
     bg: "bg-[#edf6ff]",
   },
   {
     title: "إجمالي الإيرادات",
-    value: "125,430",
-    change: "+18%",
     icon: Banknote,
     color: "text-[#5bbf22]",
     bg: "bg-[#edf9e6]",
   },
-];
-
-const appointments = [
-  { month: "يناير", value: 360 },
-  { month: "فبراير", value: 390 },
-  { month: "مارس", value: 590 },
-  { month: "أبريل", value: 610 },
-  { month: "مايو", value: 950 },
-  { month: "يونيو", value: 1090 },
-  { month: "يوليو", value: 1240 },
-];
-
-const doctors = [
-  { name: "أحمد علي", value: 125 },
-  { name: "سارة خالد", value: 210 },
-  { name: "أماني فضالي", value: 115 },
-  { name: "محمد حسن", value: 130 },
-  { name: "خالد توفيق", value: 75 },
-  { name: "عبد الله حامد", value: 135 },
-  { name: "طارق مصطفى", value: 185 },
-];
-
-const activities = [
-  "تم إنشاء حساب مستخدم جديد",
-  "تم حجز موعد جديد",
-  "تم إلغاء موعد",
-  "تم إضافة طبيب جديد",
-  "تم تحديث بيانات العيادة",
-];
-
-const specializations = [
-  { name: "فم وأسنان", value: 25 },
-  { name: "جلدية وتجميل", value: 20 },
-  { name: "مخ وأعصاب", value: 15 },
-  { name: "الأطفال", value: 13 },
-  { name: "العين", value: 10 },
-  { name: "أمراض باطنة", value: 9 },
-  { name: "أنف وأذن", value: 8 },
 ];
 
 const pieColors = [
@@ -107,6 +60,21 @@ const pieColors = [
   "#359ce6",
   "#42b9d0",
   "#1689c9",
+];
+
+const monthNames = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
 ];
 
 function useDarkTheme() {
@@ -127,8 +95,84 @@ function useDarkTheme() {
   return isDark;
 }
 
+function getAppointmentRevenue(appointment) {
+  const raw = appointment.raw || {};
+  return Number(
+    raw.amount ??
+      raw.total ??
+      raw.price ??
+      raw.fee ??
+      raw.consultationFee ??
+      appointment.amount ??
+      0,
+  ) || 0;
+}
+
+function buildMonthlyAppointmentChart(appointments) {
+  const monthCounts = new Map();
+
+  appointments.forEach((appointment) => {
+    const date = new Date(appointment.date || appointment.raw?.createdAt || "");
+    if (Number.isNaN(date.getTime())) return;
+
+    const month = monthNames[date.getMonth()];
+    monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
+  });
+
+  return Array.from(monthCounts, ([month, value]) => ({ month, value }));
+}
+
+function buildDoctorChart(appointments, users) {
+  const doctorCounts = new Map();
+
+  appointments.forEach((appointment) => {
+    const name = appointment.doctor || "";
+    if (!name) return;
+    doctorCounts.set(name, (doctorCounts.get(name) || 0) + 1);
+  });
+
+  if (doctorCounts.size > 0) {
+    return Array.from(doctorCounts, ([name, value]) => ({ name, value }));
+  }
+
+  return users
+    .filter((user) => user.role === "doctor")
+    .map((doctor) => ({
+      name: `${doctor.firstName} ${doctor.lastName}`.trim(),
+      value: doctor.appointmentsCount || 0,
+    }))
+    .filter((doctor) => doctor.name && doctor.value > 0);
+}
+
+function buildSpecializationChart(users) {
+  const specialtyCounts = new Map();
+
+  users
+    .filter((user) => user.role === "doctor" && user.specialty)
+    .forEach((doctor) => {
+      specialtyCounts.set(
+        doctor.specialty,
+        (specialtyCounts.get(doctor.specialty) || 0) + 1,
+      );
+    });
+
+  const total = Array.from(specialtyCounts.values()).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+
+  if (total === 0) return [];
+
+  return Array.from(specialtyCounts, ([name, count]) => ({
+    name,
+    value: Math.round((count / total) * 100),
+  }));
+}
+
 export default function Dashboard() {
   const isDark = useDarkTheme();
+  const { users } = useUsersStore();
+  const [dashboardAppointments, setDashboardAppointments] = useState([]);
   const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
   const axisLineColor = isDark ? "#d1d5db" : "#3f4b52";
   const gridColor = isDark ? "#6b7280" : "#d9e2e7";
@@ -137,6 +181,51 @@ export default function Dashboard() {
     fill: axisColor,
     fontWeight: 600,
   };
+  const appointmentChart = useMemo(
+    () => buildMonthlyAppointmentChart(dashboardAppointments),
+    [dashboardAppointments],
+  );
+  const doctorChart = useMemo(
+    () => buildDoctorChart(dashboardAppointments, users),
+    [dashboardAppointments, users],
+  );
+  const specializationChart = useMemo(
+    () => buildSpecializationChart(users),
+    [users],
+  );
+  const totalRevenue = dashboardAppointments.reduce(
+    (total, appointment) => total + getAppointmentRevenue(appointment),
+    0,
+  );
+  const dashboardStats = statsConfig.map((item, index) => {
+    const values = [
+      users.length,
+      dashboardAppointments.length,
+      users.filter((user) => user.role === "doctor").length,
+      totalRevenue,
+    ];
+
+    return {
+      ...item,
+      value: String(values[index]),
+    };
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    listAppointments()
+      .then((fetchedAppointments) => {
+        if (mounted) {
+          setDashboardAppointments(fetchedAppointments);
+        }
+      })
+      .catch(() => null);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
@@ -144,7 +233,7 @@ export default function Dashboard() {
 
       <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((item) => (
+          {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}
         </div>
@@ -155,49 +244,52 @@ export default function Dashboard() {
             action={<RangeTabs options={["يوم", "أسبوع", "شهر", "سنة"]} />}
             className="h-[317px]"
           >
-            <ChartBox>
-              <AreaChart
-                data={appointments}
-                margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="appointmentsFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#28bfe1" stopOpacity={0.18} />
-                    <stop offset="100%" stopColor="#28bfe1" stopOpacity={0.08} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke={gridColor}
-                  strokeDasharray="0"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="month"
-                  axisLine={{ stroke: axisLineColor }}
-                  tickLine={false}
-                  tick={tickStyle}
-                  tickMargin={11}
-                />
-                <YAxis
-                  axisLine={{ stroke: axisLineColor }}
-                  tickLine={false}
-                  tick={tickStyle}
-                  ticks={[0, 500, 1000, 1500]}
-                  domain={[0, 1500]}
-                  width={43}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  fill="url(#appointmentsFill)"
-                  stroke="#31b9db"
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: "#31b9db", strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: "#31b9db", strokeWidth: 0 }}
-                />
-              </AreaChart>
-            </ChartBox>
+            {appointmentChart.length === 0 ? (
+              <ChartState />
+            ) : (
+              <ChartBox>
+                <AreaChart
+                  data={appointmentChart}
+                  margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="appointmentsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#28bfe1" stopOpacity={0.18} />
+                      <stop offset="100%" stopColor="#28bfe1" stopOpacity={0.08} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke={gridColor}
+                    strokeDasharray="0"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={{ stroke: axisLineColor }}
+                    tickLine={false}
+                    tick={tickStyle}
+                    tickMargin={11}
+                  />
+                  <YAxis
+                    axisLine={{ stroke: axisLineColor }}
+                    tickLine={false}
+                    tick={tickStyle}
+                    allowDecimals={false}
+                    width={43}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    fill="url(#appointmentsFill)"
+                    stroke="#31b9db"
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: "#31b9db", strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: "#31b9db", strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ChartBox>
+            )}
           </DashboardCard>
 
           <DashboardCard
@@ -210,51 +302,54 @@ export default function Dashboard() {
             }
             className="h-[317px]"
           >
-            <ChartBox>
-              <BarChart
-                data={doctors}
-                margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
-                barCategoryGap="29%"
-              >
-                <defs>
-                  <linearGradient id="doctorBarFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10aee3" />
-                    <stop offset="100%" stopColor="#62c9c2" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke={gridColor}
-                  strokeDasharray="0"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={{ stroke: axisLineColor }}
-                  tickLine={false}
-                  interval={0}
-                  tick={{ ...tickStyle, fontSize: 10 }}
-                  tickMargin={8}
-                />
-                <YAxis
-                  axisLine={{ stroke: axisLineColor }}
-                  tickLine={false}
-                  tick={tickStyle}
-                  ticks={[0, 50, 100, 150, 200]}
-                  domain={[0, 220]}
-                  width={43}
-                />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  cursor={{ fill: "rgba(49, 185, 219, 0.08)" }}
-                />
-                <Bar
-                  dataKey="value"
-                  fill="url(#doctorBarFill)"
-                  radius={[17, 17, 17, 17]}
-                  barSize={30}
-                />
-              </BarChart>
-            </ChartBox>
+            {doctorChart.length === 0 ? (
+              <ChartState />
+            ) : (
+              <ChartBox>
+                <BarChart
+                  data={doctorChart}
+                  margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
+                  barCategoryGap="29%"
+                >
+                  <defs>
+                    <linearGradient id="doctorBarFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10aee3" />
+                      <stop offset="100%" stopColor="#62c9c2" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke={gridColor}
+                    strokeDasharray="0"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={{ stroke: axisLineColor }}
+                    tickLine={false}
+                    interval={0}
+                    tick={{ ...tickStyle, fontSize: 10 }}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    axisLine={{ stroke: axisLineColor }}
+                    tickLine={false}
+                    tick={tickStyle}
+                    allowDecimals={false}
+                    width={43}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: "rgba(49, 185, 219, 0.08)" }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="url(#doctorBarFill)"
+                    radius={[17, 17, 17, 17]}
+                    barSize={30}
+                  />
+                </BarChart>
+              </ChartBox>
+            )}
           </DashboardCard>
         </div>
 
@@ -264,42 +359,48 @@ export default function Dashboard() {
               className="flex h-[232px] items-center justify-between gap-5"
               dir="ltr"
             >
-              <div className="h-[224px] w-[224px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={specializations}
-                      dataKey="value"
-                      innerRadius={67}
-                      outerRadius={112}
-                      paddingAngle={0}
-                      stroke="none"
-                    >
-                      {specializations.map((_, index) => (
-                        <Cell key={pieColors[index]} fill={pieColors[index]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="w-[150px] space-y-[8px]" dir="rtl">
-                {specializations.map((item, index) => (
-                  <div
-                    key={item.name}
-                    className="grid grid-cols-[14px_1fr_35px] items-center gap-2 text-[16px] leading-5 text-[#444] dark:text-gray-100"
-                  >
-                    <span
-                      className="h-[10px] w-[10px] rounded-full"
-                      style={{ backgroundColor: pieColors[index] }}
-                    />
-                    <span className="truncate">{item.name}</span>
-                    <span className="text-left text-[14px] text-[#424242] dark:text-gray-200">
-                      {item.value}%
-                    </span>
+              {specializationChart.length === 0 ? (
+                <ChartState />
+              ) : (
+                <>
+                  <div className="h-[224px] w-[224px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={specializationChart}
+                          dataKey="value"
+                          innerRadius={67}
+                          outerRadius={112}
+                          paddingAngle={0}
+                          stroke="none"
+                        >
+                          {specializationChart.map((_, index) => (
+                            <Cell key={pieColors[index]} fill={pieColors[index]} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+
+                  <div className="w-[150px] space-y-[8px]" dir="rtl">
+                    {specializationChart.map((item, index) => (
+                      <div
+                        key={item.name}
+                        className="grid grid-cols-[14px_1fr_35px] items-center gap-2 text-[16px] leading-5 text-[#444] dark:text-gray-100"
+                      >
+                        <span
+                          className="h-[10px] w-[10px] rounded-full"
+                          style={{ backgroundColor: pieColors[index] }}
+                        />
+                        <span className="truncate">{item.name}</span>
+                        <span className="text-left text-[14px] text-[#424242] dark:text-gray-200">
+                          {item.value}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </DashboardCard>
 
@@ -317,30 +418,7 @@ export default function Dashboard() {
             }
             className="h-[360px] overflow-hidden"
           >
-            <div className="mt-1 overflow-hidden">
-              {activities.map((text) => (
-                <div
-                  key={text}
-                  className="flex h-[56px] items-center justify-between gap-5 border-b border-[#e9eef1] last:border-b-0 dark:border-white/15"
-                  dir="ltr"
-                >
-                  <span className="shrink-0 text-[12px] text-[#777] dark:text-gray-300">
-                    منذ 10 دقائق
-                  </span>
-                  <div className="flex min-w-0 items-center gap-4" dir="ltr">
-                    <span
-                      className="truncate text-[17px] font-medium text-[#333] dark:text-white"
-                      dir="rtl"
-                    >
-                      {text}
-                    </span>
-                    <span className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
-                      <Bell size={19} />
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ChartState text="لا يوجد نشاط من قاعدة البيانات حتى الآن" />
           </DashboardCard>
         </div>
       </section>
@@ -353,7 +431,7 @@ function Header() {
     <header className="flex min-h-[120px] flex-col gap-5 bg-white px-4 py-7 shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[38px] lg:pt-[32px]">
       <div className="text-right">
         <h2 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
-          مرحبا أحمد محمد 👋
+          مرحبا
         </h2>
         <p className="mt-1 text-[14px] leading-5 text-[#8a8a8a] dark:text-gray-300">
           إليك ملخص أداء العيادة
@@ -364,10 +442,7 @@ function Header() {
   );
 }
 
-function StatCard({ title, value, change, icon: Icon, color, bg }) {
-  const isDown = change.includes("-");
-  const TrendIcon = isDown ? TrendingDown : TrendingUp;
-
+function StatCard({ title, value, icon: Icon, color, bg }) {
   return (
     <article className="h-[154px] rounded-[10px] bg-white px-[32px] pb-[20px] pt-[27px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div className="flex items-start justify-between" dir="ltr">
@@ -387,16 +462,8 @@ function StatCard({ title, value, change, icon: Icon, color, bg }) {
         </div>
       </div>
 
-      <p className="mt-[26px] flex items-center justify-end gap-2 text-[16px] leading-5 text-[#666] dark:text-gray-300">
-        <span>عن الشهر الماضي</span>
-        <span
-          className={`flex items-center gap-1 ${
-            isDown ? "text-[#ff2020]" : "text-[#36b320]"
-          }`}
-        >
-          {change}
-          <TrendIcon size={16} strokeWidth={2} />
-        </span>
+      <p className="mt-[26px] text-right text-[16px] leading-5 text-[#666] dark:text-gray-300">
+        من قاعدة البيانات
       </p>
     </article>
   );
@@ -424,6 +491,14 @@ function ChartBox({ children }) {
       <ResponsiveContainer width="100%" height="100%">
         {children}
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartState({ text = "لا توجد بيانات من قاعدة البيانات حتى الآن" }) {
+  return (
+    <div className="grid h-[219px] place-items-center text-center text-[16px] font-medium text-[#666] dark:text-gray-200">
+      {text}
     </div>
   );
 }

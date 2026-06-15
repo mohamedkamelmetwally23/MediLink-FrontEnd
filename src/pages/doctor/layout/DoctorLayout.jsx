@@ -5,6 +5,7 @@ import doctorAvatar from "../../../assets/landingPage/doctor1.png";
 import currentPatientAvatar from "../../../assets/landingPage/admin.png";
 import patientAvatarOne from "../../../assets/landingPage/12 1.png";
 import patientAvatarTwo from "../../../assets/landingPage/12 1 (1).png";
+import { clearAuthSession } from "../../../services/authApi";
 
 const navItems = [
   { label: "لوحة التحكم", icon: Home, to: "/doctor/dashboard" },
@@ -81,6 +82,14 @@ export default function DoctorLayout() {
 }
 
 function Sidebar({ isOpen, onClose }) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    onClose?.();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <aside
       className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-y-auto bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
@@ -97,7 +106,7 @@ function Sidebar({ isOpen, onClose }) {
       </button>
 
       <DoctorBadge onClose={onClose} />
-      <MainNav onClose={onClose} />
+      <MainNav onClose={onClose} onLogout={handleLogout} />
       <WaitingList onClose={onClose} />
     </aside>
   );
@@ -141,7 +150,7 @@ function DoctorBadge({ onClose }) {
   );
 }
 
-function MainNav({ onClose }) {
+function MainNav({ onClose, onLogout }) {
   return (
     <nav className="mt-[35px] space-y-[20px] px-[42px] text-[18px] font-bold">
       {navItems.map((item) => (
@@ -156,6 +165,7 @@ function MainNav({ onClose }) {
 
       <button
         type="button"
+        onClick={onLogout}
         className="flex h-[42px] w-full items-center justify-start gap-[22px] rounded-xl px-0 text-[#ff8383]"
       >
         <LogOut size={25} strokeWidth={1.8} />

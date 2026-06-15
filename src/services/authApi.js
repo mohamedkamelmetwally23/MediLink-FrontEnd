@@ -147,6 +147,26 @@ function normalizeRoleValue(value) {
     .replace(/[\s-]+/g, "_");
 }
 
+function isRoleLikeValue(value) {
+  return [
+    "admin",
+    "administrator",
+    "super_admin",
+    "superadmin",
+    "doctor",
+    "dr",
+    "receptionist",
+    "reception",
+    "patient",
+    "user",
+    "ادمن",
+    "مدير",
+    "طبيب",
+    "موظف_استقبال",
+    "مريض",
+  ].includes(normalizeRoleValue(value));
+}
+
 function readRoleFrom(value) {
   if (!value || typeof value !== "object") return "";
 
@@ -155,10 +175,11 @@ function readRoleFrom(value) {
     value.userRole ||
     value.accountRole ||
     value.type ||
-    value.userType ||
-    value.status;
+    value.userType;
 
   if (directRole) return directRole;
+
+  if (isRoleLikeValue(value.status)) return value.status;
 
   return (
     readRoleFrom(value.user) ||
@@ -189,6 +210,24 @@ export function isAdminAccount(data) {
   return ["admin", "administrator", "super_admin", "superadmin", "ادمن", "مدير"].includes(role);
 }
 
+export function getAccountRole(data) {
+  if (isAdminAccount(data)) return "admin";
+
+  const role = normalizeRoleValue(readRoleFrom(data));
+
+  if (["doctor", "dr", "طبيب"].includes(role)) return "doctor";
+  if (["receptionist", "reception", "موظف_استقبال"].includes(role)) {
+    return "receptionist";
+  }
+  if (["patient", "user", "مريض"].includes(role)) return "patient";
+
+  return "user";
+}
+
+export function isDoctorAccount(data) {
+  return getAccountRole(data) === "doctor";
+}
+
 function getAuthUser(data) {
   return (
     data?.user ||
@@ -215,5 +254,18 @@ export function saveAuthSession(data) {
     localStorage.setItem("medilinkUser", JSON.stringify(user));
   }
 
-  localStorage.setItem("medilinkRole", isAdminAccount(data) ? "admin" : "user");
+  localStorage.setItem("medilinkRole", getAccountRole(data));
+}
+
+export function clearAuthSession() {
+  [
+    "medilinkToken",
+    "token",
+    "accessToken",
+    "medilinkUser",
+    "medilinkRole",
+    "medilink-admin-users",
+    "medilink-admin-specialties",
+    "medilink-admin-specialty-prices",
+  ].forEach((key) => localStorage.removeItem(key));
 }

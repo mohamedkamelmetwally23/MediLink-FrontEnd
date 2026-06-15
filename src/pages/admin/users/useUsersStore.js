@@ -1,23 +1,15 @@
-import { useState } from "react";
-import { initialUsers, normalizeSpecialtyLabel } from "./usersData";
+import { useEffect, useState } from "react";
+import {
+  createUser as apiCreateUser,
+  deleteUser as apiDeleteUser,
+  listAllUsers,
+  toggleUserActiveStatus,
+  updateUser as apiUpdateUser,
+} from "../../../services/medilinkApi";
+import { normalizeSpecialtyLabel } from "./usersData";
 
-const STORAGE_KEY = "medilink-admin-users";
-
-function loadUsers() {
-  try {
-    const savedUsers = localStorage.getItem(STORAGE_KEY);
-    if (!savedUsers) {
-      return initialUsers.map(normalizeLoadedUser);
-    }
-
-    const parsedUsers = JSON.parse(savedUsers);
-    return parsedUsers.map((user) => {
-      const seedUser = initialUsers.find((item) => item.id === user.id);
-      return normalizeLoadedUser(seedUser ? { ...seedUser, ...user } : user);
-    });
-  } catch {
-    return initialUsers.map(normalizeLoadedUser);
-  }
+function sameId(left, right) {
+  return String(left) === String(right);
 }
 
 function normalizeLoadedUser(user) {
@@ -31,16 +23,12 @@ function normalizeLoadedUser(user) {
   };
 }
 
-function persistUsers(nextUsers) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUsers));
-}
-
 function normalizeUser(values) {
   const user = {
     ...values,
-    firstName: values.firstName.trim(),
-    lastName: values.lastName.trim(),
-    phone: values.phone.trim(),
+    firstName: values.firstName?.trim() || "",
+    lastName: values.lastName?.trim() || "",
+    phone: values.phone?.trim() || "",
     status: values.status || "active",
   };
 
@@ -53,54 +41,118 @@ function normalizeUser(values) {
 }
 
 export function useUsersStore() {
-  const [users, setUsers] = useState(loadUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const commitUsers = (getNextUsers) => {
     setUsers((currentUsers) => {
       const nextUsers = getNextUsers(currentUsers);
-      persistUsers(nextUsers);
       return nextUsers;
     });
   };
 
-  const addUser = (values) => {
-    commitUsers((currentUsers) => [
-      {
-        ...normalizeUser(values),
-        id: Date.now(),
-      },
-      ...currentUsers,
-    ]);
+  const refreshUsers = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const fetchedUsers = await listAllUsers();
+      commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
+    } catch (requestError) {
+      setError(requestError.message || "");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateUser = (id, values) => {
+  useEffect(() => {
+    let mounted = true;
+
+    listAllUsers()
+      .then((fetchedUsers) => {
+        if (!mounted) return;
+        commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
+      })
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError.message || "");
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const addUser = async (values) => {
+    const normalizedUser = normalizeUser(values);
+    const createdUser = await apiCreateUser(normalizedUser);
+    const nextUser = normalizeLoadedUser({
+      ...normalizedUser,
+      ...createdUser,
+      id: createdUser.id || Date.now(),
+    });
+
+    commitUsers((currentUsers) => [nextUser, ...currentUsers]);
+    return nextUser;
+  };
+
+  const updateUser = async (id, values) => {
+    const currentUser = users.find((user) => sameId(user.id, id));
+    const normalizedUser = normalizeUser({ ...currentUser, ...values });
+    const updatedUser = await apiUpdateUser(id, normalizedUser, currentUser);
+    const nextUser = normalizeLoadedUser({
+      ...normalizedUser,
+      ...updatedUser,
+      id: updatedUser.id || id,
+    });
+
     commitUsers((currentUsers) =>
-      currentUsers.map((user) =>
-        user.id === Number(id)
-          ? { ...user, ...normalizeUser(values), id: user.id }
-          : user,
-      ),
+      currentUsers.map((user) => (sameId(user.id, id) ? nextUser : user)),
     );
+
+    return nextUser;
   };
 
   const deleteUsers = (ids) => {
-    const idsSet = new Set(ids.map(Number));
-    commitUsers((currentUsers) =>
-      currentUsers.filter((user) => !idsSet.has(user.id)),
-    );
+    const idsSet = new Set(ids.map(String));
+    const targetUsers = users.filter((user) => idsSet.has(String(user.id)));
+
+    Promise.all(targetUsers.map(apiDeleteUser))
+      .then(() => {
+        commitUsers((currentUsers) =>
+          currentUsers.filter((user) => !idsSet.has(String(user.id))),
+        );
+      })
+      .catch((requestError) => {
+        setError(requestError.message || "");
+      });
   };
 
   const toggleUserStatus = (id) => {
-    commitUsers((currentUsers) =>
-      currentUsers.map((user) =>
-        user.id === Number(id)
-          ? {
-              ...user,
-              status: user.status === "active" ? "inactive" : "active",
-            }
-          : user,
-      ),
-    );
+    const targetUser = users.find((user) => sameId(user.id, id));
+    if (!targetUser) return;
+
+    toggleUserActiveStatus(targetUser)
+      .catch(() => null)
+      .finally(() => {
+        commitUsers((currentUsers) =>
+          currentUsers.map((user) =>
+            sameId(user.id, id)
+              ? {
+                  ...user,
+                  status: user.status === "active" ? "inactive" : "active",
+                }
+              : user,
+          ),
+        );
+      });
   };
 
   const updateUsersSpecialty = (oldSpecialty, nextSpecialty) => {
@@ -124,10 +176,13 @@ export function useUsersStore() {
     );
   };
 
-  const getUser = (id) => users.find((user) => user.id === Number(id));
+  const getUser = (id) => users.find((user) => sameId(user.id, id));
 
   return {
     users,
+    loading,
+    error,
+    refreshUsers,
     addUser,
     updateUser,
     deleteUsers,
