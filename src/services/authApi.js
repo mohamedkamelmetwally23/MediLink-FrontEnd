@@ -1,5 +1,6 @@
-const API_BASE_URL =
-  "https://medilink-backend-production-0364.up.railway.app/api/v1/users";
+import { API_BASE_URL as API_ROOT } from "./apiClient";
+
+const API_BASE_URL = `${API_ROOT}/users`;
 
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
@@ -37,7 +38,7 @@ function toArabicErrorMessage(message, fallback) {
   }
 
   if (normalized.includes("password")) {
-    return "كلمة المرور غير صحيحة أو لا تطابق الشروط";
+    return "رقم الهاتف أو كلمة المرور غير صحيحة";
   }
 
   if (

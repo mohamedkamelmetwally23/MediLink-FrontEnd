@@ -19,6 +19,8 @@ const pageSize = 10;
 export default function UsersPage() {
   const {
     users,
+    loading,
+    error,
     deleteUsers: removeUsers,
     toggleUserStatus,
   } = useUsersStore();
@@ -113,8 +115,12 @@ export default function UsersPage() {
                 }}
               />
 
-              {filteredUsers.length === 0 ? (
-                <EmptyState />
+              {loading ? (
+                <TableState text="جاري تحميل المرضى..." />
+              ) : error ? (
+                <TableState text={error} />
+              ) : filteredUsers.length === 0 ? (
+                <TableState text="لا يوجد مرضى حتى الآن" />
               ) : (
                 pageUsers.map((user) => (
                   <UserRow
@@ -352,10 +358,10 @@ function StatusBadge({ status }) {
   );
 }
 
-function EmptyState() {
+function TableState({ text }) {
   return (
     <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
-      لا يوجد مرضى حتى الآن
+      {text}
     </div>
   );
 }

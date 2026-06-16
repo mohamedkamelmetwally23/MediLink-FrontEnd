@@ -46,8 +46,42 @@ function findEntity(response, keys) {
   return unwrapData(response);
 }
 
+async function requestFirst(paths, options = {}) {
+  let lastError;
+
+  for (const path of paths) {
+    try {
+      return await apiRequest(path, options);
+    } catch (error) {
+      lastError = error;
+
+      if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+async function listFromPaths(paths, keys) {
+  const response = await requestFirst(paths);
+  return findArray(response, keys);
+}
+
+async function entityFromPaths(paths, keys) {
+  const response = await requestFirst(paths);
+  return findEntity(response, keys);
+}
+
 function getId(value) {
+  if (typeof value === "string") return value;
   return value?._id || value?.id || value?.user?._id || "";
+}
+
+function getProfileUserId(value) {
+  const user = value?.user || value?.account || value?.userId;
+  return typeof user === "string" ? user : getId(user);
 }
 
 function compactObject(value) {
@@ -92,6 +126,43 @@ function splitName(name = "") {
   return {
     firstName,
     lastName: rest.join(" "),
+  };
+}
+
+function normalizeBaseUser(item = {}) {
+  return {
+    id: getId(item),
+    firstName: item.firstName || splitName(item.name).firstName,
+    lastName: item.lastName || splitName(item.name).lastName,
+    gender: item.gender || "",
+    birthDate: item.birthDate || "",
+    phone: item.phone || item.phoneNumber || item.mobile || "",
+    role: item.role || item.userRole || "",
+    status: normalizeStatus(item.active ?? item.isActive ?? item.status),
+    raw: item,
+  };
+}
+
+function mergeProfileUser(profile, usersById) {
+  const userId = getProfileUserId(profile);
+  const user = usersById.get(String(userId));
+
+  if (!user) return profile;
+
+  return {
+    ...profile,
+    user: {
+      ...user.raw,
+      _id: user.id,
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      gender: user.gender,
+      birthDate: user.birthDate,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+    },
   };
 }
 
@@ -175,7 +246,7 @@ export function normalizeDoctor(item = {}) {
 
   return {
     id: getId(item),
-    userId: getId(user),
+    userId: getProfileUserId(item) || getId(user),
     firstName: user.firstName || item.firstName || splitName(item.name).firstName,
     lastName: user.lastName || item.lastName || splitName(item.name).lastName,
     gender: user.gender || item.gender || "male",
@@ -203,7 +274,7 @@ export function normalizeReceptionist(item = {}) {
 
   return {
     id: getId(item),
-    userId: getId(user),
+    userId: getProfileUserId(item) || getId(user),
     firstName: user.firstName || item.firstName || splitName(item.name).firstName,
     lastName: user.lastName || item.lastName || splitName(item.name).lastName,
     gender: user.gender || item.gender || "male",
@@ -227,7 +298,7 @@ export function normalizePatient(item = {}) {
 
   return {
     id: getId(item),
-    userId: getId(user),
+    userId: getProfileUserId(item) || getId(user),
     firstName: user.firstName || item.firstName || nameParts.firstName,
     lastName: user.lastName || item.lastName || nameParts.lastName,
     name,
@@ -246,6 +317,23 @@ export function normalizePatient(item = {}) {
     registrationDate: normalizeDate(item.createdAt || user.createdAt || ""),
     raw: item,
   };
+}
+
+export async function listBaseUsers() {
+  const items = await listFromPaths(["/users"], ["users", "user"]);
+  return items.map(normalizeBaseUser);
+}
+
+async function withHydratedUsers(items) {
+  if (!items.some((item) => typeof item?.user === "string")) return items;
+
+  try {
+    const users = await listBaseUsers();
+    const usersById = new Map(users.map((user) => [String(user.id), user]));
+    return items.map((item) => mergeProfileUser(item, usersById));
+  } catch {
+    return items;
+  }
 }
 
 export function normalizeAppointment(item = {}) {
@@ -364,17 +452,30 @@ function patientPayload(values) {
 }
 
 export async function listDoctors() {
-  const response = await apiRequest("/doctors");
-  return findArray(response, ["doctors", "doctor"]).map(normalizeDoctor);
+  const doctors = await listFromPaths(
+    ["/doctors", "/doctorprofiles", "/doctorProfiles", "/doctor-profiles"],
+    ["doctors", "doctor", "doctorprofiles", "doctorProfiles", "profiles"],
+  );
+  const hydratedDoctors = await withHydratedUsers(doctors);
+  return hydratedDoctors.map(normalizeDoctor);
 }
 
 export async function getDoctor(id) {
-  const response = await apiRequest(`/doctors/${id}`);
-  return normalizeDoctor(findEntity(response, ["doctor"]));
+  const doctor = await entityFromPaths(
+    [
+      `/doctors/${id}`,
+      `/doctorprofiles/${id}`,
+      `/doctorProfiles/${id}`,
+      `/doctor-profiles/${id}`,
+    ],
+    ["doctor", "doctorprofile", "doctorProfile", "profile"],
+  );
+  const [hydratedDoctor] = await withHydratedUsers([doctor]);
+  return normalizeDoctor(hydratedDoctor);
 }
 
 export async function createDoctor(values) {
-  const response = await apiRequest("/doctors", {
+  const response = await requestFirst(["/doctors", "/doctorprofiles"], {
     method: "POST",
     body: doctorPayload(values, "create"),
   });
@@ -382,7 +483,7 @@ export async function createDoctor(values) {
 }
 
 export async function updateDoctor(id, values) {
-  const response = await apiRequest(`/doctors/${id}`, {
+  const response = await requestFirst([`/doctors/${id}`, `/doctorprofiles/${id}`], {
     method: "PATCH",
     body: doctorPayload(values, "edit"),
   });
@@ -390,17 +491,17 @@ export async function updateDoctor(id, values) {
 }
 
 export async function deleteDoctor(id) {
-  return apiRequest(`/doctors/${id}`, { method: "DELETE" });
+  return requestFirst([`/doctors/${id}`, `/doctorprofiles/${id}`], {
+    method: "DELETE",
+  });
 }
 
 export async function listSpecializations() {
-  const response = await apiRequest("/specializations");
-  return findArray(response, [
-    "specializations",
-    "specialization",
-    "specialties",
-    "specialty",
-  ]).map(normalizeSpecialization);
+  const specializations = await listFromPaths(
+    ["/specializations", "/specialties"],
+    ["specializations", "specialization", "specialties", "specialty"],
+  );
+  return specializations.map(normalizeSpecialization);
 }
 
 export async function listSpecializationsFromDoctors() {
@@ -420,7 +521,7 @@ export async function listSpecializationsFromDoctors() {
 }
 
 export async function createSpecialization(values) {
-  const response = await apiRequest("/specializations", {
+  const response = await requestFirst(["/specializations", "/specialties"], {
     method: "POST",
     body: compactObject({
       name: values.name,
@@ -432,61 +533,126 @@ export async function createSpecialization(values) {
 }
 
 export async function updateSpecialization(id, values) {
-  const response = await apiRequest(`/specializations/${id}`, {
-    method: "PUT",
-    body: compactObject({
-      name: values.name,
-      consultationFee: normalizeNumber(values.price, 0),
-    }),
-  });
+  const response = await requestFirst(
+    [`/specializations/${id}`, `/specialties/${id}`],
+    {
+      method: "PUT",
+      body: compactObject({
+        name: values.name,
+        consultationFee: normalizeNumber(values.price, 0),
+      }),
+    },
+  );
 
   return normalizeSpecialization(findEntity(response, ["specialization", "specialty"]));
 }
 
 export async function deleteSpecialization(id) {
-  return apiRequest(`/specializations/${id}`, { method: "DELETE" });
+  return requestFirst([`/specializations/${id}`, `/specialties/${id}`], {
+    method: "DELETE",
+  });
 }
 
 export async function listPatients() {
-  const response = await apiRequest("/patients");
-  return findArray(response, ["patients", "patient", "users"]).map(normalizePatient);
+  try {
+    const patients = await listFromPaths(
+      [
+        "/patient/getAllPatient",
+        "/patient",
+        "/patients",
+        "/patientprofiles",
+        "/patientProfiles",
+        "/patient-profiles",
+      ],
+      [
+        "patients",
+        "patient",
+        "allPatients",
+        "allPatient",
+        "patientprofiles",
+        "patientProfiles",
+        "profiles",
+      ],
+    );
+    const hydratedPatients = await withHydratedUsers(patients);
+    return hydratedPatients.map(normalizePatient);
+  } catch (error) {
+    if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
+      throw error;
+    }
+
+    const users = await listBaseUsers();
+    return users.filter((user) => user.role === "patient").map(normalizePatient);
+  }
 }
 
 export async function getPatient(id) {
-  const response = await apiRequest(`/patients/${id}`);
-  return normalizePatient(findEntity(response, ["patient", "user"]));
+  const patient = await entityFromPaths(
+    [
+      `/patient/getPatientById/${id}`,
+      `/patient/${id}`,
+      `/patients/${id}`,
+      `/patientprofiles/${id}`,
+      `/patientProfiles/${id}`,
+      `/patient-profiles/${id}`,
+    ],
+    ["patient", "patientprofile", "patientProfile", "profile", "user"],
+  );
+  const [hydratedPatient] = await withHydratedUsers([patient]);
+  return normalizePatient(hydratedPatient);
 }
 
 export async function updatePatient(id, values) {
-  const response = await apiRequest(`/patients/${id}`, {
-    method: "PATCH",
-    body: patientPayload(values),
-  });
+  const response = await requestFirst(
+    [`/patient/${id}`, `/patients/${id}`, `/patientprofiles/${id}`],
+    {
+      method: "PATCH",
+      body: patientPayload(values),
+    },
+  );
   return normalizePatient(findEntity(response, ["patient", "user"]));
 }
 
 export async function deletePatient(id) {
-  return apiRequest(`/patients/${id}`, { method: "DELETE" });
+  return requestFirst(
+    [
+      `/patient/deletePatientById/${id}`,
+      `/patient/${id}`,
+      `/patients/${id}`,
+      `/patientprofiles/${id}`,
+    ],
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function listReceptionists() {
-  const response = await apiRequest("/receptionist");
-  return findArray(response, [
+  const receptionists = await listFromPaths(
+    ["/receptionist", "/receptionists"],
+    [
     "receptionists",
     "receptionist",
     "reseptionists",
     "reseptionist",
     "users",
-  ]).map(normalizeReceptionist);
+    ],
+  );
+  const hydratedReceptionists = await withHydratedUsers(receptionists);
+  return hydratedReceptionists.map(normalizeReceptionist);
 }
 
 export async function getReceptionist(id) {
-  const response = await apiRequest(`/receptionist/${id}`);
-  return normalizeReceptionist(findEntity(response, ["receptionist", "reseptionist"]));
+  const receptionist = await entityFromPaths(
+    [`/receptionist/${id}`, `/receptionists/${id}`],
+    ["receptionist", "reseptionist"],
+  );
+  const [hydratedReceptionist] = await withHydratedUsers([receptionist]);
+  return normalizeReceptionist(hydratedReceptionist);
 }
 
 export async function createReceptionist(values) {
-  const response = await apiRequest("/receptionist", {
+  const response = await requestFirst(["/receptionist", "/receptionists"], {
     method: "POST",
     body: receptionistPayload(values, "create"),
   });
@@ -494,7 +660,7 @@ export async function createReceptionist(values) {
 }
 
 export async function updateReceptionist(id, values) {
-  const response = await apiRequest(`/receptionist/${id}`, {
+  const response = await requestFirst([`/receptionist/${id}`, `/receptionists/${id}`], {
     method: "PATCH",
     body: receptionistPayload(values, "edit"),
   });
@@ -502,7 +668,9 @@ export async function updateReceptionist(id, values) {
 }
 
 export async function deleteReceptionist(id) {
-  return apiRequest(`/receptionist/${id}`, { method: "DELETE" });
+  return requestFirst([`/receptionist/${id}`, `/receptionists/${id}`], {
+    method: "DELETE",
+  });
 }
 
 export async function listAllUsers() {
@@ -527,7 +695,7 @@ export async function createUser(values) {
   if (values.role === "doctor") return createDoctor(values);
   if (values.role === "receptionist") return createReceptionist(values);
 
-  const response = await apiRequest("/patients", {
+  const response = await requestFirst(["/patient", "/patients", "/patientprofiles"], {
     method: "POST",
     body: patientPayload(values),
   });
@@ -554,9 +722,15 @@ export async function toggleUserActiveStatus(user) {
 
   try {
     if (user.role === "patient") {
-      return await apiRequest(`/patients/${user.id}/changeActiveStatus`, {
-        method: "PATCH",
-      });
+      return await requestFirst(
+        [
+          `/patient/changeActiveStatus/${user.id}`,
+          `/patients/${user.id}/changeActiveStatus`,
+        ],
+        {
+          method: "PATCH",
+        },
+      );
     }
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 404) throw error;
@@ -566,13 +740,16 @@ export async function toggleUserActiveStatus(user) {
 }
 
 export async function listAppointments() {
-  const response = await apiRequest("/appointment");
-  return findArray(response, [
+  const appointments = await listFromPaths(
+    ["/appointment", "/appointments"],
+    [
     "appointments",
     "appointment",
     "bookings",
     "reservations",
-  ]).map(normalizeAppointment);
+    ],
+  );
+  return appointments.map(normalizeAppointment);
 }
 
 export async function listDoctorAppointments(doctorId) {
@@ -581,7 +758,10 @@ export async function listDoctorAppointments(doctorId) {
   const paths = [
     `/appointment/doctor/${doctorId}`,
     `/appointment/doctors/${doctorId}`,
+    `/appointments/doctor/${doctorId}`,
+    `/appointments/doctors/${doctorId}`,
     `/appointment?doctor=${doctorId}`,
+    `/appointments?doctor=${doctorId}`,
   ];
 
   for (const path of paths) {
@@ -605,7 +785,9 @@ export async function listDoctorAppointments(doctorId) {
 }
 
 export async function deleteAppointment(id) {
-  return apiRequest(`/appointment/${id}`, { method: "DELETE" });
+  return requestFirst([`/appointment/${id}`, `/appointments/${id}`], {
+    method: "DELETE",
+  });
 }
 
 export function getCurrentAuthUser() {

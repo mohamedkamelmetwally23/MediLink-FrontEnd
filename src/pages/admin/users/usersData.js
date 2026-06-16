@@ -63,12 +63,3 @@ export const timeOptions = Array.from({ length: 48 }, (_, index) => {
   return `${String(hour24).padStart(2, "0")}:${minutes}`;
 });
 
-export const specialties = [
-  "الفم والأسنان",
-  "أمراض الباطنة",
-  "الأطفال",
-  "طب العيون",
-  "مخ وأعصاب",
-  "أنف وأذن",
-  "جلدية وتجميل",
-];
