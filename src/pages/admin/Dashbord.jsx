@@ -4,7 +4,7 @@ import {
   Banknote,
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
+  ChevronRight,
   Stethoscope,
   UserRound,
 } from "lucide-react";
@@ -412,7 +412,7 @@ export default function Dashboard() {
                 className="flex items-center gap-2 text-[13px] text-[#30bfd6]"
                 dir="ltr"
               >
-                <ChevronLeft size={16} strokeWidth={1.8} />
+                <ChevronRight size={22} strokeWidth={1.9} />
                 <span>عرض الكل</span>
               </Link>
             }
@@ -431,7 +431,7 @@ function Header() {
     <header className="flex min-h-[120px] flex-col gap-5 bg-white px-4 py-7 shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[38px] lg:pt-[32px]">
       <div className="text-right">
         <h2 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
-          مرحبا
+          مرحبا أحمد  محمد 👋
         </h2>
         <p className="mt-1 text-[14px] leading-5 text-[#8a8a8a] dark:text-gray-300">
           إليك ملخص أداء العيادة

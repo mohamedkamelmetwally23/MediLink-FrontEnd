@@ -90,82 +90,75 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(253px,85vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[253px] lg:translate-x-0 lg:shadow-none ${
+      className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       }`}
     >
       <button
         type="button"
         aria-label="إغلاق القائمة"
-        className="absolute left-4 top-4 z-20 rounded-lg p-2 text-white hover:bg-white/15 lg:hidden"
+        className="absolute left-4 top-4 rounded-lg p-2 text-white hover:bg-white/15 lg:hidden"
         onClick={onClose}
       >
         <X />
       </button>
 
-      <div className="flex h-full flex-col overflow-y-auto">
-        <ProfileCard />
+      <div className="h-full flex flex-col overflow-y-auto">
 
-        <nav className="mt-[28px] space-y-[14px] px-[22px] text-[16px] font-bold">
-          {navItems.map((item) => (
-            <SideItem
-              key={`${item.label}-${item.to}`}
-              {...item}
-              forcedActiveTo={forcedActiveTo}
-              onClick={onClose}
+      <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5acbd0] text-center">
+        <Link
+          to="/admin"
+          className="block pt-[42px] text-[24px] font-bold leading-7 text-white"
+        >
+          Medilink
+        </Link>
+
+        <div className="absolute bottom-0 h-[46px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
+
+        <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2">
+          <div className="h-[128px] w-[128px] overflow-hidden rounded-full ring-[6px] ring-white dark:ring-[#3a3a3a]">
+            <img
+              src={doctor}
+              alt="مدير النظام"
+              className="h-full w-full object-cover"
             />
-          ))}
-
-          <div className="mx-auto my-[12px] h-px w-[158px] bg-[#f0f0f0] dark:bg-white/20" />
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex h-[44px] w-full items-center justify-start gap-[18px] rounded-[12px] px-[14px] text-[#ff7b7b] transition hover:bg-[#fff3f3] hover:text-[#ff6f6f] dark:hover:bg-red-400/10"
-          >
-            <LogOut size={22} strokeWidth={1.8} />
-            <span>تسجيل الخروج</span>
-          </button>
-        </nav>
-      </div>
-    </aside>
-  );
-}
-
-function ProfileCard() {
-  return (
-    <section className="relative h-[154px] w-full overflow-hidden bg-white text-center dark:bg-[#3a3a3a]">
-      <div className="absolute inset-x-0 top-0 h-[98px] bg-gradient-to-b from-[#0fb8e8] to-[#66d1cb]" />
-      <div className="absolute bottom-[28px] left-[-17px] h-[50px] w-[70px] rounded-full bg-white dark:bg-[#3a3a3a]" />
-      <div className="absolute bottom-[28px] right-[-17px] h-[50px] w-[70px] rounded-full bg-white dark:bg-[#3a3a3a]" />
-
-      <Link
-        to="/admin"
-        className="relative z-10 block pt-[24px] text-[18px] font-bold leading-6 text-white"
-      >
-        Medilink
-      </Link>
-
-      <div className="absolute left-1/2 top-[58px] z-10 -translate-x-1/2">
-        <div className="h-[74px] w-[74px] overflow-hidden rounded-full ring-[5px] ring-white dark:ring-[#3a3a3a]">
-          <img
-            src={doctor}
-            alt="مدير النظام"
-            className="h-full w-full object-cover"
-          />
+          </div>
+          <span className="absolute bottom-[15px] right-[11px] h-[16px] w-[16px] rounded-full bg-[#22c55e] ring-[4px] ring-white dark:ring-[#3a3a3a]" />
         </div>
-        <span className="absolute bottom-[7px] right-[0px] h-[13px] w-[13px] rounded-full bg-[#22c55e] ring-[3px] ring-white dark:ring-[#3a3a3a]" />
       </div>
 
-      <div className="absolute inset-x-0 bottom-[7px] z-10">
-        <h2 className="text-[13px] font-bold leading-5 text-[#333] dark:text-white">
+      <div className="mt-[17px] text-center">
+        <h2 className="text-[17px] font-bold leading-6 text-[#333] dark:text-white">
           د. أحمد محمد
         </h2>
-        <p className="text-[10px] font-medium leading-4 text-[#888] dark:text-gray-300">
+        <p className="mt-1 text-[13px] leading-5 text-[#888] dark:text-gray-300">
           مدير النظام
         </p>
       </div>
-    </section>
+
+      <nav className="mt-[29px] space-y-[18px] px-[38px] text-[18px] font-bold">
+        {navItems.map((item) => (
+          <SideItem
+            key={`${item.label}-${item.to}`}
+            {...item}
+            forcedActiveTo={forcedActiveTo}
+            onClick={onClose}
+          />
+        ))}
+
+        <div className="mx-auto h-px w-[158px] bg-[#f0f0f0] dark:bg-white/20" />
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex h-[47px] w-full items-center justify-start gap-[34px] rounded-xl px-0 text-[#ff7b7b]"
+        >
+          <LogOut size={27} strokeWidth={1.8} />
+          <span>تسجيل الخروج</span>
+        </button>
+      </nav>
+      </div>
+    </aside>
   );
 }
 
@@ -204,41 +197,29 @@ function SideItem({
   const isPrefixActive =
     activePrefix && location.pathname.startsWith(activePrefix);
 
-  const getIsItemActive = (isActive) =>
-    forcedActiveTo
-      ? to === forcedActiveTo
-      : (!disableDefaultActive && isActive) ||
-        activePaths.includes(location.pathname) ||
-        isPrefixActive;
-
   return (
     <NavLink
       to={to}
       end={to === "/admin/dashboard"}
       onClick={onClick}
-      className={({ isActive }) => {
-        const isItemActive = getIsItemActive(isActive);
+      className={({ isActive }) =>
+        {
+          const isItemActive = forcedActiveTo
+            ? to === forcedActiveTo
+            : (!disableDefaultActive && isActive) ||
+          activePaths.includes(location.pathname) ||
+              isPrefixActive;
 
-        return `relative flex h-[44px] items-center justify-start gap-[18px] rounded-[12px] px-[14px] transition ${
-          isItemActive
-            ? "bg-[#f6fdff] text-[#30bfd6] dark:bg-cyan-400/10"
-            : "text-[#b8b8b8] hover:bg-[#f6fdff] hover:text-[#30bfd6] dark:text-gray-300 dark:hover:bg-cyan-400/10"
-        }`;
-      }}
+          return `flex h-[47px] items-center justify-start gap-[34px] rounded-xl px-0 transition ${
+            isItemActive
+              ? "text-[#30bfd6]"
+              : "text-[#b8b8b8] hover:text-[#30bfd6] dark:text-gray-300"
+          }`;
+        }
+      }
     >
-      {({ isActive }) => {
-        const isItemActive = getIsItemActive(isActive);
-
-        return (
-          <>
-            {isItemActive && (
-              <span className="absolute left-[-22px] top-1/2 h-[31px] w-[4px] -translate-y-1/2 rounded-r-full bg-[#30bfd6]" />
-            )}
-            <Icon size={22} strokeWidth={1.8} />
-            <span className="whitespace-nowrap">{label}</span>
-          </>
-        );
-      }}
+      <Icon size={27} strokeWidth={1.8} />
+      <span className="whitespace-nowrap">{label}</span>
     </NavLink>
   );
 }
