@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
 import { validateStrongPassword } from "../../utils/passwordValidation";
+import { Link } from "react-router";
 
 export default function NewPasswordForm({ onSuccess }) {
   const [formData, setFormData] = useState({
@@ -55,10 +56,32 @@ export default function NewPasswordForm({ onSuccess }) {
     }, 700);
   };
 
-  const isFormFilled = formData.password.trim().length > 0 && formData.confirmPassword.trim().length > 0;
+  const isFormFilled =
+    formData.password.trim().length > 0 &&
+    formData.confirmPassword.trim().length > 0;
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
+      <Link
+        to="/"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
+        aria-label="Back to home"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className="h-5 w-5"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+          />
+        </svg>
+      </Link>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[430px] text-right"
@@ -104,7 +127,9 @@ export default function NewPasswordForm({ onSuccess }) {
         </div>
 
         <div className="mt-7">
-          <PrimaryButton disabled={isSubmitting || forceDisabled || !isFormFilled}>
+          <PrimaryButton
+            disabled={isSubmitting || forceDisabled || !isFormFilled}
+          >
             {isSubmitting ? "جاري الحفظ..." : "حفظ كلمة المرور"}
           </PrimaryButton>
         </div>

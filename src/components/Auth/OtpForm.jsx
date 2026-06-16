@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import PrimaryButton from "../ui/PrimaryButton";
+import { Link } from "react-router";
 
 const OTP_LENGTH = 6;
 
@@ -13,7 +14,10 @@ function maskPhoneNumber(phoneNumber = "") {
 
   const visibleStart = digits.slice(0, 3);
   const visibleEnd = digits.slice(-2);
-  const hiddenLength = Math.max(digits.length - visibleStart.length - visibleEnd.length, 3);
+  const hiddenLength = Math.max(
+    digits.length - visibleStart.length - visibleEnd.length,
+    3,
+  );
 
   return `${visibleStart}${"#".repeat(hiddenLength)}${visibleEnd}`;
 }
@@ -116,6 +120,26 @@ export default function OtpForm({
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
+      <Link
+        to="/"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
+        aria-label="Back to home"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className="h-5 w-5"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+          />
+        </svg>
+      </Link>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[430px] text-right"
@@ -141,13 +165,17 @@ export default function OtpForm({
               <span className="block text-xs text-gray-500 dark:text-[#D2D2D2]">
                 كود التحقق للتجربة
               </span>
-              <strong className="mt-1 block text-xl tracking-[0.35em] text-[#05ADE8]" dir="ltr">
+              <strong
+                className="mt-1 block text-xl tracking-[0.35em] text-[#05ADE8]"
+                dir="ltr"
+              >
                 {otpHint}
               </strong>
             </div>
           ) : (
             <p className="mx-auto mt-3 max-w-[330px] text-xs leading-5 text-gray-400">
-              خدمة الرسائل غير مفعلة حاليًا، افتح Network response الخاص بالتسجيل لمعرفة الكود.
+              خدمة الرسائل غير مفعلة حاليًا، افتح Network response الخاص
+              بالتسجيل لمعرفة الكود.
             </p>
           )}
         </div>

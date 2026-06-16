@@ -124,11 +124,7 @@ function BirthDateSegment({ value, placeholder, error, onClick }) {
           : "border-transparent text-gray-800 focus:ring-[#05ADE8] dark:text-[#F0F0F0]"
       }`}
     >
-      <span
-        className={
-          value ? "" : "text-gray-400 dark:text-[#8A8A8A]"
-        }
-      >
+      <span className={value ? "" : "text-gray-400 dark:text-[#8A8A8A]"}>
         {value || placeholder}
       </span>
     </button>
@@ -206,7 +202,7 @@ export default function RegisterForm({
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "اسم الاخير مطلوب";
+      newErrors.lastName = "الاسم الأخير مطلوب";
     }
 
     const birthDate = parseBirthDate(formData);
@@ -279,6 +275,26 @@ export default function RegisterForm({
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
+      <Link
+        to="/"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
+        aria-label="Back to home"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className="h-5 w-5"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+          />
+        </svg>
+      </Link>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[520px] text-right"
@@ -310,9 +326,9 @@ export default function RegisterForm({
           <FormInput
             id="registerLastName"
             name="lastName"
-            label="اسم الاخير"
+            label="الاسم الأخير"
             required
-            placeholder="اسم الاخير"
+            placeholder="الاسم الأخير"
             value={formData.lastName}
             onChange={handleChange}
             autoComplete="family-name"
@@ -385,9 +401,7 @@ export default function RegisterForm({
         </div>
 
         <div className="mt-5">
-          <RequiredLabel error={errors.gender}>
-            الجنس
-          </RequiredLabel>
+          <RequiredLabel error={errors.gender}>الجنس</RequiredLabel>
           <div className="grid grid-cols-2 gap-3">
             {[
               { value: "female", label: "أنثى" },
@@ -472,7 +486,10 @@ export default function RegisterForm({
             <label htmlFor="registerTerms" className="cursor-pointer">
               أوافق على جميع
             </label>
-            <Link to="/legal" className="font-semibold text-[#05ADE8] underline underline-offset-4">
+            <Link
+              to="/legal"
+              className="font-semibold text-[#05ADE8] underline underline-offset-4"
+            >
               الشروط والأحكام
             </Link>
           </div>
@@ -509,7 +526,6 @@ export default function RegisterForm({
           </Link>
         </p>
       </form>
-
     </section>
   );
 }

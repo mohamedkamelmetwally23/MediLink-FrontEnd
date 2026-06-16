@@ -5,7 +5,7 @@ const links = [
   { href: "#home", label: "الرئيسية" },
   { href: "#features", label: "المميزات" },
   { href: "#specialties", label: "التخصصات" },
-  { href: "#doctors", label: "الأطباء" },
+  { href: "#doctors", label: "من نحن" },
   { href: "#contact", label: "تواصل معنا" },
 ];
 
@@ -75,7 +75,7 @@ export default function Navbar() {
         </Link>
 
         <Link to="/login" className="btn btn-outline btn-info btn-sm sm:px-5 md:btn-md">
-          دخول
+          تسجيل دخول
         </Link>
       </div>
     </header>

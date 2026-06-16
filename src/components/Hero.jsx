@@ -2,10 +2,8 @@ import { Link } from "react-router-dom";
 import doctor from "../assets/landingPage/doctor1.png";
 import img1 from "../assets/landingPage/1.png";
 import img2 from "../assets/landingPage/2.png";
-import img3 from "../assets/landingPage/3.png";
 import img1Dark from "../assets/landingPage/1 dark.png";
 import img2Dark from "../assets/landingPage/2 dark.png";
-import img3Dark from "../assets/landingPage/3 dark.png";
 import { useTheme } from "../hooks/useTheme";
 
 export default function Hero() {
@@ -40,7 +38,7 @@ export default function Hero() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
             <Link
               to="/login"
-              className="btn h-12 rounded-lg border-0 bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-10 text-white shadow-none dark:text-black"
+              className="btn h-12 rounded-lg w-full sm:w-1/3 border-0 bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-10 text-white shadow-none dark:text-black"
             >
               تسجيل دخول
             </Link>
@@ -48,7 +46,7 @@ export default function Hero() {
             <button
               type="button"
               onClick={handleBrowseDoctors}
-              className="btn btn-outline btn-info h-12 rounded-lg px-10"
+              className="btn btn-outline w-full sm:w-1/3 btn-info h-12 rounded-lg px-10"
             >
               تصفح الأطباء
             </button>
@@ -58,7 +56,7 @@ export default function Hero() {
             {badges.map((badge) => (
               <div
                 key={badge.label}
-                className="flex min-h-16 items-center justify-center gap-2 rounded-lg bg-white px-2 shadow-sm dark:bg-[#252525]"
+                className="flex min-h-16 items-center justify-start gap-2 px-2"
               >
                 <img src={badge.icon} alt="" className="h-8 w-8 shrink-0" />
                 <span className="leading-5">{badge.label}</span>

@@ -31,7 +31,7 @@ export default function Specialties() {
             type="button"
             style={{ "--reveal-delay": `${index * 70}ms` }}
             onClick={() => toast.info(`تم اختيار تخصص ${item.label}`)}
-            className="reveal-item flex min-h-36 flex-col items-center justify-center rounded-xl bg-white p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:bg-[#252525] dark:shadow-[#414040]"
+            className="reveal-item flex min-h-36 flex-col items-center justify-center rounded-xl bg-[var(--bg-primary)] p-4 text-center shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition hover:-translate-y-1 hover:shadow-[0_10px_22px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_10px_22px_rgba(0,0,0,0.1)]"
           >
             <img src={item.image} className="mb-3 h-[50px] w-[50px]" alt="" />
             <span className="text-sm font-semibold dark:text-[#F0F0F0]">{item.label}</span>

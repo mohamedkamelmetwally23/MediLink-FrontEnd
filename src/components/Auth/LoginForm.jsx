@@ -3,7 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
-import { getAccountRole, loginUser, saveAuthSession } from "../../services/authApi";
+import {
+  getAccountRole,
+  loginUser,
+  saveAuthSession,
+} from "../../services/authApi";
 
 export default function LoginForm() {
   const navigate = useNavigate();
@@ -43,7 +47,10 @@ export default function LoginForm() {
     }
 
     if (Object.keys(newErrors).length > 0) {
-      setErrors({ ...newErrors, general: "رقم الهاتف أو كلمة المرور غير صحيحة" });
+      setErrors({
+        ...newErrors,
+        general: "رقم الهاتف أو كلمة المرور غير صحيحة",
+      });
       setForceDisabled(true);
       return;
     }
@@ -78,10 +85,31 @@ export default function LoginForm() {
   };
 
   const isInputFilled =
-    formData.phoneNumber.trim().length > 0 && formData.password.trim().length > 0;
+    formData.phoneNumber.trim().length > 0 &&
+    formData.password.trim().length > 0;
 
   return (
     <section className="flex w-full items-center justify-center bg-white px-6 py-10 dark:bg-[#252525] lg:basis-1/2 lg:min-h-full lg:px-10">
+      <Link
+        to="/"
+        className="btn btn-circle btn-sm fixed left-5 top-5 lg:hidden  z-40 border-none bg-(--bg-primary) text-[#05ADE8] shadow-sm hover:bg-white"
+        aria-label="Back to home"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className="h-5 w-5"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+          />
+        </svg>
+      </Link>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[430px] text-right"
@@ -153,7 +181,9 @@ export default function LoginForm() {
           </p>
         )}
 
-        <PrimaryButton disabled={isSubmitting || forceDisabled || !isInputFilled}>
+        <PrimaryButton
+          disabled={isSubmitting || forceDisabled || !isInputFilled}
+        >
           {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل دخول"}
         </PrimaryButton>
 

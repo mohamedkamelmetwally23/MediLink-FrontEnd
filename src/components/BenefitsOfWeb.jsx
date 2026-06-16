@@ -4,9 +4,9 @@ import img3 from "../assets/landingPage/13 (3).png";
 
 const benefits = [
   {
-    image: img3,
-    title: "احجز موعدك",
-    description: "احجز موعدك بسهولة مع الطبيب المناسب في الوقت المتاح لك.",
+    image: img1,
+    title: "ابحث عن طبيب",
+    description: "تصفح أفضل الأطباء والمواعيد المتاحة المناسبة لك.",
   },
   {
     image: img2,
@@ -14,9 +14,9 @@ const benefits = [
     description: "اكتب أعراضك وسنساعدك في الوصول للتخصص الأقرب لاحتياجك.",
   },
   {
-    image: img1,
-    title: "ابحث عن طبيب",
-    description: "تصفح أفضل الأطباء والمواعيد المتاحة المناسبة لك.",
+    image: img3,
+    title: "احجز موعدك",
+    description: "احجز موعدك بسهولة مع الطبيب المناسب في الوقت المتاح لك.",
   },
 ];
 
@@ -32,9 +32,13 @@ export default function BenefitsOfWeb() {
           <article
             key={benefit.title}
             style={{ "--reveal-delay": `${index * 100}ms` }}
-            className="reveal-item flex h-full flex-col items-center rounded-xl bg-white px-5 py-6 text-center shadow-md dark:bg-[#252525] dark:shadow-[#3d3d3d]"
+            className="reveal-item flex h-full flex-col items-center rounded-xl bg-[var(--bg-primary)] px-5 py-6 text-center shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition hover:-translate-y-1 hover:shadow-[0_10px_22px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_10px_22px_rgba(0,0,0,0.1)]"
           >
-            <img src={benefit.image} alt="" className="mb-4 h-28 object-contain" />
+            <img
+              src={benefit.image}
+              alt=""
+              className="mb-4 h-20 w-20 object-contain"
+            />
             <h3 className="mb-2 text-xl font-bold">{benefit.title}</h3>
             <p className="leading-7 text-[#636363] dark:text-[#D2D2D2]">
               {benefit.description}
