@@ -2,10 +2,8 @@ import { Link } from "react-router-dom";
 import doctor from "../assets/landingPage/doctor1.png";
 import img1 from "../assets/landingPage/1.png";
 import img2 from "../assets/landingPage/2.png";
-import img3 from "../assets/landingPage/3.png";
 import img1Dark from "../assets/landingPage/1 dark.png";
 import img2Dark from "../assets/landingPage/2 dark.png";
-import img3Dark from "../assets/landingPage/3 dark.png";
 import { useTheme } from "../hooks/useTheme";
 
 export default function Hero() {

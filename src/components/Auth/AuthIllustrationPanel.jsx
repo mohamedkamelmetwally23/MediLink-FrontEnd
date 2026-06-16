@@ -10,7 +10,7 @@ import { ArrowButton } from "../ui/ArrowButton";
 
 function BackButton({ onBack }) {
   const className =
-    "absolute left-5 top-7 z-40 h-9 w-9 bg-white text-[#05ADE8] hover:bg-white";
+    "absolute left-3 top-7 z-40 h-9 w-9 bg-white text-[#05ADE8] hover:bg-white";
 
   if (onBack) {
     return (

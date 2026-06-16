@@ -55,7 +55,7 @@ export default function FAQ() {
               className={`overflow-hidden rounded-xl border-2 border-cyan-500 transition-all duration-300 ${
                 openIndex === index
                   ? "bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white dark:text-[#2E2E2E]"
-                  : "bg-white text-[#05ADE8] dark:bg-[#252525]"
+                  : "bg-[var(--bg-primary)] text-[#05ADE8]"
               }`}
             >
               <button

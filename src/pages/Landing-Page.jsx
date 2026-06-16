@@ -11,7 +11,6 @@ import FAQ from "../components/Questions";
 import Footer from "../components/Footer";
 import ThemeToggle from "../components/ThemeToggle";
 import LandingSkeleton from "../components/LandingSkeleton";
-import ScrollReveal from "../components/ScrollReveal";
 
 export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,31 +31,15 @@ export default function LandingPage() {
         <Navbar />
       </div>
       <main className="w-full pt-[72px] overflow-x-hidden">
-        <ScrollReveal>
-          <Hero />
-        </ScrollReveal>
-        <ScrollReveal delay={100}>
-          <Hero2 />
-        </ScrollReveal>
-        <ScrollReveal delay={80}>
-          <Features />
-        </ScrollReveal>
-        <ScrollReveal delay={80}>
-          <Specialties />
-        </ScrollReveal>
-        <ScrollReveal delay={80}>
-          <Doctors />
-        </ScrollReveal>
+        <Hero />
+        <Hero2 />
+        <Features />
+        <Specialties />
+        <Doctors />
         <AssistantButton />
-        <ScrollReveal delay={80}>
-          <BenefitsOfWeb />
-        </ScrollReveal>
-        <ScrollReveal delay={80}>
-          <FAQ />
-        </ScrollReveal>
-        <ScrollReveal delay={80}>
-          <Footer />
-        </ScrollReveal>
+        <BenefitsOfWeb />
+        <FAQ />
+        <Footer />
       </main>
       <ThemeToggle />
     </div>
