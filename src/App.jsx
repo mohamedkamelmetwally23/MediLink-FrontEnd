@@ -32,7 +32,6 @@ import DoctorAppointmentsPage from "./pages/doctor/AppointmentsPage";
 import DoctorPatientsPage from "./pages/doctor/PatientsPage";
 import DoctorPatientProfilePage from "./pages/doctor/PatientProfilePage";
 import DoctorActivityPage from "./pages/doctor/ActivityPage";
-import NotFoundPage from "./pages/NotFoundPage";
 import RouteSkeleton from "./components/RouteSkeleton";
 
 function App() {
@@ -89,7 +88,6 @@ function App() {
           <Route path="patients" element={<DoctorPatientsPage />} />
           <Route path="patients/:patientId/profile" element={<DoctorPatientProfilePage />} />
         </Route>
-        <Route path="*" element={<NotFoundPage />} />
         </Routes>
 
         <ToastContainer
