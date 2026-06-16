@@ -206,7 +206,7 @@ export default function RegisterForm({
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "اسم الاخير مطلوب";
+      newErrors.lastName = "الاسم الأخير مطلوب";
     }
 
     const birthDate = parseBirthDate(formData);
@@ -310,9 +310,9 @@ export default function RegisterForm({
           <FormInput
             id="registerLastName"
             name="lastName"
-            label="اسم الاخير"
+            label="الاسم الأخير"
             required
-            placeholder="اسم الاخير"
+            placeholder="الاسم الأخير"
             value={formData.lastName}
             onChange={handleChange}
             autoComplete="family-name"
