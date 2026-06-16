@@ -13,7 +13,7 @@ import { ArrowButton } from "../ui/ArrowButton";
 export default function ResetPasswordIllustrationPanel() {
   const {dark} = useTheme()
   return (
-    <section className="relative flex w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-base-200">
+    <section className="relative flex w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-(--bg-primary)">
       {/* Back Button */}
       <ArrowButton
         to="/login"

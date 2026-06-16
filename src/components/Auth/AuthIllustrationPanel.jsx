@@ -52,7 +52,7 @@ export default function AuthIllustrationPanel({ onBack }) {
         <img
           src={dark ? doctorAddsDark : doctorAddsLight}
           alt="Doctor"
-          className="absolute bottom-30 right-0 z-21  w-full h-full object-contain"
+          className="absolute bottom-31 right-0 z-21  w-full h-full object-contain"
         />
         <img
           src={doctorImage}
