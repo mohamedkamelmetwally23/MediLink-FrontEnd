@@ -431,20 +431,18 @@ function receptionistPayload(values, mode = "create") {
     gender: values.gender,
     phone: values.phone?.trim(),
     birthDate: getBirthDatePayload(values, mode === "create"),
-    role: "receptionist",
     education: values.education,
+    status: mode === "create" ? "student" : values.status,
     workingDays: serializeWorkingDays(values.workDays || values.workingDays || []),
     startTime: normalizeTime(values.workStart || values.startTime),
     endTime: normalizeTime(values.workEnd || values.endTime),
     password: values.password,
     confirmPassword: values.confirmPassword,
-    confirmpassword: values.confirmPassword,
   };
 
   if (mode === "edit" && !payload.password) {
     delete payload.password;
     delete payload.confirmPassword;
-    delete payload.confirmpassword;
   }
 
   return compactObject(payload);
