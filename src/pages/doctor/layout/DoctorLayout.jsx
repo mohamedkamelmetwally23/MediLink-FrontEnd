@@ -218,8 +218,10 @@ function WaitingItem({ item, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const isInExamination = useMemo(
-    () => location.pathname.startsWith(`/doctor/patients/${item.id}/profile`),
-    [item.id, location.pathname],
+    () =>
+      location.pathname.startsWith(`/doctor/patients/${item.id}/profile`) &&
+      location.state?.startExam === true,
+    [item.id, location.pathname, location.state],
   );
   const toneClass =
     item.statusTone === "now"
@@ -227,7 +229,7 @@ function WaitingItem({ item, onClose }) {
       : "bg-[#fff1cd] text-[#d79a16] dark:bg-[#5a4515] dark:text-[#ffd36f]";
 
   const openExamination = () => {
-    navigate(`/doctor/patients/${item.id}/profile`);
+    navigate(`/doctor/patients/${item.id}/profile`, { state: { startExam: true } });
     onClose();
   };
 
