@@ -194,9 +194,7 @@ const prescriptions = [
 export default function DoctorPatientProfilePage({ startExam = false }) {
   const { patientId } = useParams();
   const { getUser } = useUsersStore();
-  const [consultationStep, setConsultationStep] = useState(() =>
-    startExam ? "diagnosis" : "patient",
-  );
+  const [consultationStep, setConsultationStep] = useState("patient");
   const [activeSection, setActiveSection] = useState("info");
   const [profileTab, setProfileTab] = useState("records");
   const [profileSearch, setProfileSearch] = useState("");
