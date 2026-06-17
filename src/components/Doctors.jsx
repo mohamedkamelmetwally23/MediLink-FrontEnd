@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { FaRegStar, FaStar, FaStarHalfAlt } from "react-icons/fa";
+import { FaStar } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { listDoctors } from "../services/medilinkApi";
 import image1 from "../assets/landingPage/12 1.png";
 import image2 from "../assets/landingPage/12 1 (1).png";
 import image3 from "../assets/landingPage/12 1 (2).png";
@@ -8,14 +9,12 @@ import image4 from "../assets/landingPage/12 1 (3).png";
 import image5 from "../assets/landingPage/12 1 (4).png";
 import image6 from "../assets/landingPage/12 1 (5).png";
 
-const doctors = [
-  { id: 1, name: "د. ندى حسين", image: image1, specialty: "أخصائية جلدية", rating: 5 },
-  { id: 2, name: "د. عادل محمد", image: image2, specialty: "استشاري أمراض باطنة", rating: 5 },
-  { id: 3, name: "د. عبد الله محمود", image: image3, specialty: "أخصائي جراحة عظام", rating: 3 },
-  { id: 4, name: "د. سامح شوقي", image: image4, specialty: "استشاري أطفال", rating: 5 },
-  { id: 5, name: "د. سارة أحمد", image: image5, specialty: "أخصائية تغذية", rating: 4 },
-  { id: 6, name: "د. علي عبد الرحمن", image: image6, specialty: "استشاري أسنان", rating: 4.7 },
-];
+const doctorImages = [image1, image2, image3, image4, image5, image6];
+
+function getDisplayName(doctor) {
+  const fullName = [doctor.firstName, doctor.lastName].filter(Boolean).join(" ").trim();
+  return fullName ? `د. ${fullName}` : "طبيب ميديلينك";
+}
 
 function DoctorsSkeleton() {
   return (
@@ -34,11 +33,25 @@ function DoctorsSkeleton() {
 
 export default function Doctors() {
   const [isLoading, setIsLoading] = useState(true);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 550);
+    let isMounted = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await listDoctors();
+        if (isMounted) setDoctors(result);
+      } catch {
+        if (isMounted) toast.error("تعذر تحميل الأطباء من الخادم");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   return (
@@ -52,30 +65,34 @@ export default function Doctors() {
 
       {isLoading ? (
         <DoctorsSkeleton />
+      ) : doctors.length === 0 ? (
+        <p className="text-center leading-7 text-[#6D6D6D] dark:text-[#D2D2D2]">
+          لا يوجد أطباء متاحون حاليًا.
+        </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {doctors.map((doctor, index) => (
             <button
               type="button"
-              key={doctor.id}
+              key={doctor.id || index}
               style={{ "--reveal-delay": `${index * 80}ms` }}
-              onClick={() => toast.info(`سيتم فتح ملف ${doctor.name} قريبًا`)}
+              onClick={() => toast.info(`سيتم فتح ملف ${getDisplayName(doctor)} قريبًا`)}
               className="reveal-item flex min-h-[250px] flex-col items-center rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#3C3C4399] dark:to-[#3C3C434D]"
             >
-              <img src={doctor.image} alt={doctor.name} className="h-32 object-contain" />
-              <p className="mt-3 font-semibold dark:text-[#D1D1D1]">{doctor.name}</p>
+              <img
+                src={doctorImages[index % doctorImages.length]}
+                alt={getDisplayName(doctor)}
+                className="h-32 object-contain"
+              />
+              <p className="mt-3 font-semibold dark:text-[#D1D1D1]">{getDisplayName(doctor)}</p>
               <p className="min-h-9 text-xs leading-5 text-[#6D6D6D] dark:text-[#BDBDBD]">
-                {doctor.specialty}
+                {doctor.specialty || "طبيب"}
               </p>
 
               <div className="mt-auto flex gap-1 text-yellow-400">
-                {[1, 2, 3, 4, 5].map((star) => {
-                  if (doctor.rating >= star) return <FaStar key={star} />;
-                  if (doctor.rating >= star - 0.5) {
-                    return <FaStarHalfAlt className="scale-x-[-1]" key={star} />;
-                  }
-                  return <FaRegStar key={star} />;
-                })}
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <FaStar key={star} />
+                ))}
               </div>
             </button>
           ))}

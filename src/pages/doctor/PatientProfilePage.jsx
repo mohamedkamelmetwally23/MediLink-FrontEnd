@@ -13,6 +13,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { transcribeAudio } from "../../services/chatApi";
 import patientImage from "../../assets/landingPage/admin.png";
 import cigaretteIcon from "../../assets/doctor departement/ph_cigarette.png";
 import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
@@ -199,12 +201,8 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [profileTab, setProfileTab] = useState("records");
   const [profileSearch, setProfileSearch] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState(null);
-  const [diagnosis, setDiagnosis] = useState(
-    "التهاب خفيف بالجهاز التنفسي العلوي مصحوب باحتقان بالحلق وسعال متقطع.",
-  );
-  const [notes, setNotes] = useState(
-    "يعاني المريض من عطس متكرر واحتقان بالأنف، وتم وصف العلاج المناسب مع تجنب مسببات الحساسية قدر الإمكان.\nينصح بالراحة وشرب السوائل بكثرة مع متابعة الأعراض خلال الأيام القادمة، والعودة للفحص في حال استمرار الأعراض أو تفاقمها.",
-  );
+  const [diagnosis, setDiagnosis] = useState("");
+  const [notes, setNotes] = useState("");
   const [medicineDate, setMedicineDate] = useState("2025-06-22");
   const [medicineRows, setMedicineRows] = useState([
     {
@@ -765,6 +763,138 @@ function StepItem({ step, index, currentStep }) {
   );
 }
 
+const medicalSpeechWords = [
+  "ألم",
+  "الم",
+  "وجع",
+  "صداع",
+  "دوخة",
+  "سخونية",
+  "حرارة",
+  "كحة",
+  "سعال",
+  "حساسية",
+  "التهاب",
+  "تورم",
+  "نزيف",
+  "ضغط",
+  "سكر",
+  "قلب",
+  "صدر",
+  "تنفس",
+  "بطن",
+  "معدة",
+  "ظهر",
+  "ضهر",
+  "رجل",
+  "ركبة",
+  "أسنان",
+  "اسنان",
+  "لثة",
+  "عين",
+  "أذن",
+  "اذن",
+  "أنف",
+  "انف",
+  "حلق",
+  "جلد",
+  "طفح",
+  "تحليل",
+  "تحاليل",
+  "أشعة",
+  "اشعة",
+  "دواء",
+  "دوا",
+  "جرعة",
+  "علاج",
+  "تشخيص",
+  "مريض",
+  "المريض",
+  "كشف",
+  "عملية",
+  "متابعة",
+  "روشتة",
+  "diagnosis",
+  "symptom",
+  "symptoms",
+  "follow up",
+  "follow-up",
+  "prescription",
+  "medication",
+  "medicine",
+  "dose",
+  "dosage",
+  "tablet",
+  "capsule",
+  "injection",
+  "antibiotic",
+  "antibiotics",
+  "pain",
+  "fever",
+  "cough",
+  "infection",
+  "inflammation",
+  "allergy",
+  "blood pressure",
+  "diabetes",
+  "glucose",
+  "cbc",
+  "mri",
+  "ct",
+  "xray",
+  "x-ray",
+  "ecg",
+  "ekg",
+  "ultrasound",
+];
+
+const rudeSpeechWords = [
+  "غبي",
+  "حقير",
+  "وسخ",
+  "زبالة",
+  "حيوان",
+  "كلب",
+  "حمار",
+  "متخلف",
+  "لعنة",
+  "يلعن",
+  "shit",
+  "fuck",
+  "bitch",
+  "idiot",
+  "stupid",
+  "damn",
+];
+
+function normalizeSpeechText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+function validateMedicalTranscript(text) {
+  const normalized = normalizeSpeechText(text);
+  const hasMedicalContent = medicalSpeechWords.some((word) =>
+    normalized.includes(normalizeSpeechText(word)),
+  );
+  const hasRudeContent = rudeSpeechWords.some((word) =>
+    normalized.includes(normalizeSpeechText(word)),
+  );
+
+  if (hasRudeContent) {
+    return "التسجيل يحتوي على ألفاظ أو أسلوب غير مناسب، لذلك لم يتم حفظه.";
+  }
+
+  if (!hasMedicalContent) {
+    return "التسجيل خارج المجال الطبي، لذلك لم يتم حفظه.";
+  }
+
+  return "";
+}
+
 function DiagnosisStep({
   diagnosis,
   notes,
@@ -774,56 +904,180 @@ function DiagnosisStep({
   onNext,
 }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const cancelledRef = useRef(false);
+  const notesRef = useRef(notes);
+  const diagnosisRef = useRef(diagnosis);
+  // First recording fills the diagnosis; every recording after it becomes a note.
+  const hasDiagnosisRef = useRef(Boolean(diagnosis && diagnosis.trim()));
 
   useEffect(() => {
-    if (!isRecording) return undefined;
+    notesRef.current = notes;
+  }, [notes]);
+
+  useEffect(() => {
+    diagnosisRef.current = diagnosis;
+  }, [diagnosis]);
+
+  useEffect(() => {
+    if (!isRecording || isPaused) return undefined;
 
     const timer = window.setInterval(() => {
       setSeconds((current) => current + 1);
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
+
+  const handleTranscription = async (blob, mimeType) => {
+    if (cancelledRef.current || !blob || blob.size === 0) return;
+
+    setIsTranscribing(true);
+    try {
+      const base64 = await blobToBase64(blob);
+      const text = (await transcribeAudio(base64, mimeType)).trim();
+
+      if (!text) {
+        toast.warning("لم أتمكن من فهم التسجيل، حاول تاني");
+        return;
+      }
+
+      const validationMessage = validateMedicalTranscript(text);
+      if (validationMessage) {
+        toast.warning(validationMessage);
+        return;
+      }
+
+      // First recording fills the diagnosis; every recording after becomes a note.
+      const isDiagnosis = !hasDiagnosisRef.current;
+
+      if (isDiagnosis) {
+        onDiagnosisChange(text);
+        hasDiagnosisRef.current = true;
+        toast.success("تم تسجيل التشخيص");
+      } else {
+        const current = notesRef.current?.trim();
+        onNotesChange(current ? `${current}\n${text}` : text);
+        toast.success("تمت إضافة ملاحظة جديدة");
+      }
+    } catch {
+      toast.error("تعذر تحويل الصوت إلى نص");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast.error("متصفحك لا يدعم التسجيل الصوتي");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      cancelledRef.current = false;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        await handleTranscription(blob, recorder.mimeType);
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setIsPaused(false);
+      setSeconds(0);
+    } catch {
+      toast.error("تعذر الوصول للميكروفون، تأكد من السماح بالإذن");
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    setIsRecording(false);
+    setIsPaused(false);
+  };
+
+  const cancelRecording = () => {
+    cancelledRef.current = true;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    setIsRecording(false);
+    setIsPaused(false);
+    setSeconds(0);
+  };
+
+  const togglePause = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || !isRecording) return;
+
+    if (isPaused) {
+      recorder.resume();
+      setIsPaused(false);
+    } else {
+      recorder.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const handleMicClick = () => {
+    if (isTranscribing) return;
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
 
   return (
     <section className="mt-[32px] min-h-[720px] lg:mt-[56px]">
       <div className="mx-auto flex w-full max-w-[760px] flex-col items-center">
         <button
           type="button"
+          disabled={isTranscribing}
           aria-label={isRecording ? "إيقاف التسجيل" : "بدء التسجيل"}
-          className={`doctor-record-button grid h-[118px] w-[118px] place-items-center rounded-full transition sm:h-[156px] sm:w-[156px] ${
+          className={`doctor-record-button grid h-[118px] w-[118px] place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-70 sm:h-[156px] sm:w-[156px] ${
             isRecording ? "is-recording" : ""
+          } ${
+            isPaused ? "is-paused" : ""
           }`}
-          onClick={() => setIsRecording((current) => !current)}
+          onClick={handleMicClick}
         >
           <img
             src={recordIcon}
             alt=""
-            className="h-[34px] w-[34px] object-contain sm:h-[43px] sm:w-[43px]"
+            className="doctor-record-icon h-[34px] w-[34px] object-contain sm:h-[43px] sm:w-[43px]"
           />
         </button>
 
         <div className="mt-[18px] flex w-full max-w-[290px] items-center justify-between sm:mt-[23px]">
-          <ControlButton
-            label="إلغاء التسجيل"
-            onClick={() => {
-              setIsRecording(false);
-              setSeconds(0);
-            }}
-          >
+          <ControlButton label="إلغاء التسجيل" onClick={cancelRecording}>
             <X size={23} strokeWidth={2.7} />
           </ControlButton>
 
           <span className="text-[18px] font-semibold text-[#333] dark:text-white sm:text-[20px]">
-            {formatTime(seconds)}
+            {isTranscribing ? "جاري التحويل..." : formatTime(seconds)}
           </span>
 
           <ControlButton
-            label={isRecording ? "إيقاف مؤقت" : "استكمال التسجيل"}
-            onClick={() => setIsRecording((current) => !current)}
+            label={isRecording && !isPaused ? "إيقاف مؤقت" : "استكمال التسجيل"}
+            onClick={isRecording ? togglePause : handleMicClick}
           >
-            {isRecording ? (
+            {isRecording && !isPaused ? (
               <Pause size={22} fill="currentColor" strokeWidth={2.5} />
             ) : (
               <Play size={23} fill="currentColor" strokeWidth={2.2} />
@@ -831,7 +1085,7 @@ function DiagnosisStep({
           </ControlButton>
         </div>
 
-        <Waveform isRecording={isRecording} />
+        <Waveform isRecording={isRecording && !isPaused} />
       </div>
 
       <div className="mt-[30px] space-y-[16px] sm:mt-[37px]">
@@ -1340,6 +1594,18 @@ function EditableMedicalField({
       </div>
     </section>
   );
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = String(reader.result || "");
+      resolve(result.split(",")[1] || "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 function formatTime(totalSeconds) {

@@ -103,7 +103,31 @@ select:disabled {
 }
 
 .doctor-record-button.is-recording {
-  box-shadow: 0 18px 42px rgba(30, 179, 208, 0.22);
+  animation: doctor-record-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 18px 42px rgba(30, 179, 208, 0.22),
+    0 0 0 0 rgba(5, 173, 232, 0.36);
+}
+
+.doctor-record-button.is-recording::after {
+  animation: doctor-record-inner-glow 1.15s ease-in-out infinite;
+}
+
+.doctor-record-icon {
+  position: relative;
+  z-index: 1;
+  transition: transform 180ms ease;
+}
+
+.doctor-record-button.is-recording .doctor-record-icon {
+  animation: doctor-record-icon-talk 680ms ease-in-out infinite;
+}
+
+.doctor-record-button.is-recording.is-paused,
+.doctor-record-button.is-recording.is-paused::before,
+.doctor-record-button.is-recording.is-paused::after,
+.doctor-record-button.is-recording.is-paused .doctor-record-icon {
+  animation-play-state: paused;
 }
 
 .doctor-wave-bar {
@@ -287,6 +311,51 @@ select:disabled {
   100% {
     background-position: 65% 20%, 22% 35%, 50% 84%, 0% 50%;
     transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes doctor-record-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 18px 42px rgba(30, 179, 208, 0.22),
+      0 0 0 0 rgba(5, 173, 232, 0.34);
+  }
+
+  45% {
+    transform: scale(1.035);
+    box-shadow:
+      0 24px 54px rgba(30, 179, 208, 0.3),
+      0 0 0 18px rgba(5, 173, 232, 0);
+  }
+}
+
+@keyframes doctor-record-inner-glow {
+  0%,
+  100% {
+    opacity: 0.88;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes doctor-record-icon-talk {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  28% {
+    transform: translateY(-2px) scale(1.08);
+  }
+
+  58% {
+    transform: translateY(1px) scale(0.96);
   }
 }
 

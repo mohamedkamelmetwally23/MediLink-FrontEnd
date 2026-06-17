@@ -755,21 +755,144 @@ export async function toggleUserActiveStatus(user) {
   return updateUser(user.id, nextValues, user);
 }
 
-export async function listAppointments() {
-  const appointments = await listFromPaths(
-    ["/appointment", "/appointments"],
-    [
-    "appointments",
-    "appointment",
-    "bookings",
-    "reservations",
-    ],
+const demoAppointmentsStorageKey = "medilink-demo-appointments";
+
+export const demoDepositPayment = {
+  amount: 100,
+  currency: "EGP",
+  method: "demo",
+  status: "paid_demo",
+};
+
+function readDemoAppointments() {
+  if (typeof localStorage === "undefined") return [];
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(demoAppointmentsStorageKey) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDemoAppointments(appointments) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(demoAppointmentsStorageKey, JSON.stringify(appointments));
+}
+
+function mergeAppointments(primaryAppointments, demoAppointments) {
+  const byId = new Map();
+
+  [...primaryAppointments, ...demoAppointments].forEach((appointment) => {
+    if (!appointment?.id) return;
+    byId.set(String(appointment.id), appointment);
+  });
+
+  return Array.from(byId.values());
+}
+
+function getAppointmentSlotKey(values = {}) {
+  return [
+    String(values.doctorId || values.doctor || "").trim(),
+    normalizeDate(values.date || values.appointmentDate || values.day),
+    normalizeTime(values.time || values.appointmentTime || values.startTime),
+  ].join("|");
+}
+
+function getCurrentPatientId() {
+  const user = getCurrentAuthUser();
+  return (
+    user?.patientId ||
+    user?.patient?._id ||
+    user?.patient?.id ||
+    user?.profile?._id ||
+    user?._id ||
+    user?.id ||
+    ""
   );
-  return appointments.map(normalizeAppointment);
+}
+
+function getCurrentPatientName() {
+  const user = getCurrentAuthUser();
+  const profile = user?.patient || user?.profile || user;
+  return joinName(profile) || profile?.name || "مريض ميديلينك";
+}
+
+function getCurrentPatientPhone() {
+  const user = getCurrentAuthUser();
+  const profile = user?.patient || user?.profile || user;
+  return profile?.phone || profile?.phoneNumber || profile?.mobile || "";
+}
+
+function buildDemoAppointment(values) {
+  const patientId = values.patientId || values.patient || getCurrentPatientId();
+  const doctorId = values.doctorId || values.doctor;
+  const date = normalizeDate(values.date || values.appointmentDate || values.day);
+  const time = normalizeTime(values.time || values.appointmentTime || values.startTime);
+  const deposit = {
+    ...demoDepositPayment,
+    ...(values.deposit || values.payment || {}),
+  };
+
+  return {
+    _id: `demo-${Date.now()}`,
+    patientId,
+    doctorId,
+    patientName: values.patientName || getCurrentPatientName(),
+    doctorName: values.doctorName || values.doctorLabel || "",
+    specialty: values.specialty || values.specialization || values.specializationName || "",
+    phone: values.phone || values.patientPhone || getCurrentPatientPhone(),
+    date,
+    time,
+    status: values.status || "confirmed",
+    paymentStatus: deposit.status,
+    depositAmount: deposit.amount,
+    currency: deposit.currency,
+    amount: values.amount || deposit.amount,
+    payment: deposit,
+    source: "demo",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function isAppointmentSlotAvailable(values, appointments = []) {
+  const targetSlot = getAppointmentSlotKey(values);
+
+  if (!targetSlot || targetSlot.startsWith("|")) return false;
+
+  return !appointments.some((appointment) => {
+    if (appointment.status === "cancelled") return false;
+    return getAppointmentSlotKey(appointment) === targetSlot;
+  });
+}
+
+export async function listAppointments() {
+  const demoAppointments = readDemoAppointments().map(normalizeAppointment);
+
+  try {
+    const appointments = await listFromPaths(
+      ["/appointment", "/appointments"],
+      [
+        "appointments",
+        "appointment",
+        "bookings",
+        "reservations",
+      ],
+    );
+
+    return mergeAppointments(appointments.map(normalizeAppointment), demoAppointments);
+  } catch (error) {
+    if (demoAppointments.length > 0) return demoAppointments;
+    throw error;
+  }
 }
 
 export async function listDoctorAppointments(doctorId) {
   if (!doctorId) return listAppointments();
+
+  const doctorDemoAppointments = readDemoAppointments()
+    .map(normalizeAppointment)
+    .filter((appointment) => appointment.doctorId === String(doctorId));
 
   const paths = [
     `/appointment/doctor/${doctorId}`,
@@ -783,13 +906,24 @@ export async function listDoctorAppointments(doctorId) {
   for (const path of paths) {
     try {
       const response = await apiRequest(path);
-      return findArray(response, [
+      const appointments = findArray(response, [
         "appointments",
         "appointment",
         "bookings",
         "reservations",
       ]).map(normalizeAppointment);
+
+      return mergeAppointments(appointments, doctorDemoAppointments);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status !== 404 &&
+        error.status !== 400 &&
+        doctorDemoAppointments.length > 0
+      ) {
+        return doctorDemoAppointments;
+      }
+
       if (!(error instanceof ApiError) || (error.status !== 404 && error.status !== 400)) {
         throw error;
       }
@@ -801,9 +935,103 @@ export async function listDoctorAppointments(doctorId) {
 }
 
 export async function deleteAppointment(id) {
+  if (String(id).startsWith("demo-")) {
+    writeDemoAppointments(
+      readDemoAppointments().filter((appointment) => getId(appointment) !== String(id)),
+    );
+    return { deleted: true };
+  }
+
   return requestFirst([`/appointment/${id}`, `/appointments/${id}`], {
     method: "DELETE",
   });
+}
+
+export async function createAppointment(values) {
+  const payload = compactObject({
+    patientId: values.patientId || values.patient || values.patientId,
+    doctorId: values.doctorId || values.doctor || values.doctorId,
+    specialization:
+      values.specialization || values.specialty || values.specializationId,
+    date: values.date || values.appointmentDate || values.day,
+    time: values.time || values.appointmentTime || values.startTime,
+    phone: values.phone || values.patientPhone || undefined,
+    status: values.status || "pending",
+  });
+
+  const response = await requestFirst([
+    "/appointment",
+    "/appointments",
+    "/booking",
+    "/bookings",
+  ], {
+    method: "POST",
+    body: payload,
+  });
+
+  return normalizeAppointment(findEntity(response, ["appointment", "booking", "reservation"]));
+}
+
+export async function createPaidDemoAppointment(values) {
+  let appointments;
+
+  try {
+    appointments = await listAppointments();
+  } catch {
+    appointments = readDemoAppointments().map(normalizeAppointment);
+  }
+
+  const payment = {
+    ...demoDepositPayment,
+    ...(values.payment || {}),
+  };
+  const nextAppointment = {
+    ...values,
+    status: "confirmed",
+    payment,
+    paymentStatus: payment.status,
+    depositAmount: payment.amount,
+    currency: payment.currency,
+  };
+
+  if (!isAppointmentSlotAvailable(nextAppointment, appointments)) {
+    throw new ApiError("هذا الموعد غير متاح الآن، اختر موعدًا آخر", {
+      status: 409,
+    });
+  }
+
+  const demoAppointment = buildDemoAppointment(nextAppointment);
+  writeDemoAppointments([...readDemoAppointments(), demoAppointment]);
+  return normalizeAppointment(demoAppointment);
+}
+
+export async function updateAppointmentStatus(id, status) {
+  const payload = compactObject({ status });
+
+  if (String(id).startsWith("demo-")) {
+    const appointments = readDemoAppointments();
+    const updatedAppointments = appointments.map((appointment) =>
+      getId(appointment) === String(id) ? { ...appointment, status } : appointment,
+    );
+    const updatedAppointment = updatedAppointments.find(
+      (appointment) => getId(appointment) === String(id),
+    );
+
+    writeDemoAppointments(updatedAppointments);
+    return normalizeAppointment(updatedAppointment);
+  }
+
+  const response = await requestFirst([
+    `/appointment/${id}`,
+    `/appointments/${id}`,
+    `/booking/${id}`,
+    `/bookings/${id}`,
+  ], {
+    method: "PATCH",
+    body: payload,
+  });
+
+  return normalizeAppointment(findEntity(response, ["appointment", "booking", "reservation"]));
 }
 
 export function getCurrentAuthUser() {
