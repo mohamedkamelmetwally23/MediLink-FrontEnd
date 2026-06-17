@@ -13,9 +13,23 @@ export function Field({ label, error, children, className = "" }) {
         <span className="mr-1 text-red-500">*</span>
       </span>
       {children}
-      {error && <span className="mt-2 block text-sm text-red-500">{error}</span>}
+      {error && <ErrorMessage error={error} />}
     </label>
   );
+}
+
+function ErrorMessage({ error }) {
+  if (Array.isArray(error)) {
+    return (
+      <ul className="mt-2 list-disc space-y-1 pr-5 text-sm font-semibold text-red-500">
+        {error.map((message) => (
+          <li key={message}>{message}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <span className="mt-2 block text-sm text-red-500">{error}</span>;
 }
 
 export function TextInput({ error, className = "", ...props }) {
@@ -78,7 +92,9 @@ function DropdownSelect({
           }
         }}
       >
-        <ChevronDown size={22} className="shrink-0 text-gray-600 dark:text-gray-200" />
+        {!disabled && (
+          <ChevronDown size={22} className="shrink-0 text-gray-600 dark:text-gray-200" />
+        )}
         <span dir="rtl" className="flex-1 truncate text-right">
           {selectedOption?.label || placeholder}
         </span>

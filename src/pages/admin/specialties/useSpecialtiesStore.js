@@ -148,9 +148,7 @@ export function useSpecialtiesStore() {
     );
 
     await Promise.all(
-      targetSpecialties
-        .filter((specialty) => specialty.id)
-        .map((specialty) => deleteSpecialization(specialty.id)),
+      targetSpecialties.map((specialty) => deleteSpecialization(specialty)),
     );
 
     commitSpecialties((currentSpecialties) =>

@@ -32,12 +32,22 @@ function normalizeUser(values) {
     status: values.status || "active",
   };
 
-  delete user.confirmPassword;
   if (!user.password) {
     delete user.password;
+    delete user.confirmPassword;
   }
 
   return user;
+}
+
+function stripSensitiveFields(user) {
+  const safeUser = { ...user };
+
+  delete safeUser.password;
+  delete safeUser.confirmPassword;
+  delete safeUser.confirmpassword;
+
+  return safeUser;
 }
 
 export function useUsersStore() {
@@ -93,10 +103,11 @@ export function useUsersStore() {
   const addUser = async (values) => {
     const normalizedUser = normalizeUser(values);
     const createdUser = await apiCreateUser(normalizedUser);
+    const safeUser = stripSensitiveFields(normalizedUser);
     const nextUser = normalizeLoadedUser({
-      ...normalizedUser,
       ...createdUser,
-      id: createdUser.id || Date.now(),
+      ...safeUser,
+      id: createdUser.id || safeUser.id || Date.now(),
     });
 
     commitUsers((currentUsers) => [nextUser, ...currentUsers]);
@@ -107,10 +118,11 @@ export function useUsersStore() {
     const currentUser = users.find((user) => sameId(user.id, id));
     const normalizedUser = normalizeUser({ ...currentUser, ...values });
     const updatedUser = await apiUpdateUser(id, normalizedUser, currentUser);
+    const safeUser = stripSensitiveFields(normalizedUser);
     const nextUser = normalizeLoadedUser({
-      ...normalizedUser,
       ...updatedUser,
-      id: updatedUser.id || id,
+      ...safeUser,
+      id: updatedUser.id || safeUser.id || id,
     });
 
     commitUsers((currentUsers) =>

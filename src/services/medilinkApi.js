@@ -79,6 +79,18 @@ function getId(value) {
   return value?._id || value?.id || value?.user?._id || "";
 }
 
+function getSpecializationId(value) {
+  if (typeof value === "string") return value;
+  return (
+    value?._id ||
+    value?.id ||
+    value?.specializationId ||
+    value?.specialityId ||
+    value?.specialtyId ||
+    ""
+  );
+}
+
 function getProfileUserId(value) {
   const user = value?.user || value?.account || value?.userId;
   return typeof user === "string" ? user : getId(user);
@@ -223,7 +235,7 @@ export function normalizeSpecialization(item = {}) {
   const raw = typeof item === "string" ? { name: item } : item;
 
   return {
-    id: getId(raw),
+    id: getSpecializationId(raw),
     name: raw.name || raw.specializationName || raw.title || "",
     price:
       raw.consultationFee ??
@@ -418,7 +430,7 @@ function receptionistPayload(values, mode = "create") {
     lastName: values.lastName?.trim(),
     gender: values.gender,
     phone: values.phone?.trim(),
-    birthDate: getBirthDatePayload(values),
+    birthDate: getBirthDatePayload(values, mode === "create"),
     role: "receptionist",
     education: values.education,
     workingDays: serializeWorkingDays(values.workDays || values.workingDays || []),
@@ -475,7 +487,7 @@ export async function getDoctor(id) {
 }
 
 export async function createDoctor(values) {
-  const response = await requestFirst(["/doctors", "/doctorprofiles"], {
+  const response = await requestFirst(["/doctors"], {
     method: "POST",
     body: doctorPayload(values, "create"),
   });
@@ -547,7 +559,13 @@ export async function updateSpecialization(id, values) {
   return normalizeSpecialization(findEntity(response, ["specialization", "specialty"]));
 }
 
-export async function deleteSpecialization(id) {
+export async function deleteSpecialization(specialization) {
+  const id = getSpecializationId(specialization);
+
+  if (!id) {
+    throw new ApiError("تعذر تحديد التخصص المراد حذفه");
+  }
+
   return requestFirst([`/specializations/${id}`, `/specialties/${id}`], {
     method: "DELETE",
   });
@@ -652,7 +670,7 @@ export async function getReceptionist(id) {
 }
 
 export async function createReceptionist(values) {
-  const response = await requestFirst(["/receptionist", "/receptionists"], {
+  const response = await requestFirst(["/receptionist"], {
     method: "POST",
     body: receptionistPayload(values, "create"),
   });
