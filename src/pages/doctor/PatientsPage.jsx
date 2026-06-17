@@ -244,7 +244,7 @@ function TableHeader({
       </div>
       <span className="text-center">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
-      <span className="text-center">عدد الحالات</span>
+      <span className="text-center">عدد الزيارات</span>
       <select
         value={statusFilter}
         onChange={(event) => onStatusChange(event.target.value)}

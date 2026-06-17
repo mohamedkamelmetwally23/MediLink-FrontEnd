@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getCurrentDoctorId,
   listDoctorAppointments,
@@ -11,14 +11,14 @@ const views = [
   { id: "month", label: "شهر" },
 ];
 
-const weekDays = [
-  { name: "السبت", day: 13 },
-  { name: "الأحد", day: 14, muted: true },
-  { name: "الإثنين", day: 15 },
-  { name: "الثلاثاء", day: 16 },
-  { name: "الأربعاء", day: 17 },
-  { name: "الخميس", day: 18 },
-  { name: "الجمعة", day: 19 },
+const weekdayLabels = [
+  "الأحد",
+  "الإثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+  "السبت",
 ];
 
 const weekHours = [
@@ -186,79 +186,6 @@ const fallbackAppointments = [
   },
 ];
 
-const monthCells = Array.from({ length: 35 }, (_, index) => {
-  const day = index + 1;
-  return day <= 31 ? day : day - 31;
-});
-
-const monthEvents = {
-  9: [
-    { patient: "كريم رشاد", status: "completed" },
-    { patient: "سما محمد", status: "completed" },
-    { patient: "أحمد طالب", status: "completed" },
-  ],
-  12: [
-    { patient: "سارة محمد", status: "completed" },
-    { patient: "أسماء طالب", status: "cancelled" },
-    { patient: "كريم رشاد", status: "completed" },
-  ],
-  18: [
-    { patient: "أسامة خليل", status: "waiting" },
-    { patient: "كريم رشاد", status: "waiting" },
-    { patient: "سارة محمد", status: "waiting" },
-  ],
-};
-
-const dayTimeline = [
-  { label: "11ص", value: "11:00" },
-  { label: "11:30ص", value: "11:30" },
-  { label: "12م", value: "12:00" },
-  { label: "12:30م", value: "12:30" },
-  {
-    label: "1م",
-    value: "13:00",
-    event: {
-      patient: "كريم رشاد",
-      time: "1:00 مساء - 12:30 مساء",
-      status: "completed",
-    },
-  },
-  { label: "1:30م", value: "13:30" },
-  { label: "2م", value: "14:00" },
-  {
-    label: "2:30م",
-    value: "14:30",
-    event: {
-      patient: "أنس طارق",
-      time: "3:00 مساء - 2:30 مساء",
-      status: "completed",
-    },
-  },
-  { label: "3م", value: "15:00" },
-  { label: "3:30م", value: "15:30" },
-  { label: "4م", value: "16:00", current: true },
-  {
-    label: "4:30م",
-    value: "16:30",
-    event: {
-      patient: "محمد علي",
-      time: "4:30 مساء - 4:00 مساء",
-      status: "waiting",
-    },
-  },
-  {
-    label: "5م",
-    value: "17:00",
-    event: {
-      patient: "أحمد محمد",
-      time: "5:00 مساء - 4:30 مساء",
-      status: "cancelled",
-    },
-  },
-  { label: "5:30م", value: "17:30" },
-  { label: "6م", value: "18:00" },
-];
-
 const statusMeta = {
   waiting: {
     label: "قيد الإنتظار",
@@ -283,13 +210,129 @@ const statusMeta = {
   },
 };
 
-function getCalendarDay(date, fallbackDay) {
-  if (!date) return fallbackDay;
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function addMonths(date, months) {
+  const nextDate = new Date(date);
+  nextDate.setMonth(nextDate.getMonth() + months);
+  return nextDate;
+}
+
+function getIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseAppointmentDate(date, fallbackDate) {
+  if (!date) return fallbackDate;
 
   const parsedDate = new Date(date);
-  if (Number.isNaN(parsedDate.getTime())) return fallbackDay;
+  if (Number.isNaN(parsedDate.getTime())) return fallbackDate;
 
-  return parsedDate.getDate();
+  return startOfDay(parsedDate);
+}
+
+function getWeekStart(date) {
+  const day = date.getDay();
+  const daysFromSaturday = (day + 1) % 7;
+  return addDays(startOfDay(date), -daysFromSaturday);
+}
+
+function getWeekDays(date) {
+  const weekStart = getWeekStart(date);
+  return Array.from({ length: 7 }, (_, index) => {
+    const dayDate = addDays(weekStart, index);
+
+    return {
+      date: dayDate,
+      dateIso: getIsoDate(dayDate),
+      name: weekdayLabels[dayDate.getDay()],
+      day: dayDate.getDate(),
+      muted: getIsoDate(dayDate) === getIsoDate(startOfDay(new Date())),
+    };
+  });
+}
+
+function getMonthCells(date) {
+  const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+  const gridStart = getWeekStart(monthStart);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const cellDate = addDays(gridStart, index);
+
+    return {
+      date: cellDate,
+      dateIso: getIsoDate(cellDate),
+      day: cellDate.getDate(),
+      muted: cellDate.getMonth() !== date.getMonth(),
+    };
+  });
+}
+
+function getRangeTitle(activeView, selectedDate) {
+  if (activeView === "day") {
+    return `${selectedDate.getDate()} ${selectedDate.toLocaleDateString("ar-EG", {
+      month: "long",
+    })}`;
+  }
+
+  if (activeView === "month") {
+    return selectedDate.toLocaleDateString("ar-EG", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  const weekDaysRange = getWeekDays(selectedDate);
+  const firstDay = weekDaysRange[0].date;
+  const lastDay = weekDaysRange[6].date;
+
+  return `${firstDay.getDate()} ${firstDay.toLocaleDateString("ar-EG", {
+    month: "long",
+  })} - ${lastDay.getDate()} ${lastDay.toLocaleDateString("ar-EG", {
+    month: "long",
+  })}`;
+}
+
+function getCalendarHeading(activeView, selectedDate) {
+  if (activeView === "week") {
+    const weekDaysRange = getWeekDays(selectedDate);
+    const firstDay = weekDaysRange[0].date;
+    const lastDay = weekDaysRange[6].date;
+    const sameMonth =
+      firstDay.getMonth() === lastDay.getMonth() &&
+      firstDay.getFullYear() === lastDay.getFullYear();
+
+    if (sameMonth) {
+      return firstDay.toLocaleDateString("ar-EG", {
+        month: "long",
+        year: "numeric",
+      });
+    }
+
+    return `${firstDay.toLocaleDateString("ar-EG", {
+      month: "long",
+      year: "numeric",
+    })} - ${lastDay.toLocaleDateString("ar-EG", {
+      month: "long",
+      year: "numeric",
+    })}`;
+  }
+
+  return selectedDate.toLocaleDateString("ar-EG", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function getCalendarHour(time, fallbackHour) {
@@ -305,22 +348,75 @@ function getCalendarStatus(status) {
   return "waiting";
 }
 
-function toCalendarAppointment(appointment, index) {
+function formatAppointmentTime(time) {
+  if (!time) return "";
+  if (!/^\d{1,2}:\d{2}$/.test(time)) return time;
+
+  const [hourText = "0", minute = "00"] = time.split(":");
+  const hour24 = Number(hourText);
+  const hour12 = hour24 % 12 || 12;
+  const period = hour24 >= 12 ? "م" : "ص";
+
+  return `${hour12}:${minute} ${period}`;
+}
+
+function toCalendarAppointment(appointment, index, baseDate = new Date()) {
   const fallback = fallbackAppointments[index % fallbackAppointments.length];
+  const fallbackDate = addDays(getWeekStart(baseDate), index % 7);
+  const appointmentDate = parseAppointmentDate(appointment.date, fallbackDate);
+  const time = appointment.time || "";
 
   return {
-    day: getCalendarDay(appointment.date, fallback.day),
-    hour: getCalendarHour(appointment.time, fallback.hour),
+    dateIso: getIsoDate(appointmentDate),
+    day: appointmentDate.getDate(),
+    hour: getCalendarHour(time, fallback.hour),
     patient: appointment.patient || fallback.patient,
-    time: appointment.time || fallback.time,
+    time: formatAppointmentTime(time) || fallback.time,
     status: getCalendarStatus(appointment.status),
   };
 }
 
+function buildDayTimeline(appointments) {
+  return weekHours.map((hour) => ({
+    label: hour.label,
+    value: `${String(hour.value).padStart(2, "0")}:00`,
+    current: hour.current,
+    events: appointments.filter((appointment) => appointment.hour === hour.value),
+  }));
+}
+
+function formatShortDayMonth(date) {
+  return `${date.getDate()} ${date.toLocaleDateString("ar-EG", {
+    month: "long",
+  })}`;
+}
+
 export default function DoctorAppointmentsPage() {
   const [activeView, setActiveView] = useState("week");
+  const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [calendarAppointments, setCalendarAppointments] =
-    useState(fallbackAppointments);
+    useState(() =>
+      fallbackAppointments.map((appointment, index) =>
+        toCalendarAppointment(appointment, index, new Date()),
+      ),
+    );
+  const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
+
+  const goToPreviousRange = () => {
+    setSelectedDate((current) => {
+      if (activeView === "day") return addDays(current, -1);
+      if (activeView === "week") return addDays(current, -7);
+      return addMonths(current, -1);
+    });
+  };
+
+  const goToNextRange = () => {
+    setSelectedDate((current) => {
+      if (activeView === "day") return addDays(current, 1);
+      if (activeView === "week") return addDays(current, 7);
+      return addMonths(current, 1);
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -328,7 +424,11 @@ export default function DoctorAppointmentsPage() {
     listDoctorAppointments(getCurrentDoctorId())
       .then((fetchedAppointments) => {
         if (mounted && fetchedAppointments.length > 0) {
-          setCalendarAppointments(fetchedAppointments.map(toCalendarAppointment));
+          setCalendarAppointments(
+            fetchedAppointments.map((appointment, index) =>
+              toCalendarAppointment(appointment, index),
+            ),
+          );
         }
       })
       .catch(() => null);
@@ -344,12 +444,32 @@ export default function DoctorAppointmentsPage() {
 
       <main className="px-4 pb-[28px] pt-[24px] sm:px-6 lg:px-[24px]">
         <section className="rounded-[8px] bg-white px-[18px] pb-[18px] pt-[16px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-          <CalendarToolbar activeView={activeView} onViewChange={setActiveView} />
+          <CalendarToolbar
+            activeView={activeView}
+            selectedDate={selectedDate}
+            onNext={goToNextRange}
+            onPrevious={goToPreviousRange}
+            onViewChange={setActiveView}
+          />
 
           <div className="mt-[16px] overflow-x-auto">
-            {activeView === "month" && <MonthView />}
-            {activeView === "week" && <WeekView appointments={calendarAppointments} />}
-            {activeView === "day" && <DayView />}
+            {activeView === "month" && (
+              <MonthView
+                appointments={calendarAppointments}
+                selectedDate={selectedDate}
+              />
+            )}
+            {activeView === "week" && (
+              <WeekView appointments={calendarAppointments} weekDays={weekDays} />
+            )}
+            {activeView === "day" && (
+              <DayView
+                appointments={calendarAppointments}
+                onNext={goToNextRange}
+                onPrevious={goToPreviousRange}
+                selectedDate={selectedDate}
+              />
+            )}
           </div>
         </section>
 
@@ -370,42 +490,30 @@ function Header() {
           عرض جميع المواعيد الخاصة بك وحالاتها.
         </p>
       </div>
-
-      <SearchBox />
     </header>
   );
 }
 
-function SearchBox() {
-  return (
-    <label
-      className="flex h-[44px] w-full items-center gap-[10px] rounded-[8px] border border-[#d7d7d7] bg-[#fbfbfb] px-[13px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[280px]"
-      dir="ltr"
-    >
-      <input
-        className="min-w-0 flex-1 bg-transparent text-right text-[12px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
-        dir="rtl"
-      />
-      <Search size={17} strokeWidth={1.7} />
-    </label>
-  );
-}
-
-function CalendarToolbar({ activeView, onViewChange }) {
+function CalendarToolbar({
+  activeView,
+  selectedDate,
+  onNext,
+  onPrevious,
+  onViewChange,
+}) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex items-start gap-[9px]" dir="ltr">
-        <ArrowButton label="الشهر التالي" icon={ChevronLeft} />
+        <ArrowButton label="التالي" icon={ChevronLeft} onClick={onNext} />
         <div className="min-w-[112px] text-right" dir="rtl">
           <h2 className="text-[15px] font-bold leading-5 text-[#333] dark:text-white">
-            2026, أبريل
+            {getCalendarHeading(activeView, selectedDate)}
           </h2>
           <p className="text-[9px] leading-4 text-[#8a8a8a] dark:text-gray-300">
-            {activeView === "day" ? "13 أبريل" : "13 أبريل - 19 أبريل"}
+            {getRangeTitle(activeView, selectedDate)}
           </p>
         </div>
-        <ArrowButton label="الشهر السابق" icon={ChevronRight} />
+        <ArrowButton label="السابق" icon={ChevronRight} onClick={onPrevious} />
       </div>
 
       <ViewTabs activeView={activeView} onViewChange={onViewChange} />
@@ -413,12 +521,13 @@ function CalendarToolbar({ activeView, onViewChange }) {
   );
 }
 
-function ArrowButton({ icon: Icon, label }) {
+function ArrowButton({ icon: Icon, label, onClick }) {
   return (
     <button
       type="button"
       aria-label={label}
       className="grid h-[28px] w-[28px] place-items-center rounded-[7px] border border-[#e3edf1] text-[#7d8b92] transition hover:border-[#35c0d8] hover:text-[#35c0d8] dark:border-white/15 dark:text-gray-200"
+      onClick={onClick}
     >
       <Icon size={16} strokeWidth={1.7} />
     </button>
@@ -444,13 +553,16 @@ function ViewTabs({ activeView, onViewChange }) {
   );
 }
 
-function MonthView() {
+function MonthView({ appointments, selectedDate }) {
+  const monthCells = getMonthCells(selectedDate);
+  const headerDays = getWeekDays(selectedDate);
+
   return (
     <div className="min-w-[850px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
       <div className="grid h-[44px] grid-cols-7 bg-white text-[10px] font-bold text-[#555] dark:bg-[#505050] dark:text-gray-100">
-        {weekDays.map((day) => (
+        {headerDays.map((day) => (
           <div
-            key={day.name}
+            key={day.dateIso}
             className="flex items-center justify-center border-l border-[#edf2f4] last:border-l-0 dark:border-white/15"
           >
             {day.name}
@@ -459,29 +571,35 @@ function MonthView() {
       </div>
 
       <div className="grid grid-cols-7">
-        {monthCells.map((day, index) => (
-          <MonthCell key={`${day}-${index}`} day={day} muted={index > 30} />
+        {monthCells.map((day) => (
+          <MonthCell
+            key={day.dateIso}
+            day={day}
+            appointments={appointments}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function MonthCell({ day, muted }) {
-  const events = monthEvents[day] || [];
+function MonthCell({ day, appointments }) {
+  const events = appointments.filter(
+    (appointment) => appointment.dateIso === day.dateIso,
+  );
 
   return (
     <div className="h-[116px] border-l border-t border-[#edf2f4] bg-white p-[7px] last:border-l-0 dark:border-white/15 dark:bg-[#505050]">
       <div
         className={`ml-auto grid h-[18px] w-[18px] place-items-center rounded-full text-[9px] ${
-          day === 13
+          day.dateIso === getIsoDate(startOfDay(new Date()))
             ? "bg-[#35c0d8] font-bold text-white"
-            : muted
+            : day.muted
               ? "text-[#c8cfd3] dark:text-gray-500"
               : "text-[#7e8b91] dark:text-gray-300"
         }`}
       >
-        {day}
+        {day.day}
       </div>
 
       <div className="mt-[15px] space-y-[3px]">
@@ -498,14 +616,14 @@ function MonthCell({ day, muted }) {
   );
 }
 
-function WeekView({ appointments }) {
+function WeekView({ appointments, weekDays }) {
   return (
     <div className="min-w-[900px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
       <div className="grid h-[48px] grid-cols-[42px_repeat(7,minmax(0,1fr))] bg-white text-[10px] font-bold text-[#555] dark:bg-[#505050] dark:text-gray-100">
         <div className="border-l border-[#edf2f4] dark:border-white/15" />
         {weekDays.map((day) => (
           <div
-            key={day.name}
+            key={day.dateIso}
             className={`flex flex-col items-center justify-center gap-[2px] border-l border-[#edf2f4] last:border-l-0 dark:border-white/15 ${
               day.muted ? "bg-[#f7fbfc] dark:bg-white/5" : ""
             }`}
@@ -516,7 +634,7 @@ function WeekView({ appointments }) {
                 day.muted ? "bg-[#e7fbfd] text-[#27b6cc]" : "text-[#7e8b91]"
               }`}
             >
-              {day.day} أبريل
+              {formatShortDayMonth(day.date)}
             </span>
           </div>
         ))}
@@ -541,8 +659,8 @@ function WeekView({ appointments }) {
 
           {weekDays.map((day) => (
             <WeekCell
-              key={`${day.day}-${hour.value}`}
-              day={day.day}
+              key={`${day.dateIso}-${hour.value}`}
+              dateIso={day.dateIso}
               hour={hour.value}
               highlighted={day.muted}
               appointments={appointments}
@@ -554,9 +672,9 @@ function WeekView({ appointments }) {
   );
 }
 
-function WeekCell({ day, hour, highlighted, appointments }) {
+function WeekCell({ dateIso, hour, highlighted, appointments }) {
   const cellEvents = appointments.filter(
-    (appointment) => appointment.day === day && appointment.hour === hour,
+    (appointment) => appointment.dateIso === dateIso && appointment.hour === hour,
   );
 
   return (
@@ -574,20 +692,26 @@ function WeekCell({ day, hour, highlighted, appointments }) {
   );
 }
 
-function DayView() {
+function DayView({ appointments, selectedDate, onNext, onPrevious }) {
+  const selectedDateIso = getIsoDate(selectedDate);
+  const dayEvents = appointments.filter(
+    (appointment) => appointment.dateIso === selectedDateIso,
+  );
+  const dayTimeline = buildDayTimeline(dayEvents);
+
   return (
     <div className="min-w-[850px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
       <div className="flex h-[42px] items-center justify-center gap-[14px] border-b border-[#edf2f4] bg-white dark:border-white/15 dark:bg-[#505050]">
-        <ArrowButton label="اليوم التالي" icon={ChevronLeft} />
+        <ArrowButton label="اليوم التالي" icon={ChevronLeft} onClick={onNext} />
         <div className="text-center">
           <h2 className="text-[12px] font-bold text-[#333] dark:text-white">
-            الأحد
+            {weekdayLabels[selectedDate.getDay()]}
             <span className="mx-2 text-[#8a8a8a] dark:text-gray-300">
-              13 أبريل
+              {getRangeTitle("day", selectedDate)}
             </span>
           </h2>
         </div>
-        <ArrowButton label="اليوم السابق" icon={ChevronRight} />
+        <ArrowButton label="اليوم السابق" icon={ChevronRight} onClick={onPrevious} />
       </div>
 
       {dayTimeline.map((slot) => (
@@ -607,7 +731,11 @@ function DayView() {
             )}
           </div>
           <div className="border-t border-[#edf2f4] bg-white px-[5px] py-[4px] dark:border-white/15 dark:bg-[#505050]">
-            {slot.event && <WideEvent event={slot.event} />}
+            <div className="grid h-full gap-[3px]">
+              {slot.events.map((event) => (
+                <WideEvent key={`${event.patient}-${event.time}`} event={event} />
+              ))}
+            </div>
           </div>
         </div>
       ))}
