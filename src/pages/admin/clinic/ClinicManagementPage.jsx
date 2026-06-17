@@ -1,7 +1,10 @@
-import { useRef, useState } from "react";
-import { Pencil, Search } from "lucide-react";
+import { useState } from "react";
 import { toast } from "react-toastify";
-import CustomSelect from "../../../components/admin/CustomSelect";
+import {
+  saveClinicInfo,
+  useClinicInfo,
+} from "../../../services/clinicInfoStore";
+import { timeOptions } from "../users/usersData";
 
 const tabs = [
   { id: "info", label: "معلومات العيادة" },
@@ -9,17 +12,8 @@ const tabs = [
   { id: "hours", label: "أيام وساعات العمل" },
 ];
 
-const initialClinicInfo = {
-  name: "",
-  country: "",
-  governorate: "",
-  city: "",
-  description: "",
-  phone: "",
-  email: "",
-};
-
 const initialPayment = {
+  offerPercentage: "",
   consultationPrice: "",
   followUpPrice: "",
   refundOnCancel: false,
@@ -59,7 +53,8 @@ const buttonClass =
 
 export default function ClinicManagementPage() {
   const [activeTab, setActiveTab] = useState("info");
-  const [clinicInfo, setClinicInfo] = useState(initialClinicInfo);
+  const savedClinicInfo = useClinicInfo();
+  const [clinicInfo, setClinicInfo] = useState(savedClinicInfo);
   const [payment, setPayment] = useState(initialPayment);
   const [workingDays, setWorkingDays] = useState(initialWorkingDays);
   const [appointmentSettings, setAppointmentSettings] = useState(
@@ -67,11 +62,15 @@ export default function ClinicManagementPage() {
   );
 
   const saveChanges = () => {
+    if (activeTab === "info") {
+      saveClinicInfo(clinicInfo);
+    }
+
     toast.success("تم حفظ التغييرات بنجاح");
   };
 
   const cancelChanges = () => {
-    if (activeTab === "info") setClinicInfo(initialClinicInfo);
+    if (activeTab === "info") setClinicInfo(savedClinicInfo);
     if (activeTab === "payment") setPayment(initialPayment);
     if (activeTab === "hours") {
       setWorkingDays(initialWorkingDays);
@@ -149,16 +148,6 @@ function ClinicHeader() {
         </p>
       </div>
 
-      <label className="relative hidden w-full max-w-[350px] sm:block">
-        <Search
-          size={20}
-          className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400"
-        />
-        <input
-          className="h-[56px] w-full rounded-xl border border-gray-200 bg-white pr-12 pl-5 text-right text-sm text-[#333] outline-none transition placeholder:text-gray-400 focus:border-[#16B9E7] dark:border-white/20 dark:bg-[#454545] dark:text-white"
-          placeholder="إبحث هنا..."
-        />
-      </label>
     </header>
   );
 }
@@ -178,32 +167,11 @@ function ClinicInfoForm({ values, onChange, onSave, onCancel }) {
 
       <div>
         <FormLabel>العنوان</FormLabel>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <SelectField
-            value={values.country}
-            onChange={(event) => setField("country", event.target.value)}
-          >
-            <option>مصر</option>
-            <option>السعودية</option>
-            <option>الإمارات</option>
-          </SelectField>
-          <SelectField
-            value={values.governorate}
-            onChange={(event) => setField("governorate", event.target.value)}
-          >
-            <option>القاهرة</option>
-            <option>الجيزة</option>
-            <option>الإسكندرية</option>
-          </SelectField>
-          <SelectField
-            value={values.city}
-            onChange={(event) => setField("city", event.target.value)}
-          >
-            <option>مدينة نصر</option>
-            <option>المعادي</option>
-            <option>التجمع الخامس</option>
-          </SelectField>
-        </div>
+        <input
+          value={values.address}
+          onChange={(event) => setField("address", event.target.value)}
+          className={inputClass}
+        />
       </div>
 
       <TextField
@@ -248,33 +216,16 @@ function PaymentForm({ values, onChange, onSave, onCancel }) {
   };
 
   return (
-    <FormCard className="max-w-[760px] gap-8 rounded-2xl p-9">
-      <div className="grid gap-3 sm:grid-cols-2" dir="ltr">
-        <PaymentMoneyField
-          label="سعر العروض"
-          value={values.followUpPrice}
-          onChange={(event) => setField("followUpPrice", event.target.value)}
-        />
-        <PaymentMoneyField
-          label="سعر الكشف"
-          value={values.consultationPrice}
-          onChange={(event) => setField("consultationPrice", event.target.value)}
-        />
-      </div>
+    <FormCard className="max-w-[690px] gap-7 rounded-xl p-8 shadow-[0_3px_24px_rgba(0,0,0,0.12)]">
+      <PaymentUnitField
+        label="نسبة العروض"
+        unit="%"
+        value={values.offerPercentage}
+        fullWidth
+        onChange={(event) => setField("offerPercentage", event.target.value)}
+      />
 
-      <div className="grid gap-8 sm:grid-cols-[1.25fr_1fr_1.25fr]" dir="ltr">
-        <PaymentUnitField
-          label="نسبة الخصم عند الإلغاء المتأخر"
-          unit="%"
-          value={values.lateCancelDiscount}
-          onChange={(event) => setField("lateCancelDiscount", event.target.value)}
-        />
-        <PaymentUnitField
-          label="مهلة إلغاء الحجز"
-          unit="ساعة"
-          value={values.bookingGraceHours}
-          onChange={(event) => setField("bookingGraceHours", event.target.value)}
-        />
+      <div className="grid items-start gap-7 md:grid-cols-3" dir="rtl">
         <PaymentChoiceGroup
           label="استرداد المبلغ عند الإلغاء"
           firstLabel="نعم"
@@ -284,53 +235,49 @@ function PaymentForm({ values, onChange, onSave, onCancel }) {
           secondChecked={!values.refundOnCancel}
           onSecondChange={() => setField("refundOnCancel", false)}
         />
+        <PaymentUnitField
+          label="مهلة إلغاء الحجز"
+          unit="ساعة"
+          value={values.bookingGraceHours}
+          onChange={(event) =>
+            setField("bookingGraceHours", event.target.value)
+          }
+        />
+        <PaymentUnitField
+          label="نسبة الخصم عند الإلغاء المتأخر"
+          unit="%"
+          value={values.lateCancelDiscount}
+          onChange={(event) =>
+            setField("lateCancelDiscount", event.target.value)
+          }
+        />
       </div>
 
-      <div className="ml-auto grid w-full max-w-[265px] gap-4">
-        <h2 className="text-right text-lg font-semibold text-[#111] dark:text-white">
+      <div className="grid w-full max-w-[350px] gap-4">
+        <h2 className="text-right text-base font-semibold text-[#111] dark:text-white">
           طرق الدفع
         </h2>
-        <div className="grid grid-cols-2 gap-x-12 gap-y-5">
-          <PaymentCheckbox
-            label="فودافون كاش"
-            checked={values.paymentMethods.wallet}
-            onChange={(event) => setMethod("wallet", event.target.checked)}
-          />
+        <div className="grid grid-cols-2 gap-x-12 gap-y-4">
           <PaymentCheckbox
             label="بطاقة بنكية"
             checked={values.paymentMethods.card}
             onChange={(event) => setMethod("card", event.target.checked)}
           />
           <PaymentCheckbox
-            label="الدفع داخل العيادة"
-            checked={values.paymentMethods.cash}
-            onChange={(event) => setMethod("cash", event.target.checked)}
+            label="محفظة إلكترونية"
+            checked={values.paymentMethods.wallet}
+            onChange={(event) => setMethod("wallet", event.target.checked)}
           />
           <PaymentCheckbox
-            label="إنستا باي"
+            label="انستا باي"
             checked={values.paymentMethods.instapay}
             onChange={(event) => setMethod("instapay", event.target.checked)}
           />
         </div>
       </div>
 
-      <div className="border-t-2 border-gray-200 pt-8 dark:border-white/10">
-        <div className="grid gap-7 sm:grid-cols-3" dir="ltr">
-          <PaymentMoneyField
-            label="سعر الكشف"
-            value={values.discountedVisitPrice}
-            disabled={!values.hasDiscounts}
-            onChange={(event) =>
-              setField("discountedVisitPrice", event.target.value)
-            }
-          />
-          <PaymentUnitField
-            label="نسبة الخصم"
-            unit="%"
-            value={values.discountPercentage}
-            disabled={!values.hasDiscounts}
-            onChange={(event) => setField("discountPercentage", event.target.value)}
-          />
+      <div className="border-t-2 border-gray-200 pt-7 dark:border-white/10">
+        <div className="grid items-start gap-7 md:grid-cols-3" dir="rtl">
           <PaymentChoiceGroup
             label="هل يوجد خصومات"
             firstLabel="نعم"
@@ -339,6 +286,15 @@ function PaymentForm({ values, onChange, onSave, onCancel }) {
             secondLabel="لا"
             secondChecked={!values.hasDiscounts}
             onSecondChange={() => setField("hasDiscounts", false)}
+          />
+          <PaymentUnitField
+            label="نسبة الخصم"
+            unit="%"
+            value={values.discountPercentage}
+            disabled={!values.hasDiscounts}
+            onChange={(event) =>
+              setField("discountPercentage", event.target.value)
+            }
           />
         </div>
       </div>
@@ -358,35 +314,27 @@ function PaymentFieldLabel({ children, className = "text-right" }) {
   );
 }
 
-function PaymentMoneyField({ label, disabled = false, ...props }) {
+function PaymentUnitField({
+  label,
+  unit,
+  disabled = false,
+  fullWidth = false,
+  ...props
+}) {
   return (
-    <label className="block text-right" dir="rtl">
-      <PaymentFieldLabel>{label}</PaymentFieldLabel>
-      <div className="relative">
+    <label
+      className={fullWidth ? "block text-right" : "block text-center"}
+      dir="rtl"
+    >
+      <PaymentFieldLabel className={fullWidth ? "text-right" : "text-center"}>
+        {label}
+      </PaymentFieldLabel>
+      <div className={`relative ${fullWidth ? "w-full" : "mx-auto w-[104px]"}`}>
         <input
           {...props}
           disabled={disabled}
           inputMode="numeric"
-          className="h-[52px] w-full rounded-xl border border-transparent bg-[#eeeeee] px-5 pl-16 text-right text-base text-[#4b4b4b] outline-none transition focus:border-[#16B9E7] disabled:opacity-60 dark:bg-[#505050] dark:text-white"
-        />
-        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base text-[#111] dark:text-white">
-          جنيه
-        </span>
-      </div>
-    </label>
-  );
-}
-
-function PaymentUnitField({ label, unit, disabled = false, ...props }) {
-  return (
-    <label className="block text-center" dir="rtl">
-      <PaymentFieldLabel className="text-center">{label}</PaymentFieldLabel>
-      <div className="relative mx-auto w-[110px]">
-        <input
-          {...props}
-          disabled={disabled}
-          inputMode="numeric"
-          className="h-[52px] w-full rounded-xl border border-transparent bg-[#eeeeee] px-4 pl-11 text-right text-base text-[#4b4b4b] outline-none transition focus:border-[#16B9E7] disabled:opacity-60 dark:bg-[#505050] dark:text-white"
+          className="h-12 w-full rounded-xl border border-transparent bg-[#eeeeee] px-4 pl-11 text-right text-base text-[#4b4b4b] outline-none transition focus:border-[#16B9E7] disabled:opacity-60 dark:bg-[#505050] dark:text-white"
         />
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-[#111] dark:text-white">
           {unit}
@@ -407,14 +355,14 @@ function PaymentChoiceGroup({
 }) {
   return (
     <div className="text-center" dir="rtl">
-      <PaymentFieldLabel className="text-center">{label}</PaymentFieldLabel>
-      <div className="flex h-[52px] items-center justify-center gap-5">
-        <PaymentCheckbox
+      <PaymentFieldLabel className="text-right">{label}</PaymentFieldLabel>
+      <div className="flex h-12 items-center justify-center gap-5">
+        <PaymentRadio
           label={firstLabel}
           checked={firstChecked}
           onChange={onFirstChange}
         />
-        <PaymentCheckbox
+        <PaymentRadio
           label={secondLabel}
           checked={secondChecked}
           onChange={onSecondChange}
@@ -424,19 +372,36 @@ function PaymentChoiceGroup({
   );
 }
 
-function PaymentCheckbox({ label, checked, onChange }) {
+function PaymentRadio({ label, checked, onChange }) {
   return (
     <label
       className="flex items-center gap-3 text-base font-semibold text-[#333] dark:text-white"
-      dir="ltr"
+      dir="rtl"
     >
       <span>{label}</span>
+      <input
+        type="radio"
+        checked={checked}
+        onChange={onChange}
+        className="h-[18px] w-[18px] accent-[#47c2d6]"
+      />
+    </label>
+  );
+}
+
+function PaymentCheckbox({ label, checked, onChange }) {
+  return (
+    <label
+      className="flex items-center justify-start gap-3 text-base font-semibold text-[#333] dark:text-white"
+      dir="rtl"
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
         className="h-5 w-5 rounded border-gray-300 accent-[#47c2d6]"
       />
+      <span>{label}</span>
     </label>
   );
 }
@@ -506,8 +471,8 @@ function WorkingHoursForm({
                 className="grid h-14 grid-cols-[1fr_1fr_1.45fr] items-center border-b border-gray-200 px-8 text-base last:border-0 dark:border-white/10"
               >
                 <div className="grid place-items-center">
-                  <TimeInput
-                    value={day.active ? day.to : "---"}
+                  <TimeSelect
+                    value={day.to}
                     disabled={!day.active}
                     onChange={(event) =>
                       updateDay(day.id, "to", event.target.value)
@@ -515,8 +480,8 @@ function WorkingHoursForm({
                   />
                 </div>
                 <div className="grid place-items-center">
-                  <TimeInput
-                    value={day.active ? day.from : "---"}
+                  <TimeSelect
+                    value={day.from}
                     disabled={!day.active}
                     onChange={(event) =>
                       updateDay(day.id, "from", event.target.value)
@@ -595,19 +560,6 @@ function TextField({ label, ...props }) {
   );
 }
 
-function SelectField({ children, ...props }) {
-  return (
-    <label className="block">
-      <CustomSelect
-        {...props}
-        buttonClassName={`${inputClass} flex items-center gap-3 pl-3`}
-      >
-        {children}
-      </CustomSelect>
-    </label>
-  );
-}
-
 function WorkSettingField({ label, unit, disabled = false, ...props }) {
   return (
     <label className="block text-right" dir="rtl">
@@ -639,40 +591,42 @@ function WorkCheckbox({ checked, onChange, "aria-label": ariaLabel }) {
         aria-label={ariaLabel}
         className="peer sr-only"
       />
-      <span className="grid h-5 w-5 place-items-center rounded-[3px] border border-[#9d9d9d] bg-white text-[17px] font-bold leading-none text-[#333] peer-checked:border-[#47c2d6] peer-checked:bg-[#47c2d6]">
+      <span className="grid h-5 w-5 place-items-center rounded-[3px] border border-[#9d9d9d] bg-white text-[17px] font-bold leading-none text-transparent peer-checked:border-transparent peer-checked:bg-gradient-to-l peer-checked:from-[#66d1cb] peer-checked:to-[#13b7e8] peer-checked:text-white">
         {checked ? "✓" : ""}
       </span>
     </label>
   );
 }
 
-function TimeInput({ disabled, ...props }) {
-  const inputRef = useRef(null);
-
-  const handleEdit = () => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  };
-
+function TimeSelect({ disabled, value, onChange }) {
   return (
-    <label className="flex w-[120px] items-center justify-center gap-5">
-      <button
-        type="button"
-        aria-label="تعديل الوقت"
+    <label className="block w-[136px]">
+      <select
+        value={disabled ? "" : value}
+        onChange={onChange}
         disabled={disabled}
-        className="grid h-8 w-8 place-items-center rounded-md text-[#333] transition hover:bg-black/5 disabled:opacity-60 dark:text-gray-200 dark:hover:bg-white/10"
-        onClick={handleEdit}
+        className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 text-center text-base text-[#333] outline-none transition focus:border-[#16B9E7] disabled:appearance-none disabled:bg-transparent disabled:text-[#333] dark:bg-[#505050] dark:text-white dark:disabled:bg-transparent dark:disabled:text-white [&>option]:bg-white [&>option]:text-[#333] dark:[&>option]:bg-[#505050] dark:[&>option]:text-white"
       >
-        <Pencil size={20} />
-      </button>
-      <input
-        {...props}
-        ref={inputRef}
-        disabled={disabled}
-        className="h-9 w-24 rounded-md border border-transparent bg-transparent px-1 text-base text-[#333] outline-none transition focus:border-[#16B9E7] disabled:bg-transparent disabled:text-[#333] dark:text-white dark:disabled:text-white"
-      />
+        <option value="">---</option>
+        {timeOptions.map((time) => (
+          <option key={time} value={time}>
+            {formatClinicTime(time)}
+          </option>
+        ))}
+      </select>
     </label>
   );
+}
+
+function formatClinicTime(time) {
+  if (!time) return "---";
+
+  const [hourText = "0", minute = "00"] = time.split(":");
+  const hour24 = Number(hourText);
+  const hour12 = hour24 % 12 || 12;
+  const period = hour24 >= 12 ? "م" : "ص";
+
+  return `${hour12}:${minute} ${period}`;
 }
 
 function ActionButtons({ onSave, onCancel }) {

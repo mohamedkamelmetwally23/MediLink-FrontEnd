@@ -10,6 +10,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import logo from "../assets/landingPage/logo.png";
+import { useClinicInfo } from "../services/clinicInfoStore";
 
 const columns = [
       {
@@ -65,6 +66,8 @@ function FooterColumnLink({ item }) {
 }
 
 export default function Footer() {
+  const clinicInfo = useClinicInfo();
+
   return (
     <footer id="contact" dir="rtl" className="mt-8 shadow-md">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -116,15 +119,15 @@ export default function Footer() {
             <ul className="space-y-4 text-gray-700 dark:text-[#F0F0F0]">
               <li className="flex items-center gap-3">
                 <FaPhoneAlt className="shrink-0" />
-                <span>015 5677 3899</span>
+                <span>{clinicInfo.phone}</span>
               </li>
               <li className="flex items-center gap-3">
                 <FaEnvelope className="shrink-0" />
-                <span className="break-all">info@medilink.com</span>
+                <span className="break-all">{clinicInfo.email}</span>
               </li>
               <li className="flex items-center gap-3">
                 <FaMapMarkerAlt className="shrink-0" />
-                <span>القاهرة، مصر</span>
+                <span>{clinicInfo.address}</span>
               </li>
             </ul>
           </div>

@@ -1,3 +1,5 @@
+import { validateStrongPassword } from "../../../utils/passwordValidation";
+
 const arabicNamePattern = /^[\u0600-\u06FF\s.]{2,}$/;
 const phonePattern = /^01[0125][0-9]{8}$/;
 
@@ -33,12 +35,9 @@ function validatePassword(values, errors, options) {
     return;
   }
 
-  if (!values.password || values.password.length < 12) {
-    errors.password = "كلمة المرور يجب ألا تقل عن 12 حرفا.";
-  } else if (!/[a-zA-Z]/.test(values.password)) {
-    errors.password = "كلمة المرور يجب أن تحتوي على حرف واحد على الأقل.";
-  } else if (!/[0-9]/.test(values.password)) {
-    errors.password = "كلمة المرور يجب أن تحتوي على رقم واحد على الأقل.";
+  const passwordError = validateStrongPassword(values.password);
+  if (passwordError) {
+    errors.password = passwordError;
   }
 
   if (values.confirmPassword !== values.password) {
@@ -105,8 +104,11 @@ export function validateDoctor(values, options) {
     errors.specialty = "اختر التخصص.";
   }
 
-  const experience = Number(values.experience);
-  if (!Number.isInteger(experience) || experience < 0 || experience > 60) {
+  const experienceText = String(values.experience ?? "").trim();
+  const experience = Number(experienceText);
+  if (!experienceText) {
+    errors.experience = "سنوات الخبرة مطلوبة";
+  } else if (!Number.isInteger(experience) || experience < 0 || experience > 60) {
     errors.experience = "ادخل رقم صحيح";
   }
 
