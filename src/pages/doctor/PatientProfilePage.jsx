@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -32,6 +33,12 @@ const defaultPatient = {
   gender: "ذكر",
   age: "33 سنة",
   phone: "0107338300",
+  birthDate: "2003-05-01",
+  registeredAt: "2026-04-10",
+  height: "166",
+  weight: "70",
+  bloodType: "O+",
+  smoker: "نعم",
 };
 
 const fallbackPatients = {
@@ -77,6 +84,12 @@ function buildPatientFromUser(user) {
     ...defaultPatient,
     name: name || defaultPatient.name,
     phone: user.phone || defaultPatient.phone,
+    birthDate: user.birthDate || defaultPatient.birthDate,
+    registeredAt: user.createdAt || user.registrationDate || defaultPatient.registeredAt,
+    height: user.height || defaultPatient.height,
+    weight: user.weight || defaultPatient.weight,
+    bloodType: user.bloodType || defaultPatient.bloodType,
+    smoker: user.smoker || defaultPatient.smoker,
     age: getAgeFromBirthDate(user.birthDate) || user.age || defaultPatient.age,
     gender:
       user.gender === "female"
@@ -178,11 +191,13 @@ const prescriptions = [
   },
 ];
 
-export default function DoctorPatientProfilePage() {
+export default function DoctorPatientProfilePage({ startExam = false }) {
   const { patientId } = useParams();
   const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
   const [activeSection, setActiveSection] = useState("info");
+  const [profileTab, setProfileTab] = useState("records");
+  const [profileSearch, setProfileSearch] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState(null);
   const [diagnosis, setDiagnosis] = useState(
     "التهاب خفيف بالجهاز التنفسي العلوي مصحوب باحتقان بالحلق وسعال متقطع.",
@@ -222,10 +237,23 @@ export default function DoctorPatientProfilePage() {
     () => medicalRecords.find((record) => record.id === selectedRecordId),
     [selectedRecordId],
   );
+  const storedPatient = getUser(patientId);
   const patient =
-    buildPatientFromUser(getUser(patientId)) ||
+    buildPatientFromUser(storedPatient) ||
     fallbackPatients[patientId] ||
     defaultPatient;
+
+  if (!startExam) {
+    return (
+      <PatientProfileDetails
+        patient={patient}
+        activeTab={profileTab}
+        search={profileSearch}
+        onTabChange={setProfileTab}
+        onSearchChange={setProfileSearch}
+      />
+    );
+  }
 
   const openSection = (sectionId) => {
     setActiveSection(sectionId);
@@ -330,6 +358,344 @@ export default function DoctorPatientProfilePage() {
       </main>
     </section>
   );
+}
+
+const profileTabs = [
+  { id: "extra", label: "معلومات إضافية" },
+  { id: "records", label: "السجل المرضي" },
+  { id: "prescriptions", label: "الوصفات الطبية" },
+];
+
+function PatientProfileDetails({
+  patient,
+  activeTab,
+  search,
+  onTabChange,
+  onSearchChange,
+}) {
+  return (
+    <section className="min-h-screen bg-white text-[#333] dark:bg-[#2e2e2e] dark:text-white">
+      <header
+        className="flex min-h-[118px] items-start justify-between bg-white px-4 pb-[24px] pt-[34px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#343434] sm:px-8 lg:px-[32px]"
+        dir="ltr"
+      >
+        <Link
+          to="/doctor/patients"
+          className="mt-[15px] flex items-center gap-[12px] text-[18px] font-medium text-[#22bada] transition hover:text-[#0aa7cf]"
+        >
+          <ArrowRight size={18} strokeWidth={2} />
+          رجوع
+        </Link>
+
+        <div className="text-right" dir="rtl">
+          <h1 className="text-[26px] font-bold leading-9 text-[#333] dark:text-white">
+            ملف المريض
+          </h1>
+          <p className="mt-1 text-[14px] leading-5 text-[#8b8b8b] dark:text-gray-300">
+            المرضى / ملف المريض
+          </p>
+        </div>
+      </header>
+
+      <main className="px-4 pb-[36px] pt-[31px] sm:px-8 lg:px-[32px]">
+        <section className="grid gap-[24px] xl:grid-cols-[432px_minmax(0,1fr)]" dir="ltr">
+          <PatientInfoPanel patient={patient} />
+
+          <div className="space-y-[35px]" dir="rtl">
+            <PatientIdentityCard patient={patient} />
+            <PatientVitals patient={patient} />
+          </div>
+        </section>
+
+        <PatientProfileTabs
+          activeTab={activeTab}
+          search={search}
+          onTabChange={onTabChange}
+          onSearchChange={onSearchChange}
+        />
+      </main>
+    </section>
+  );
+}
+
+function PatientInfoPanel({ patient }) {
+  const info = [
+    { label: "تاريخ الميلاد", value: formatProfileDate(patient.birthDate) },
+    { label: "العمر", value: patient.age || defaultPatient.age },
+    { label: "الجنس", value: patient.gender || defaultPatient.gender },
+    { label: "رقم الهاتف", value: patient.phone || defaultPatient.phone },
+    { label: "تاريخ التسجيل", value: formatProfileDate(patient.registeredAt) },
+  ];
+
+  return (
+    <aside className="min-h-[544px] rounded-[10px] bg-white px-[16px] py-[32px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.10)] dark:bg-[#3d3d3d] sm:px-[16px] lg:px-[16px]">
+      <h2 className="mb-[31px] text-center text-[27px] font-semibold leading-10 text-[#444] dark:text-white">
+        معلومات المريض
+      </h2>
+
+      <div className="mx-auto max-w-[400px]">
+        {info.map((item) => (
+          <div
+            key={item.label}
+            className="flex h-[59px] items-center justify-between border-b border-[#d0d0d0] text-[16px] text-[#666] dark:border-white/15 dark:text-gray-200"
+            dir="rtl"
+          >
+            <span className="font-medium text-[#444] dark:text-white">{item.label}</span>
+            <span>{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function PatientIdentityCard({ patient }) {
+  return (
+    <article className="grid min-h-[338px] place-items-center rounded-[10px] bg-white px-6 py-[23px] text-center shadow-[0_5px_22px_rgba(0,0,0,0.10)] dark:bg-[#3d3d3d]">
+      <div>
+        <div className="mx-auto h-[205px] w-[205px] overflow-hidden rounded-full border-[7px] border-[#eeeeee] bg-[#f5f5f5] dark:border-[#555] dark:bg-[#454545]">
+          <img src={patientImage} alt={patient.name} className="h-full w-full object-cover" />
+        </div>
+
+        <h2 className="mt-[22px] text-[28px] font-bold leading-10 text-[#333] dark:text-white">
+          {patient.name}
+        </h2>
+        <div className="mt-[4px] flex items-center justify-center gap-[13px] text-[14px] text-[#777] dark:text-gray-300">
+          <span>مريض</span>
+          <span className="rounded-[6px] bg-[#e3faea] px-[8px] py-[2px] text-[10px] font-bold text-[#249f4e] dark:bg-[#254d34] dark:text-[#9cf0b4]">
+            مفعل
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PatientVitals({ patient }) {
+  const vitals = [
+    {
+      label: "الطول",
+      value: patient.height || defaultPatient.height,
+      icon: heightIcon,
+      className: "h-[47px] w-[62px]",
+    },
+    {
+      label: "الوزن",
+      value: patient.weight || defaultPatient.weight,
+      icon: scaleIcon,
+      className: "h-[38px] w-[38px]",
+    },
+    {
+      label: "فصيلة الدم",
+      value: patient.bloodType || defaultPatient.bloodType,
+      icon: bloodIcon,
+      className: "h-[41px] w-[41px]",
+    },
+    {
+      label: "مدخن",
+      value: patient.smoker || defaultPatient.smoker,
+      icon: cigaretteIcon,
+      className: "h-[40px] w-[40px]",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-[12px] sm:grid-cols-4">
+      {vitals.map((item) => (
+        <article
+          key={item.label}
+          className="grid h-[172px] place-items-center rounded-[10px] bg-white text-center shadow-[0_5px_22px_rgba(0,0,0,0.10)] dark:bg-[#3d3d3d]"
+        >
+          <div className="text-[#2abed7]">
+            <img
+              src={item.icon}
+              alt=""
+              className={`mx-auto object-contain ${item.className}`}
+            />
+            <p className="mt-[17px] text-[16px] leading-6">{item.label}</p>
+            <p className="mt-[8px] text-[20px] font-bold leading-7">{item.value}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function PatientProfileTabs({
+  activeTab,
+  search,
+  onTabChange,
+  onSearchChange,
+}) {
+  return (
+    <section className="mt-[29px]">
+      <div className="grid grid-cols-3 border-b border-[#cfcfcf] text-center text-[16px] font-bold text-[#bebebe] dark:border-white/15 dark:text-gray-400 sm:text-[20px]">
+        {profileTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`relative h-[45px] transition hover:text-[#22bada] ${
+              activeTab === tab.id ? "text-[#22bada]" : ""
+            }`}
+            onClick={() => onTabChange(tab.id)}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-[-1px] left-0 h-[3px] w-full rounded-full bg-[#22bada]" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-[34px] flex justify-start">
+        <PatientProfileSearch value={search} onChange={onSearchChange} />
+      </div>
+
+      <div className="mt-[38px]">
+        {activeTab === "records" && <ProfileMedicalRecords search={search} />}
+        {activeTab === "prescriptions" && <ProfilePrescriptions search={search} />}
+        {activeTab === "extra" && <ProfileExtraInfo search={search} />}
+      </div>
+    </section>
+  );
+}
+
+function PatientProfileSearch({ value, onChange }) {
+  return (
+    <label className="flex h-[52px] w-full max-w-[260px] items-center gap-[10px] rounded-[10px] border border-[#d7d7d7] bg-white px-[12px] text-[#a0a0a0] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:border-white/15 dark:bg-[#3d3d3d] dark:text-gray-300">
+      <Search size={18} strokeWidth={1.7} />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="ابحث هنا..."
+        className="min-w-0 flex-1 bg-transparent text-right text-[14px] text-[#555] outline-none placeholder:text-[#aaa] dark:text-white dark:placeholder:text-gray-400"
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="مسح البحث"
+          className="text-[#999] transition hover:text-[#333] dark:hover:text-white"
+          onClick={() => onChange("")}
+        >
+          <X size={15} strokeWidth={1.7} />
+        </button>
+      )}
+    </label>
+  );
+}
+
+function ProfileMedicalRecords({ search }) {
+  const records = filterItems(medicalRecords, search, (record) =>
+    [record.date, record.title, record.summary].join(" "),
+  );
+
+  return (
+    <div className="space-y-[9px]">
+      {records.map((record) => (
+        <article
+          key={record.id}
+          className="grid min-h-[91px] gap-[12px] rounded-[10px] bg-white px-[16px] py-[15px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.08)] dark:bg-[#3d3d3d] sm:grid-cols-[120px_minmax(0,1fr)] sm:items-center sm:px-[32px]"
+          dir="ltr"
+        >
+          <span className="w-fit rounded-full bg-[#f0fbfb] px-[8px] py-[4px] text-left text-[10px] text-[#607070] dark:bg-[#244b50] dark:text-gray-200">
+            {record.date}
+          </span>
+          <div dir="rtl">
+            <h3 className="text-[17px] font-bold leading-7 text-[#111] dark:text-white">
+              {record.title}
+            </h3>
+            <p className="mt-[4px] text-[12px] leading-5 text-[#333] dark:text-gray-300">
+              {record.summary}
+            </p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ProfilePrescriptions({ search }) {
+  const groups = filterItems(prescriptions, search, (group) =>
+    `${group.date} ${group.rows.flat().join(" ")}`,
+  );
+
+  return (
+    <div className="space-y-[48px] overflow-x-auto pb-2 text-right">
+      {groups.map((group) => (
+        <section key={group.date} className="min-w-[680px]">
+          <p className="mb-[25px] text-[15px] font-medium text-[#22bada]">
+            {group.date}
+          </p>
+          <div className="grid grid-cols-4 gap-[8px] text-[15px] font-medium text-[#555] dark:text-gray-200">
+            <span>اسم الدواء</span>
+            <span>الجرعة</span>
+            <span>معاد الجرعة</span>
+            <span>لمدة</span>
+          </div>
+          <div className="mt-[8px] space-y-[8px]">
+            {group.rows.map((row) => (
+              <div
+                key={`${group.date}-${row.join("-")}`}
+                className="grid grid-cols-4 gap-[8px] text-[20px] text-[#333] dark:text-white"
+              >
+                {row.map((cell) => (
+                  <span
+                    key={cell}
+                    className="rounded-[8px] bg-[#fafafa] px-[12px] py-[10px] dark:bg-[#444]"
+                  >
+                    {cell}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ProfileExtraInfo({ search }) {
+  const groups = [
+    { title: "الأمراض المزمنة", values: followupData.diseases },
+    { title: "الحساسيات", values: followupData.allergies },
+    { title: "الأدوية", values: followupData.medicines },
+  ];
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      values: filterItems(group.values, search, (value) => value),
+    }))
+    .filter((group) => group.values.length > 0 || !search.trim());
+
+  return (
+    <div className="space-y-[38px] pt-[2px] text-right">
+      {visibleGroups.map((group) => (
+        <section key={group.title}>
+          <h3 className="mb-[13px] text-[16px] font-bold text-[#111] dark:text-white">
+            {group.title}
+          </h3>
+          <div className="flex flex-wrap justify-start gap-[11px]">
+            {group.values.map((value) => (
+              <span
+                key={value}
+                className="rounded-[9px] bg-[#eafbfd] px-[27px] py-[10px] text-[16px] font-medium text-[#4bbdc7] dark:bg-[#244b50] dark:text-[#86e7ef]"
+              >
+                {value}
+              </span>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function filterItems(items, search, getText) {
+  const query = search.trim().toLowerCase();
+  if (!query) return items;
+
+  return items.filter((item) => getText(item).toLowerCase().includes(query));
 }
 
 function Stepper({ currentStep }) {
@@ -1002,6 +1368,30 @@ function formatDisplayDate(value) {
 
   const [year, month, day] = value.split("-");
   return `${Number(day)}/${Number(month)}/${year}`;
+}
+
+function formatProfileDate(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const monthNames = [
+    "يناير",
+    "فبراير",
+    "مارس",
+    "أبريل",
+    "مايو",
+    "يونيو",
+    "يوليو",
+    "أغسطس",
+    "سبتمبر",
+    "أكتوبر",
+    "نوفمبر",
+    "ديسمبر",
+  ];
+
+  return `${date.getDate()}/${monthNames[date.getMonth()]}/${date.getFullYear()}`;
 }
 
 function ConsultationMenu({ activeSection, onSectionChange }) {

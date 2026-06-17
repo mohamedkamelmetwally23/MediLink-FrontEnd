@@ -86,7 +86,7 @@ function App() {
           <Route path="activity" element={<DoctorActivityPage />} />
           <Route path="appointments" element={<DoctorAppointmentsPage />} />
           <Route path="patients" element={<DoctorPatientsPage />} />
-          <Route path="patients/:patientId/profile" element={<DoctorPatientProfilePage />} />
+          <Route path="patients/:patientId/profile" element={<DoctorPatientProfileRoute />} />
         </Route>
         </Routes>
 
@@ -105,6 +105,17 @@ function App() {
         <ThemeToggle />
       </div>
     </div>
+  );
+}
+
+function DoctorPatientProfileRoute() {
+  const location = useLocation();
+
+  return (
+    <DoctorPatientProfilePage
+      key={location.key}
+      startExam={location.state?.startExam === true}
+    />
   );
 }
 
