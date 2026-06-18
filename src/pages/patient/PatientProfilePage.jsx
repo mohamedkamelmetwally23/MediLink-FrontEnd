@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
@@ -67,10 +68,12 @@ function buildPatient(user, apiPatient) {
 }
 
 export default function PatientProfilePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [authUser] = useState(() => getCurrentAuthUser());
   const { doctors } = useDoctors();
   const [patient, setPatient] = useState(() => buildPatient(authUser));
-  const [activeTab, setActiveTab] = useState("extra");
+  const requestedTab = searchParams.get("tab");
+  const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "extra";
   const [search, setSearch] = useState("");
   const [appointments, setAppointments] = useState([]);
   const [files, setFiles] = useState(initialFiles);
@@ -97,6 +100,11 @@ export default function PatientProfilePage() {
     };
   }, [authUser]);
 
+  const changeTab = (tabId) => {
+    setSearch("");
+    setSearchParams({ tab: tabId }, { replace: true });
+  };
+
   const doctorById = useMemo(
     () => new Map(doctors.map((doctor) => [String(doctor.id), doctor])),
     [doctors],
@@ -121,7 +129,7 @@ export default function PatientProfilePage() {
         <section className="rounded-2xl bg-white px-4 py-10 shadow-[0_4px_24px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:px-8 md:px-12">
           <PatientSummary patient={patient} />
           <PatientStats patient={patient} />
-          <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
+          <ProfileTabs activeTab={activeTab} onChange={changeTab} />
 
           <div className="mt-6">
             {activeTab !== "extra" && (
@@ -286,9 +294,9 @@ function Prescriptions({ search }) {
         <section key={prescription.date}>
           <h3 className="mb-3 text-[#20B7D5]">{prescription.date}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] border-separate border-spacing-y-2 text-right">
+            <table className="w-full min-w-[650px] border-separate border-spacing-x-3 border-spacing-y-2 text-right sm:border-spacing-x-4">
               <thead><tr>{["اسم الدواء", "الجرعة", "ميعاد الجرعة", "المدة"].map((title) => <th key={title} className="px-4 py-2">{title}</th>)}</tr></thead>
-              <tbody>{prescription.rows.map((row) => <tr key={row.join("-")}>{row.map((cell) => <td key={cell} className="bg-[#F8F8F8] px-4 py-3 first:rounded-r-xl last:rounded-l-xl dark:bg-[#454545]">{cell}</td>)}</tr>)}</tbody>
+              <tbody>{prescription.rows.map((row) => <tr key={row.join("-")}>{row.map((cell) => <td key={cell} className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">{cell}</td>)}</tr>)}</tbody>
             </table>
           </div>
         </section>
