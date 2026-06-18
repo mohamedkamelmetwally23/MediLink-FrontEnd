@@ -9,7 +9,7 @@ import {
   changePatientPassword,
   getCurrentAuthUser,
   getPatient,
-  updatePatient,
+  updateCurrentPatient,
 } from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
@@ -102,9 +102,13 @@ export function PatientEditProfilePage() {
     if (!canSave || !patientId) return;
     setSaving(true);
     try {
-      const patient = await updatePatient(patientId, {
+      const patient = await updateCurrentPatient({
         ...form,
-        birthDate: `${form.year}-${form.month.padStart(2, "0")}-${form.day.padStart(2, "0")}`,
+        birthDate: new Date(
+          Number(form.year),
+          Number(form.month) - 1,
+          Number(form.day),
+        ).toISOString(),
       });
       savePatientToSession(patient);
       toast.success("تم حفظ التعديلات بنجاح");
