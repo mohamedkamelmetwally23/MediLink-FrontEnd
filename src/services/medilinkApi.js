@@ -1005,6 +1005,8 @@ export async function createAppointment(values) {
     reason: values.reason || values.visitReason || values.notes,
     notes: values.notes || values.reason || values.visitReason,
     paymentMethod: values.paymentMethod,
+    paymentStatus: values.paymentStatus,
+    cardLastFour: values.paymentDetails?.cardLastFour,
     status: values.status || "pending",
   });
 
