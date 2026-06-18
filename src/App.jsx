@@ -35,6 +35,7 @@ import DoctorActivityPage from "./pages/doctor/ActivityPage";
 import RouteSkeleton from "./components/RouteSkeleton";
 import PatientOnboardingPage from "./pages/patient/PatientOnboardingPage";
 import PatientHomePage from "./pages/patient/PatientHomePage";
+import PatientDoctorsPage from "./pages/patient/PatientDoctorsPage";
 
 function App() {
   const { dark } = useTheme();
@@ -61,6 +62,7 @@ function App() {
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
         <Route path="/patient" element={<PatientOnboardingPage />} />
         <Route path="/patient/home" element={<PatientHomePage />} />
+        <Route path="/patient/doctors" element={<PatientDoctorsPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

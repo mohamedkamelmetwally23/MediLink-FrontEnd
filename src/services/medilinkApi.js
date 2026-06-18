@@ -277,6 +277,36 @@ export function normalizeDoctor(item = {}) {
     workEnd: normalizeTime(item.endTime || item.workEnd || ""),
     appointmentsCount:
       item.appointmentsCount ?? item.caseCount ?? item.casesCount ?? item.appointments?.length ?? 0,
+    image:
+      item.profileImage ||
+      item.image ||
+      item.imageUrl ||
+      item.photo ||
+      item.avatar ||
+      user.profileImage ||
+      user.image ||
+      user.imageUrl ||
+      user.photo ||
+      user.avatar ||
+      "",
+    rating: normalizeNumber(
+      item.rating ??
+        item.averageRating ??
+        item.avgRating ??
+        item.ratingsAverage ??
+        item.reviewAverage ??
+        0,
+      0,
+    ),
+    reviewsCount: normalizeNumber(
+      item.reviewsCount ?? item.ratingsCount ?? item.reviewCount ?? item.reviews?.length ?? 0,
+      0,
+    ),
+    available:
+      item.available ??
+      item.isAvailable ??
+      item.acceptingAppointments ??
+      normalizeStatus(item.status ?? user.status ?? item.isActive ?? user.isActive) === "active",
     raw: item,
   };
 }
@@ -513,6 +543,22 @@ export async function listSpecializations() {
   );
   return specializations.map(normalizeSpecialization);
 }
+
+// export async function listPublicSpecializations() {
+//   try {
+//     const specializations = await listSpecializations();
+//     if (specializations.length > 0) return specializations;
+//   } catch (error) {
+//     if (
+//       !(error instanceof ApiError) ||
+//       ![401, 403, 404, 405].includes(error.status)
+//     ) {
+//       throw error;
+//     }
+//   }
+
+//   return listSpecializationsFromDoctors();
+// }
 
 export async function listSpecializationsFromDoctors() {
   const doctors = await listDoctors();
