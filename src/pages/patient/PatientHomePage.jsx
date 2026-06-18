@@ -310,7 +310,7 @@ function HeroSection() {
 
           <div className="mt-7 grid grid-cols-2 gap-3">
             <Link to="/patient/doctors" className={`inline-flex min-h-12 items-center justify-center rounded-lg ${gradient} px-4 font-semibold text-white`}>حجز موعد جديد</Link>
-            <button type="button" className="min-h-12 rounded-lg border-2 border-[#05ADE8] bg-transparent px-4 font-semibold text-[#05ADE8]">نصيحة الأطباء</button>
+            <button type="button" className="min-h-12 rounded-lg border-2 border-[#05ADE8] bg-transparent px-4 font-semibold text-[#05ADE8]">تصفح الأطباء</button>
           </div>
         </div>
 

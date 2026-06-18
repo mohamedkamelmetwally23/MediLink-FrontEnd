@@ -4,7 +4,12 @@ import { Check, CircleAlert, CreditCard, FileText, Image as ImageIcon, Plus, Sma
 import { FaStar } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getDoctorImage, getDoctorName, getDoctorRating } from "../../hooks/useDoctors";
-import { createAppointment, getDoctor, listDoctorAppointments } from "../../services/medilinkApi";
+import {
+  createAppointment,
+  createPaidDemoAppointment,
+  getDoctor,
+  listDoctorAppointments,
+} from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
@@ -69,25 +74,48 @@ export default function PatientBookingPage() {
 
   const submitAppointment = async (paymentDetails = {}) => {
     setSubmitting(true);
+    const appointmentValues = {
+      doctorId: doctor.id,
+      doctorName: getDoctorName(doctor),
+      specialization: doctor.specializationId || doctor.specialty,
+      specialty: doctor.specialty,
+      date: selectedDate,
+      time: selectedTime,
+      reason,
+      files,
+      paymentMethod,
+      paymentDetails,
+      paymentStatus: paymentMethod === "card" ? "paid" : "pay_at_clinic",
+      status: "pending",
+    };
+
     try {
-      const appointment = await createAppointment({
-        doctorId: doctor.id,
-        doctorName: getDoctorName(doctor),
-        specialization: doctor.specializationId || doctor.specialty,
-        specialty: doctor.specialty,
-        date: selectedDate,
-        time: selectedTime,
-        reason,
-        files,
-        paymentMethod,
-        paymentDetails,
-        paymentStatus: paymentMethod === "card" ? "paid" : "pay_at_clinic",
-        status: "pending",
-      });
+      const appointment = await createAppointment(appointmentValues);
       setCreatedAppointment(appointment);
       setStep(4);
       toast.success("تم تأكيد طلب الحجز بنجاح");
     } catch (error) {
+      if ([401, 403, 404, 405].includes(error?.status)) {
+        try {
+          const appointment = await createPaidDemoAppointment({
+            ...appointmentValues,
+            payment: {
+              amount: doctor.consultationFee || 100,
+              currency: "EGP",
+              method: paymentMethod,
+              status: paymentMethod === "card" ? "paid_demo" : "pay_at_clinic",
+            },
+          });
+          setCreatedAppointment(appointment);
+          setStep(4);
+          toast.success("تم تأكيد الحجز بنجاح");
+          return;
+        } catch (fallbackError) {
+          toast.error(fallbackError.message || "تعذر إتمام الحجز");
+          return;
+        }
+      }
+
       toast.error(error.message || "تعذر إتمام الحجز");
     } finally {
       setSubmitting(false);
@@ -228,7 +256,7 @@ function PaymentStep({ doctor, paymentMethod, setPaymentMethod, submitting, onPr
   const fee = doctor.consultationFee || 100;
   const cardComplete =
     card.number.replace(/\s/g, "").length === 16 &&
-    /^(0[1-9]|1[0-2])\/\d{2}$/.test(card.expiry) &&
+    /^\d{2}\/(0?[1-9]|1[0-2])$/.test(card.expiry) &&
     card.cvc.length === 3 &&
     card.holder.trim().length >= 3;
   const canContinue = paymentMethod === "clinic" || (paymentMethod === "card" && cardComplete);
@@ -288,12 +316,12 @@ function PaymentStep({ doctor, paymentMethod, setPaymentMethod, submitting, onPr
                 <div className="relative flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between text-2xl font-black"><span className="rounded-md bg-[#F7C84B] px-3 py-1 text-sm text-[#775B00]">CHIP</span><span>VISA</span></div>
                   <strong className="text-xl tracking-[.16em] sm:text-2xl">{card.number || "•••• •••• •••• 2345"}</strong>
-                  <div className="flex justify-between text-xs"><span><small className="block opacity-80">Card Holder</small>{card.holder || "YOUR NAME"}</span><span><small className="block opacity-80">Expiry</small>{card.expiry || "MM/YY"}</span></div>
+                  <div className="flex justify-between text-xs"><span><small className="block opacity-80">Card Holder</small>{card.holder || "YOUR NAME"}</span><span><small className="block opacity-80">Expiry</small>{card.expiry || "YY/MM"}</span></div>
                 </div>
               </div>
               <CardField label="رقم البطاقة" value={card.number} onChange={(value) => updateCard("number", value)} placeholder="1234 1234 1234 1234" inputMode="numeric" />
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <CardField label="الشهر" value={card.expiry} onChange={(value) => updateCard("expiry", value)} placeholder="شهر/سنة" inputMode="numeric" />
+                <CardField label="تاريخ الانتهاء" value={card.expiry} onChange={(value) => updateCard("expiry", value)} placeholder="سنة/شهر" inputMode="numeric" />
                 <CardField label="CVC" value={card.cvc} onChange={(value) => updateCard("cvc", value)} placeholder="123" inputMode="numeric" />
               </div>
               <div className="mt-4"><CardField label="اسم حامل البطاقة" value={card.holder} onChange={(value) => updateCard("holder", value)} placeholder="ادخل الاسم هنا" /></div>
