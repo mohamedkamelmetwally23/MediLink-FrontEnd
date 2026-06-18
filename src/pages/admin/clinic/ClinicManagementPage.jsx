@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
-  saveClinicInfo,
+  loadClinicInfo,
+  updateClinicInfo,
   useClinicInfo,
 } from "../../../services/clinicInfoStore";
 import { timeOptions } from "../users/usersData";
@@ -55,22 +56,57 @@ export default function ClinicManagementPage() {
   const [activeTab, setActiveTab] = useState("info");
   const savedClinicInfo = useClinicInfo();
   const [clinicInfo, setClinicInfo] = useState(savedClinicInfo);
+  const [loadedClinicInfo, setLoadedClinicInfo] = useState(savedClinicInfo);
+  const [clinicLoading, setClinicLoading] = useState(true);
+  const [clinicSaving, setClinicSaving] = useState(false);
   const [payment, setPayment] = useState(initialPayment);
   const [workingDays, setWorkingDays] = useState(initialWorkingDays);
   const [appointmentSettings, setAppointmentSettings] = useState(
     initialAppointmentSettings,
   );
 
-  const saveChanges = () => {
+  useEffect(() => {
+    let mounted = true;
+
+    loadClinicInfo()
+      .then((info) => {
+        if (!mounted) return;
+        setClinicInfo(info);
+        setLoadedClinicInfo(info);
+      })
+      .catch((error) => {
+        if (mounted) toast.error(error.message || "تعذر تحميل بيانات العيادة");
+      })
+      .finally(() => {
+        if (mounted) setClinicLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const saveChanges = async () => {
     if (activeTab === "info") {
-      saveClinicInfo(clinicInfo);
+      setClinicSaving(true);
+      try {
+        const updatedInfo = await updateClinicInfo(clinicInfo);
+        setClinicInfo(updatedInfo);
+        setLoadedClinicInfo(updatedInfo);
+        toast.success("تم حفظ بيانات العيادة بنجاح");
+      } catch (error) {
+        toast.error(error.message || "تعذر حفظ بيانات العيادة");
+      } finally {
+        setClinicSaving(false);
+      }
+      return;
     }
 
     toast.success("تم حفظ التغييرات بنجاح");
   };
 
   const cancelChanges = () => {
-    if (activeTab === "info") setClinicInfo(savedClinicInfo);
+    if (activeTab === "info") setClinicInfo(loadedClinicInfo);
     if (activeTab === "payment") setPayment(initialPayment);
     if (activeTab === "hours") {
       setWorkingDays(initialWorkingDays);
@@ -111,6 +147,8 @@ export default function ClinicManagementPage() {
             onChange={setClinicInfo}
             onSave={saveChanges}
             onCancel={cancelChanges}
+            loading={clinicLoading}
+            saving={clinicSaving}
           />
         )}
 
@@ -152,13 +190,14 @@ function ClinicHeader() {
   );
 }
 
-function ClinicInfoForm({ values, onChange, onSave, onCancel }) {
+function ClinicInfoForm({ values, onChange, onSave, onCancel, loading, saving }) {
   const setField = (field, value) => {
     onChange((current) => ({ ...current, [field]: value }));
   };
 
   return (
     <FormCard className="max-w-[700px] gap-6 rounded-2xl p-9">
+      {loading && <p className="text-center text-sm text-[#777] dark:text-[#CCC]">جاري تحميل بيانات العيادة...</p>}
       <TextField
         label="اسم العيادة"
         value={values.name}
@@ -195,7 +234,7 @@ function ClinicInfoForm({ values, onChange, onSave, onCancel }) {
         />
       </div>
 
-      <ActionButtons onSave={onSave} onCancel={onCancel} />
+      <ActionButtons onSave={onSave} onCancel={onCancel} disabled={loading || saving} saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"} />
     </FormCard>
   );
 }
@@ -629,18 +668,20 @@ function formatClinicTime(time) {
   return `${hour12}:${minute} ${period}`;
 }
 
-function ActionButtons({ onSave, onCancel }) {
+function ActionButtons({ onSave, onCancel, disabled = false, saveLabel = "حفظ التغييرات" }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2" dir="ltr">
       <button
         type="button"
+        disabled={disabled}
         className={`${buttonClass} bg-gradient-to-l from-[#66d1cb] to-[#13b7e8] text-white`}
         onClick={onSave}
       >
-        حفظ التغييرات
+        {saveLabel}
       </button>
       <button
         type="button"
+        disabled={disabled}
         className={`${buttonClass} border border-[#16B9E7] text-[#16B9E7]`}
         onClick={onCancel}
       >
