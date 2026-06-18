@@ -124,7 +124,7 @@ export function PatientHomeHeader() {
   const [accountDetailsOpen, setAccountDetailsOpen] = useState(false);
 
   const mobileLinks = [
-    { href: "#home", label: "الرئيسية" },
+    { href: "/patient/home", label: "الرئيسية", route: true },
     { href: "/patient/doctors", label: "المواعيد", route: true },
     { href: "#assistant", label: "مساعد AI" },
     { href: "#contact", label: "تواصل معنا" },
@@ -153,7 +153,7 @@ export function PatientHomeHeader() {
       </Link>
 
       <nav className="hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg">
-        <a href="#home" className="transition hover:text-[#05ADE8]">الرئيسية</a>
+        <Link to="/patient/home" className="transition hover:text-[#05ADE8]">الرئيسية</Link>
         <Link to="/patient/doctors" className="transition hover:text-[#05ADE8]">المواعيد</Link>
         <a href="#assistant" className="transition hover:text-[#05ADE8]">مساعد AI</a>
         <a href="#contact" className="transition hover:text-[#05ADE8]">تواصل معنا</a>
@@ -214,15 +214,22 @@ export function PatientHomeHeader() {
             >
               <div className="overflow-hidden">
                 <nav className="space-y-1 py-2 pr-11 text-[16px] text-[#777777] dark:text-[#C8C8C8]">
-                  {["معلوماتي الإضافية", "الملفات الطبية", "السجل المرضي", "الوصفات الطبية", "المواعيد المحجوزة"].map((item) => (
-                    <a
-                      key={item}
-                      href="#home"
+                  {[
+                    { label: "الملف الشخصي", tab: "extra" },
+                    { label: "معلوماتي الإضافية", tab: "extra" },
+                    { label: "الملفات الطبية", tab: "files" },
+                    { label: "السجل المرضي", tab: "records" },
+                    { label: "الوصفات الطبية", tab: "prescriptions" },
+                    { label: "المواعيد المحجوزة", tab: "appointments" },
+                  ].map((item) => (
+                    <Link
+                      key={item.label}
+                      to={`/patient/profile?tab=${item.tab}`}
                       className="block rounded-md px-2 py-2 transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
                       onClick={() => setProfileOpen(false)}
                     >
-                      {item}
-                    </a>
+                      {item.label}
+                    </Link>
                   ))}
                 </nav>
               </div>
@@ -233,6 +240,10 @@ export function PatientHomeHeader() {
             <button
               type="button"
               className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-[#333333] transition hover:bg-[#F7F7F7] dark:text-[#F0F0F0] dark:hover:bg-white/5"
+              onClick={() => {
+                setProfileOpen(false);
+                navigate("/patient/profile/edit");
+              }}
             >
               <Settings size={23} strokeWidth={1.8} />
               <span className="text-lg font-medium">تعديل البيانات</span>

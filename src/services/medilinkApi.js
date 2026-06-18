@@ -675,6 +675,32 @@ export async function updatePatient(id, values) {
   return normalizePatient(findEntity(response, ["patient", "user"]));
 }
 
+export async function updateCurrentPatient(values) {
+  const response = await apiRequest("/users/updateMe", {
+    method: "PATCH",
+    body: {
+      firstName: values.firstName?.trim(),
+      lastName: values.lastName?.trim(),
+      gender: values.gender,
+      birthDate: values.birthDate,
+      phone: values.phone?.trim(),
+    },
+  });
+
+  return normalizePatient(findEntity(response, ["patient", "user", "profile"]));
+}
+
+export async function changePatientPassword(values) {
+  return apiRequest("/users/updatePassword", {
+    method: "PATCH",
+    body: {
+      password: values.currentPassword,
+      newpassword: values.newPassword,
+      confirmnewpassword: values.confirmPassword,
+    },
+  });
+}
+
 export async function deletePatient(id) {
   return requestFirst(
     [
