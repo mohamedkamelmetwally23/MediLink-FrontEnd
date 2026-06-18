@@ -71,7 +71,9 @@ export default function LoginForm() {
           ? "/admin/dashboard"
           : role === "doctor"
             ? "/doctor/dashboard"
-            : "/",
+            : role === "patient" || role === "user"
+              ? "/patient"
+              : "/",
       );
     } catch (error) {
       setErrors({
