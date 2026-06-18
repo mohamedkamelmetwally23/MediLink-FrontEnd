@@ -1002,8 +1002,28 @@ export async function createAppointment(values) {
     date: values.date || values.appointmentDate || values.day,
     time: values.time || values.appointmentTime || values.startTime,
     phone: values.phone || values.patientPhone || undefined,
+    reason: values.reason || values.visitReason || values.notes,
+    notes: values.notes || values.reason || values.visitReason,
+    paymentMethod: values.paymentMethod,
+    paymentStatus: values.paymentStatus,
+    cardLastFour: values.paymentDetails?.cardLastFour,
     status: values.status || "pending",
   });
+
+  let body = payload;
+
+  if (Array.isArray(values.files) && values.files.length > 0) {
+    const formData = new FormData();
+
+    Object.entries(payload).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    values.files.forEach((file) => {
+      formData.append("medicalFiles", file);
+    });
+
+    body = formData;
+  }
 
   const response = await requestFirst([
     "/appointment",
@@ -1012,7 +1032,7 @@ export async function createAppointment(values) {
     "/bookings",
   ], {
     method: "POST",
-    body: payload,
+    body,
   });
 
   return normalizeAppointment(findEntity(response, ["appointment", "booking", "reservation"]));
