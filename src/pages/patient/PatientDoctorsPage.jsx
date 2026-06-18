@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,7 +9,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { FaStar } from "react-icons/fa";
-import { toast } from "react-toastify";
 import CustomSelect from "../../components/admin/CustomSelect";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
 import { listSpecializations } from "../../services/medilinkApi";
@@ -47,6 +47,7 @@ function DoctorSelect({ label, value, options, onChange, disabled = false }) {
 }
 
 function DoctorCard({ doctor, index }) {
+  const navigate = useNavigate();
   const available = doctor.available !== false && doctor.status !== "inactive";
   const rating = getDoctorRating(doctor);
   const price = doctor.consultationFee || doctor.raw?.consultationFee || doctor.raw?.price || 100;
@@ -95,7 +96,7 @@ function DoctorCard({ doctor, index }) {
           type="button"
           disabled={!available}
           className={`mt-3 min-h-11 rounded-lg font-semibold text-white ${available ? gradient : "bg-[#BDBDBD]"} disabled:cursor-not-allowed`}
-          onClick={() => toast.info(`اختيار موعد مع ${getDoctorName(doctor)}`)}
+          onClick={() => navigate(`/patient/doctors/${doctor.id}`)}
         >
           احجز موعدك الآن
         </button>
