@@ -123,25 +123,38 @@ function buildMonthlyAppointmentChart(appointments) {
 }
 
 function buildDoctorChart(appointments, users) {
-  const doctorCounts = new Map();
+  const doctors = users.filter((user) => user.role === "doctor");
+  const doctorsById = new Map();
+  const doctorCounts = new Map(
+    doctors.map((doctor) => {
+      const name = `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "طبيب";
+
+      [doctor.id, doctor.userId, doctor.raw?._id, doctor.raw?.user?._id]
+        .filter(Boolean)
+        .forEach((id) => doctorsById.set(String(id), name));
+
+      return [name, 0];
+    }),
+  );
 
   appointments.forEach((appointment) => {
-    const name = appointment.doctor || "";
+    const doctorId = String(appointment.doctorId || appointment.raw?.doctorId || "");
+    const appointmentDoctor = String(appointment.doctor || "").trim();
+    const name =
+      doctorsById.get(doctorId) ||
+      doctorsById.get(appointmentDoctor) ||
+      (/^[a-f\d]{24}$/i.test(appointmentDoctor) ? "" : appointmentDoctor);
+
     if (!name) return;
     doctorCounts.set(name, (doctorCounts.get(name) || 0) + 1);
   });
 
-  if (doctorCounts.size > 0) {
-    return Array.from(doctorCounts, ([name, value]) => ({ name, value }));
-  }
+  return Array.from(doctorCounts, ([name, value]) => ({ name, value }));
+}
 
-  return users
-    .filter((user) => user.role === "doctor")
-    .map((doctor) => ({
-      name: `${doctor.firstName} ${doctor.lastName}`.trim(),
-      value: doctor.appointmentsCount || 0,
-    }))
-    .filter((doctor) => doctor.name && doctor.value > 0);
+function formatDoctorTick(name) {
+  const value = String(name || "");
+  return value.length > 16 ? `${value.slice(0, 14)}…` : value;
 }
 
 function buildSpecializationChart(users) {
@@ -308,7 +321,7 @@ export default function Dashboard() {
               <ChartBox>
                 <BarChart
                   data={doctorChart}
-                  margin={{ top: 13, right: 5, left: 0, bottom: 0 }}
+                  margin={{ top: 13, right: 5, left: 0, bottom: 8 }}
                   barCategoryGap="29%"
                 >
                   <defs>
@@ -328,6 +341,7 @@ export default function Dashboard() {
                     tickLine={false}
                     interval={0}
                     tick={{ ...tickStyle, fontSize: 10 }}
+                    tickFormatter={formatDoctorTick}
                     tickMargin={8}
                   />
                   <YAxis
@@ -462,9 +476,7 @@ function StatCard({ title, value, icon: Icon, color, bg }) {
         </div>
       </div>
 
-      <p className="mt-[26px] text-right text-[16px] leading-5 text-[#666] dark:text-gray-300">
-        من قاعدة البيانات
-      </p>
+     
     </article>
   );
 }
