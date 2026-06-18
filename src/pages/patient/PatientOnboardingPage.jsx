@@ -532,7 +532,7 @@ function SuccessScreen() {
       <p className="mb-10 mt-2 text-xl font-semibold text-[#333333] dark:text-[#F0F0F0] max-md:text-[17px]">
         يمكنك الآن حجز المواعيد، متابعة سجلك الطبي، والحصول على توصيات طبية أكثر دقة.
       </p>
-      <Link to="/" className={`${primaryButtonClass} w-full max-w-[820px]`}>
+      <Link to="/patient/home" className={`${primaryButtonClass} w-full max-w-[820px]`}>
         إبدأ استخدام Medilink
       </Link>
     </section>
