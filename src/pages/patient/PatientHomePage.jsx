@@ -214,7 +214,7 @@ export function PatientHomeHeader() {
             >
               <div className="overflow-hidden">
                 <nav className="space-y-1 py-2 pr-11 text-[16px] text-[#777777] dark:text-[#C8C8C8]">
-                  {["معلوماتي الإضافية", "الملفات الطبية", "السجل المرضي", "الوصفات الطبية", "المواعيد المحجوزة"].map((item) => (
+                  {["الملف الشخصي", "معلوماتي الإضافية", "الملفات الطبية", "السجل المرضي", "الوصفات الطبية", "المواعيد المحجوزة"].map((item) => (
                     <a
                       key={item}
                       href="#home"
