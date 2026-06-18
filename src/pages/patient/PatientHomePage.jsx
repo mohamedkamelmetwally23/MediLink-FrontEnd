@@ -214,15 +214,15 @@ export function PatientHomeHeader() {
             >
               <div className="overflow-hidden">
                 <nav className="space-y-1 py-2 pr-11 text-[16px] text-[#777777] dark:text-[#C8C8C8]">
-                  {["الملف الشخصي", "معلوماتي الإضافية", "الملفات الطبية", "السجل المرضي", "الوصفات الطبية", "المواعيد المحجوزة"].map((item) => (
-                    <a
-                      key={item}
-                      href="#home"
-                      className="block rounded-md px-2 py-2 transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      {item}
-                    </a>
+                  <Link
+                    to="/patient/profile"
+                    className="block rounded-md px-2 py-2 transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    الملف الشخصي
+                  </Link>
+                  {["معلوماتي الإضافية", "الملفات الطبية", "السجل المرضي", "الوصفات الطبية", "المواعيد المحجوزة"].map((item) => (
+                    <a key={item} href="#home" className="block rounded-md px-2 py-2 transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]" onClick={() => setProfileOpen(false)}>{item}</a>
                   ))}
                 </nav>
               </div>
