@@ -676,27 +676,14 @@ export async function updatePatient(id, values) {
 }
 
 export async function changePatientPassword(values) {
-  return requestFirst(
-    [
-      "/users/changePassword",
-      "/users/change-password",
-      "/users/updatePassword",
-      "/users/update-password",
-      "/changePassword",
-      "/change-password",
-    ],
-    {
-      method: "PATCH",
-      body: compactObject({
-        currentPassword: values.currentPassword,
-        oldPassword: values.currentPassword,
-        password: values.newPassword,
-        newPassword: values.newPassword,
-        confirmPassword: values.confirmPassword,
-        confirmpassword: values.confirmPassword,
-      }),
+  return apiRequest("/users/updatePassword", {
+    method: "PATCH",
+    body: {
+      password: values.currentPassword,
+      newpassword: values.newPassword,
+      confirmnewpassword: values.confirmPassword,
     },
-  );
+  });
 }
 
 export async function deletePatient(id) {

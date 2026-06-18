@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
 import { validateStrongPassword } from "../../utils/passwordValidation";
+import { clearAuthSession } from "../../services/authApi";
 import {
   changePatientPassword,
   getCurrentAuthUser,
@@ -176,7 +177,8 @@ export function PatientChangePasswordPage() {
     try {
       await changePatientPassword(form);
       toast.success("تم تغيير كلمة المرور بنجاح");
-      navigate("/patient/profile/edit");
+      clearAuthSession();
+      navigate("/login", { replace: true });
     } catch (error) {
       toast.error(error.message || "تعذر تغيير كلمة المرور");
     } finally {
