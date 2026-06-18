@@ -617,20 +617,15 @@ export async function deleteSpecialization(specialization) {
 
 export async function listPatients() {
   try {
-    const patients = await listFromPaths(
-      [
-        "/patient/getAllPatient",
-        "/patient",
-        "/patients",
-        "/patientprofiles",
-        "/patientProfiles",
-        "/patient-profiles",
-      ],
+    const response = await apiRequest("/patient");
+    const patients = findArray(
+      response,
       [
         "patients",
         "patient",
         "allPatients",
         "allPatient",
+        "users",
         "patientprofiles",
         "patientProfiles",
         "profiles",
