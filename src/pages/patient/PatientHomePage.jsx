@@ -33,11 +33,6 @@ import specialtyNose from "../../assets/landingPage/healthicons_nose-outline.png
 import specialtyBrain from "../../assets/landingPage/Vector.png";
 import specialtyEye from "../../assets/landingPage/vaadin_eye.png";
 import doctor1 from "../../assets/landingPage/12 1.png";
-import doctor2 from "../../assets/landingPage/12 1 (1).png";
-import doctor3 from "../../assets/landingPage/12 1 (2).png";
-import doctor4 from "../../assets/landingPage/12 1 (3).png";
-import doctor5 from "../../assets/landingPage/12 1 (4).png";
-import doctor6 from "../../assets/landingPage/12 1 (5).png";
 import featureDoctor from "../../assets/landingPage/8.png";
 import featureBooking from "../../assets/landingPage/9.png";
 import featureAi from "../../assets/landingPage/10.png";
@@ -46,6 +41,7 @@ import searchDoctorIcon from "../../assets/landingPage/13(1).png";
 import specialtyIcon from "../../assets/landingPage/13 (2).png";
 import appointmentIcon from "../../assets/landingPage/13 (3).png";
 import { clearAuthSession } from "../../services/authApi";
+import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const sectionClass = "mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-10";
@@ -58,15 +54,6 @@ const specialties = [
   { label: "أنف وأذن", image: specialtyNose },
   { label: "مخ وأعصاب", image: specialtyBrain },
   { label: "العيون", image: specialtyEye },
-];
-
-const doctors = [
-  { name: "د. ندى حسين", specialty: "أخصائية جلدية", rating: "4.3", image: doctor1 },
-  { name: "د. عادل محمد", specialty: "استشاري أمراض باطنة", rating: "4.1", image: doctor2 },
-  { name: "د. عبد الله محمود", specialty: "أخصائي جراحة عظام", rating: "3.9", image: doctor3 },
-  { name: "د. سامح شوقي", specialty: "استشاري أطفال", rating: "3.7", image: doctor4 },
-  { name: "د. سارة أحمد", specialty: "أخصائية تغذية", rating: "4.5", image: doctor5 },
-  { name: "د. علي عبد الرحمن", specialty: "استشاري أسنان", rating: "4.2", image: doctor6 },
 ];
 
 const whyFeatures = [
@@ -129,7 +116,7 @@ const faqs = [
   },
 ];
 
-function PatientHomeHeader() {
+export function PatientHomeHeader() {
   const navigate = useNavigate();
   const profileMenuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,7 +125,7 @@ function PatientHomeHeader() {
 
   const mobileLinks = [
     { href: "#home", label: "الرئيسية" },
-    { href: "#doctors", label: "المواعيد" },
+    { href: "/patient/doctors", label: "المواعيد", route: true },
     { href: "#assistant", label: "مساعد AI" },
     { href: "#contact", label: "تواصل معنا" },
   ];
@@ -167,7 +154,7 @@ function PatientHomeHeader() {
 
       <nav className="hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg">
         <a href="#home" className="transition hover:text-[#05ADE8]">الرئيسية</a>
-        <a href="#doctors" className="transition hover:text-[#05ADE8]">المواعيد</a>
+        <Link to="/patient/doctors" className="transition hover:text-[#05ADE8]">المواعيد</Link>
         <a href="#assistant" className="transition hover:text-[#05ADE8]">مساعد AI</a>
         <a href="#contact" className="transition hover:text-[#05ADE8]">تواصل معنا</a>
       </nav>
@@ -272,16 +259,27 @@ function PatientHomeHeader() {
         }`}
       >
         <nav className="flex flex-col p-2" aria-label="قائمة التنقل للموبايل">
-          {mobileLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="rounded-lg px-4 py-3 text-right text-base font-semibold text-[#343434] transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8] dark:text-[#F0F0F0]"
-              onClick={() => setMenuOpen(false)}
-            >
-              {link.label}
-            </a>
-          ))}
+          {mobileLinks.map((link) =>
+            link.route ? (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="rounded-lg px-4 py-3 text-right text-base font-semibold text-[#343434] transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8] dark:text-[#F0F0F0]"
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-4 py-3 text-right text-base font-semibold text-[#343434] transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8] dark:text-[#F0F0F0]"
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </a>
+            ),
+          )}
         </nav>
       </div>
     </header>
@@ -311,7 +309,7 @@ function HeroSection() {
           </article>
 
           <div className="mt-7 grid grid-cols-2 gap-3">
-            <button type="button" className={`min-h-12 rounded-lg ${gradient} px-4 font-semibold text-white`}>حجز موعد جديد</button>
+            <Link to="/patient/doctors" className={`inline-flex min-h-12 items-center justify-center rounded-lg ${gradient} px-4 font-semibold text-white`}>حجز موعد جديد</Link>
             <button type="button" className="min-h-12 rounded-lg border-2 border-[#05ADE8] bg-transparent px-4 font-semibold text-[#05ADE8]">نصيحة الأطباء</button>
           </div>
         </div>
@@ -370,25 +368,56 @@ function SpecialtiesSection() {
 }
 
 function DoctorsSection() {
+  const { doctors, loading, error } = useDoctors();
+  const visibleDoctors = doctors.slice(0, 8);
+
   return (
     <section id="doctors" className={`${sectionClass} pb-16`}>
       <h2 className="text-center text-3xl font-semibold text-[#333333] dark:text-[#F0F0F0]">الأطباء</h2>
       <p className="mt-2 text-center text-[#8A8A8A] dark:text-[#C8C8C8]">فريق من أفضل الأطباء المتخصصين لخدمتكم</p>
       <div className="mt-8 flex snap-x gap-5 overflow-x-auto pb-5 [scrollbar-width:thin] [scrollbar-color:#60C8CB_transparent]">
-        {doctors.map((doctor) => (
-          <article key={doctor.name} className="flex min-h-[225px] min-w-[190px] snap-start flex-col items-center rounded-lg bg-linear-to-b from-[#F0F0F0] to-white p-4 text-center shadow-[0_4px_16px_rgba(0,0,0,0.09)] dark:from-[#454545] dark:to-[#383838] sm:min-w-[205px]">
-            <img src={doctor.image} alt={doctor.name} className="h-28 w-full object-contain" />
-            <h3 className="mt-2 text-base font-bold text-[#333333] dark:text-[#F0F0F0]">{doctor.name}</h3>
-            <p className="mt-1 text-xs text-[#777777] dark:text-[#C7C7C7]">{doctor.specialty}</p>
-            <div className="mt-auto flex items-center gap-2 pt-3 text-xs text-[#555555] dark:text-[#E0E0E0]">
-              <span>{doctor.rating}</span>
-              <span className="flex gap-1 text-[#F8B400]">
-                {Array.from({ length: 5 }).map((_, index) => <FaStar key={index} />)}
-              </span>
+        {loading &&
+          Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="min-h-[225px] min-w-[190px] rounded-lg bg-white p-4 shadow-md dark:bg-[#383838] sm:min-w-[205px]">
+              <div className="skeleton h-28 rounded-lg" />
+              <div className="skeleton mx-auto mt-3 h-5 w-28 rounded" />
+              <div className="skeleton mx-auto mt-2 h-4 w-20 rounded" />
             </div>
-          </article>
-        ))}
+          ))}
+
+        {!loading && error && (
+          <p className="w-full py-10 text-center text-[#777777] dark:text-[#C8C8C8]">{error}</p>
+        )}
+
+        {!loading &&
+          !error &&
+          visibleDoctors.map((doctor, index) => {
+            const rating = getDoctorRating(doctor);
+
+            return (
+              <article key={doctor.id || index} className="flex min-h-[225px] min-w-[190px] snap-start flex-col items-center rounded-lg bg-linear-to-b from-[#F0F0F0] to-white p-4 text-center shadow-[0_4px_16px_rgba(0,0,0,0.09)] dark:from-[#454545] dark:to-[#383838] sm:min-w-[205px]">
+                <img src={getDoctorImage(doctor, index)} alt={getDoctorName(doctor)} className="h-28 w-full object-contain" />
+                <h3 className="mt-2 text-base font-bold text-[#333333] dark:text-[#F0F0F0]">{getDoctorName(doctor)}</h3>
+                <p className="mt-1 text-xs text-[#777777] dark:text-[#C7C7C7]">{doctor.specialty || "طب عام"}</p>
+                <div className="mt-auto flex items-center gap-2 pt-3 text-xs text-[#555555] dark:text-[#E0E0E0]">
+                  <span>{rating.toFixed(1)}</span>
+                  <span className="flex gap-1 text-[#F8B400]">
+                    {Array.from({ length: 5 }).map((_, starIndex) => (
+                      <FaStar key={starIndex} className={starIndex < Math.round(rating) ? "" : "opacity-25"} />
+                    ))}
+                  </span>
+                </div>
+              </article>
+            );
+          })}
       </div>
+      {!loading && !error && doctors.length > 0 && (
+        <div className="mt-5 text-center">
+          <Link to="/patient/doctors" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#05ADE8] px-6 font-semibold text-[#05ADE8]">
+            عرض كل الأطباء
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
@@ -472,7 +501,7 @@ function FaqSection() {
   );
 }
 
-function PatientHomeFooter() {
+export function PatientHomeFooter() {
   const columns = [
     { title: "روابط سريعة", links: ["الرئيسية", "من نحن", "خدماتنا", "التخصصات", "الأطباء"] },
     { title: "خدماتنا", links: ["حجز موعد", "الاستشارات", "الملفات الطبية", "المتابعة والتنبيهات", "الدعم الفني"] },
