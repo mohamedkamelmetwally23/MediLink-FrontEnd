@@ -675,6 +675,30 @@ export async function updatePatient(id, values) {
   return normalizePatient(findEntity(response, ["patient", "user"]));
 }
 
+export async function changePatientPassword(values) {
+  return requestFirst(
+    [
+      "/users/changePassword",
+      "/users/change-password",
+      "/users/updatePassword",
+      "/users/update-password",
+      "/changePassword",
+      "/change-password",
+    ],
+    {
+      method: "PATCH",
+      body: compactObject({
+        currentPassword: values.currentPassword,
+        oldPassword: values.currentPassword,
+        password: values.newPassword,
+        newPassword: values.newPassword,
+        confirmPassword: values.confirmPassword,
+        confirmpassword: values.confirmPassword,
+      }),
+    },
+  );
+}
+
 export async function deletePatient(id) {
   return requestFirst(
     [

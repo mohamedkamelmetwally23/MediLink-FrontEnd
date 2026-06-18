@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
@@ -68,6 +68,7 @@ function buildPatient(user, apiPatient) {
 }
 
 export default function PatientProfilePage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [authUser] = useState(() => getCurrentAuthUser());
   const { doctors } = useDoctors();
@@ -154,7 +155,7 @@ export default function PatientProfilePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <button type="button" onClick={() => toast.info("سيتم فتح نموذج تعديل البيانات قريبًا")} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
+            <button type="button" onClick={() => navigate("/patient/profile/edit")} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
             <button type="button" onClick={() => toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")} className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600">حذف الحساب</button>
           </div>
         </section>

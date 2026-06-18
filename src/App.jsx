@@ -39,6 +39,10 @@ import PatientDoctorsPage from "./pages/patient/PatientDoctorsPage";
 import PatientDoctorProfilePage from "./pages/patient/PatientDoctorProfilePage";
 import PatientBookingPage from "./pages/patient/PatientBookingPage";
 import PatientProfilePage from "./pages/patient/PatientProfilePage";
+import {
+  PatientChangePasswordPage,
+  PatientEditProfilePage,
+} from "./pages/patient/PatientEditProfilePage";
 
 function App() {
   const { dark } = useTheme();
@@ -69,6 +73,8 @@ function App() {
         <Route path="/patient/doctors/:doctorId" element={<PatientDoctorProfilePage />} />
         <Route path="/patient/doctors/:doctorId/book" element={<PatientBookingPage />} />
         <Route path="/patient/profile" element={<PatientProfilePage />} />
+        <Route path="/patient/profile/edit" element={<PatientEditProfilePage />} />
+        <Route path="/patient/profile/change-password" element={<PatientChangePasswordPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

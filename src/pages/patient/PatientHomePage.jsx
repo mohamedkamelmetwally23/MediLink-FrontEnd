@@ -240,6 +240,10 @@ export function PatientHomeHeader() {
             <button
               type="button"
               className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-[#333333] transition hover:bg-[#F7F7F7] dark:text-[#F0F0F0] dark:hover:bg-white/5"
+              onClick={() => {
+                setProfileOpen(false);
+                navigate("/patient/profile/edit");
+              }}
             >
               <Settings size={23} strokeWidth={1.8} />
               <span className="text-lg font-medium">تعديل البيانات</span>
