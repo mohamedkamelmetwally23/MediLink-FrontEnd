@@ -248,8 +248,11 @@ export default function PatientDoctorsPage() {
       doctors.filter((doctor) => {
         const experience = Number(doctor.experienceYears || doctor.experience || 0);
         const rating = getDoctorRating(doctor);
+        const isActive =
+          doctor.active === true || doctor.status === "active";
 
         return (
+          isActive &&
           (!filters.specialty || doctor.specialty === filters.specialty) &&
           (!filters.experience || experience >= Number(filters.experience)) &&
           (!filters.day || doctor.workDays?.includes(filters.day)) &&
