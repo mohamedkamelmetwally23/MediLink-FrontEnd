@@ -185,19 +185,29 @@ function ClinicHeader() {
           تحكم في معلومات العيادة وساعات العمل وإعدادات المواعيد والدفع.
         </p>
       </div>
-
     </header>
   );
 }
 
-function ClinicInfoForm({ values, onChange, onSave, onCancel, loading, saving }) {
+function ClinicInfoForm({
+  values,
+  onChange,
+  onSave,
+  onCancel,
+  loading,
+  saving,
+}) {
   const setField = (field, value) => {
     onChange((current) => ({ ...current, [field]: value }));
   };
 
   return (
     <FormCard className="max-w-[700px] gap-6 rounded-2xl p-9">
-      {loading && <p className="text-center text-sm text-[#777] dark:text-[#CCC]">جاري تحميل بيانات العيادة...</p>}
+      {loading && (
+        <p className="text-center text-sm text-[#777] dark:text-[#CCC]">
+          جاري تحميل بيانات العيادة...
+        </p>
+      )}
       <TextField
         label="اسم العيادة"
         value={values.name}
@@ -234,7 +244,12 @@ function ClinicInfoForm({ values, onChange, onSave, onCancel, loading, saving })
         />
       </div>
 
-      <ActionButtons onSave={onSave} onCancel={onCancel} disabled={loading || saving} saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"} />
+      <ActionButtons
+        onSave={onSave}
+        onCancel={onCancel}
+        disabled={loading || saving}
+        saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"}
+      />
     </FormCard>
   );
 }
@@ -547,14 +562,6 @@ function WorkingHoursForm({
           dir="ltr"
         >
           <WorkSettingField
-            label="الحد الأقصى للحجوزات لكل طبيب يوميا"
-            unit="موعد"
-            value={appointmentSettings.dailyLimit}
-            onChange={(event) =>
-              setAppointmentField("dailyLimit", event.target.value)
-            }
-          />
-          <WorkSettingField
             label="مدة الموعد"
             unit="دقيقة"
             value={appointmentSettings.duration}
@@ -668,7 +675,12 @@ function formatClinicTime(time) {
   return `${hour12}:${minute} ${period}`;
 }
 
-function ActionButtons({ onSave, onCancel, disabled = false, saveLabel = "حفظ التغييرات" }) {
+function ActionButtons({
+  onSave,
+  onCancel,
+  disabled = false,
+  saveLabel = "حفظ التغييرات",
+}) {
   return (
     <div className="grid gap-2 sm:grid-cols-2" dir="ltr">
       <button

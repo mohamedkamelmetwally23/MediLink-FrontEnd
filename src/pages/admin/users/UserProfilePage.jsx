@@ -104,7 +104,11 @@ function buildProfile(user, searchParams) {
     gender: formatGender(user?.gender || searchParams.get("gender")),
     birthDate: formatDate(user?.birthDate || searchParams.get("birthDate")),
     age: getAge(user?.birthDate || searchParams.get("birthDate")),
-    registrationDate: formatDate(user?.registrationDate || user?.raw?.createdAt),
+    registrationDate: formatDate(
+      user?.registrationDate ||
+        user?.raw?.user?.createdAt ||
+        user?.raw?.createdAt,
+    ),
     workDays: user?.workDays?.length ? user.workDays.join("، ") : "غير متوفر",
     workHours:
       user?.workStart && user?.workEnd
@@ -180,7 +184,7 @@ function InfoCard({ profile }) {
       dir="rtl"
     >
       <h2 className="mb-[27px] text-right text-[27px] font-medium text-[#333] dark:text-white">
-        {profile.role === "doctor" ? "معلومات الطبيب" : "معلومات المريض"}
+        {profile.role === "doctor" ? "معلومات الطبيب" : "معلومات موظف الاستقبال"}
       </h2>
 
       <div>

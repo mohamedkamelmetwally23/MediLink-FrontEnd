@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { timeOptions, userStatuses, workDays } from "../usersData";
 import { validateReceptionist } from "../validation";
 import {
+  DateInput,
   Field,
   PasswordInput,
   SelectInput,
@@ -16,6 +17,7 @@ const initialValues = {
   firstName: "",
   lastName: "",
   gender: "male",
+  birthDate: "",
   role: "receptionist",
   phone: "",
   status: "active",
@@ -26,6 +28,19 @@ const initialValues = {
   password: "",
   confirmPassword: "",
 };
+
+function getDateYearsAgo(years, daysToAdd = 0) {
+  const today = new Date();
+  const targetYear = today.getFullYear() - years;
+  const month = today.getMonth();
+  const day = Math.min(
+    today.getDate(),
+    new Date(targetYear, month + 1, 0).getDate(),
+  );
+  const date = new Date(targetYear, month, day + daysToAdd);
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export default function ReceptionistForm({
   mode = "create",
@@ -49,6 +64,7 @@ export default function ReceptionistForm({
     event.preventDefault();
     const nextErrors = validateReceptionist(values, {
       requirePassword: mode === "create",
+      requireBirthDate: mode === "create",
     });
     setErrors(nextErrors);
 
@@ -113,11 +129,24 @@ export default function ReceptionistForm({
           </SelectInput>
         </Field>
 
+        {mode === "create" && (
+          <Field label="تاريخ الميلاد" error={errors.birthDate} className="lg:col-span-2">
+            <DateInput
+              value={values.birthDate}
+              min={getDateYearsAgo(76, 1)}
+              max={getDateYearsAgo(18)}
+              error={errors.birthDate}
+              onChange={(event) => setField("birthDate", event.target.value)}
+            />
+          </Field>
+        )}
+
         <Field label="رقم الهاتف" error={errors.phone} className="lg:col-span-2">
           <TextInput
             value={values.phone}
             error={errors.phone}
             inputMode="numeric"
+            disabled={mode === "edit"}
             onChange={(event) => setField("phone", event.target.value)}
           />
         </Field>
@@ -171,25 +200,29 @@ export default function ReceptionistForm({
           />
         </div>
 
-        <Field label="كلمة المرور" error={errors.password} className="lg:col-span-2">
-          <PasswordInput
-            value={values.password}
-            error={errors.password}
-            onChange={(event) => setField("password", event.target.value)}
-          />
-        </Field>
+        {mode === "create" && (
+          <>
+            <Field label="كلمة المرور" error={errors.password} className="lg:col-span-2">
+              <PasswordInput
+                value={values.password}
+                error={errors.password}
+                onChange={(event) => setField("password", event.target.value)}
+              />
+            </Field>
 
-        <Field
-          label="تأكيد كلمة المرور"
-          error={errors.confirmPassword}
-          className="lg:col-span-2"
-        >
-          <PasswordInput
-            value={values.confirmPassword}
-            error={errors.confirmPassword}
-            onChange={(event) => setField("confirmPassword", event.target.value)}
-          />
-        </Field>
+            <Field
+              label="تأكيد كلمة المرور"
+              error={errors.confirmPassword}
+              className="lg:col-span-2"
+            >
+              <PasswordInput
+                value={values.confirmPassword}
+                error={errors.confirmPassword}
+                onChange={(event) => setField("confirmPassword", event.target.value)}
+              />
+            </Field>
+          </>
+        )}
 
         {errors.general && (
           <p className="text-center text-sm font-semibold text-red-500 lg:col-span-2">

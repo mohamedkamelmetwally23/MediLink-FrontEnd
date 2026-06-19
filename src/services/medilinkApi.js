@@ -113,8 +113,40 @@ function getSpecializationId(value) {
 }
 
 function getProfileUserId(value) {
-  const user = value?.user || value?.account || value?.userId;
+  const profile =
+    value?.doctorProfile || value?.doctor || value?.profile || value;
+  const user =
+    profile?.user ||
+    profile?.account ||
+    profile?.userId ||
+    value?.user ||
+    value?.account ||
+    value?.userId;
   return typeof user === "string" ? user : getId(user);
+}
+
+function getCreatedAt(value = {}) {
+  return (
+    value?.createdAt ||
+    value?.user?.createdAt ||
+    value?.account?.createdAt ||
+    value?.doctor?.createdAt ||
+    value?.doctor?.user?.createdAt ||
+    value?.doctorProfile?.createdAt ||
+    value?.doctorProfile?.user?.createdAt ||
+    value?.profile?.createdAt ||
+    value?.profile?.user?.createdAt ||
+    value?.specialization?.createdAt ||
+    value?.speciality?.createdAt ||
+    value?.specialty?.createdAt ||
+    value?.doctor?.specialization?.createdAt ||
+    value?.doctorProfile?.specialization?.createdAt ||
+    value?.profile?.specialization?.createdAt ||
+    value?.data?.createdAt ||
+    value?.data?.user?.createdAt ||
+    value?.data?.specialization?.createdAt ||
+    ""
+  );
 }
 
 function getDoctorUpdateIds(id, values = {}, currentDoctor = {}) {
@@ -218,6 +250,7 @@ function normalizeBaseUser(item = {}) {
     lastName: item.lastName || splitName(item.name).lastName,
     gender: item.gender || "",
     birthDate: item.birthDate || "",
+    createdAt: getCreatedAt(item),
     phone: item.phone || item.phoneNumber || item.mobile || "",
     role: normalizeUserRole(item.role || item.userRole),
     active:
@@ -243,6 +276,7 @@ function mergeProfileUser(profile, usersById) {
       lastName: user.lastName,
       gender: user.gender,
       birthDate: user.birthDate,
+      createdAt: user.createdAt || getCreatedAt(user.raw),
       phone: user.phone,
       role: user.role,
       active: user.active,
@@ -366,6 +400,9 @@ export function normalizeDoctor(item = {}) {
       splitName(profile.name || item.name).lastName,
     gender: user.gender || profile.gender || item.gender || "male",
     birthDate: user.birthDate || profile.birthDate || item.birthDate || "",
+    registrationDate: normalizeDate(
+      getCreatedAt(user) || getCreatedAt(profile) || getCreatedAt(item),
+    ),
     phone: user.phone || profile.phone || item.phone || "",
     role: "doctor",
     status: normalizeStatus(
@@ -490,6 +527,14 @@ export function normalizeDoctor(item = {}) {
 
 export function normalizeReceptionist(item = {}) {
   const user = item.user || item.account || item;
+  const status = normalizeStatus(
+    user.active ??
+      item.active ??
+      user.status ??
+      item.status ??
+      user.isActive ??
+      item.isActive,
+  );
 
   return {
     id: getId(item),
@@ -501,9 +546,8 @@ export function normalizeReceptionist(item = {}) {
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
     role: "receptionist",
-    status: normalizeStatus(
-      item.status ?? user.status ?? item.isActive ?? user.isActive,
-    ),
+    active: status === "active",
+    status,
     education: item.education || item.qualification || "",
     workDays: normalizeWorkingDays(item.workingDays || item.workDays || []),
     workingDays: item.workingDays || serializeWorkingDays(item.workDays || []),
@@ -560,12 +604,17 @@ async function withHydratedUsers(items) {
     if (typeof item?.user === "string") return true;
 
     const user = item?.user || item?.account;
+    const userId = getProfileUserId(item);
+
+    if (userId && !getCreatedAt(item)) return true;
+
     return (
       user &&
       typeof user === "object" &&
-      user.active === undefined &&
-      user.isActive === undefined &&
-      user.status === undefined
+      (!user.createdAt ||
+        (user.active === undefined &&
+          user.isActive === undefined &&
+          user.status === undefined))
     );
   });
 
@@ -1007,8 +1056,7 @@ export async function deleteUser(user) {
 }
 
 export async function toggleUserActiveStatus(user) {
-  const nextStatus = user.status === "active" ? "inactive" : "active";
-  const nextValues = { ...user, status: nextStatus };
+  const nextActive = user.status !== "active";
 
   if (user.role === "patient") {
     const patientIds = Array.from(
@@ -1039,7 +1087,48 @@ export async function toggleUserActiveStatus(user) {
     );
   }
 
-  return updateUser(user.id, nextValues, user);
+  if (user.role === "receptionist") {
+    const receptionistId =
+      user.userId ||
+      getProfileUserId(user.raw) ||
+      user.raw?.user?._id ||
+      user.raw?.user?.id;
+
+    if (!receptionistId) {
+      throw new ApiError("تعذر تحديد رقم موظف الاستقبال في قاعدة البيانات");
+    }
+
+    const response = await apiRequest(`/users/${receptionistId}`, {
+      method: "PATCH",
+      body: { active: nextActive },
+    });
+
+    return {
+      ...(response && typeof response === "object" ? response : {}),
+      active: nextActive,
+    };
+  }
+
+  const userId =
+    user.userId ||
+    getProfileUserId(user.raw) ||
+    user.raw?.user?._id ||
+    user.raw?.user?.id ||
+    user.id;
+
+  if (!userId) {
+    throw new ApiError("تعذر تحديد رقم المستخدم في قاعدة البيانات");
+  }
+
+  const response = await apiRequest(`/users/${userId}`, {
+    method: "PATCH",
+    body: { active: nextActive },
+  });
+
+  return {
+    ...response,
+    active: nextActive,
+  };
 }
 
 const demoAppointmentsStorageKey = "medilink-demo-appointments";

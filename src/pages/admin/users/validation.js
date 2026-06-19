@@ -45,6 +45,24 @@ function validatePassword(values, errors, options) {
   }
 }
 
+function getAge(birthDate) {
+  const date = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return Number.NaN;
+
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDifference = today.getMonth() - date.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < date.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age;
+}
+
 export function validateBaseUser(values, options = { requirePassword: true }) {
   const errors = {};
 
@@ -62,6 +80,16 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
 
   if (!values.role) {
     errors.role = "اختر الدور.";
+  }
+
+  if (options.requireBirthDate || values.birthDate) {
+    const age = getAge(values.birthDate);
+
+    if (!values.birthDate) {
+      errors.birthDate = "اختر تاريخ الميلاد.";
+    } else if (!Number.isInteger(age) || age < 18 || age > 75) {
+      errors.birthDate = "يجب أن يكون العمر من 18 إلى 75 سنة.";
+    }
   }
 
   if (!phonePattern.test(values.phone.trim())) {

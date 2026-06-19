@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
+import ConfirmStatusChangeModal from "../../../components/admin/ConfirmStatusChangeModal";
 import { useSpecialtiesStore } from "../specialties/useSpecialtiesStore";
 import { userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
@@ -35,6 +36,9 @@ export default function DoctorsPage() {
   const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingStatusUser, setPendingStatusUser] = useState(null);
+  const [statusError, setStatusError] = useState("");
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredDoctors = useMemo(() => {
@@ -88,6 +92,22 @@ export default function DoctorsPage() {
     removeUsers(ids);
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setPendingDelete(null);
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusUser) return;
+
+    setIsStatusUpdating(true);
+    setStatusError("");
+
+    try {
+      await toggleUserStatus(pendingStatusUser.id);
+      setPendingStatusUser(null);
+    } catch (error) {
+      setStatusError(error.message || "تعذر تحديث الحالة، حاول مرة أخرى.");
+    } finally {
+      setIsStatusUpdating(false);
+    }
   };
 
   return (
@@ -153,7 +173,10 @@ export default function DoctorsPage() {
                     selected={selectedIds.includes(doctor.id)}
                     onToggle={() => toggleDoctor(doctor.id)}
                     onDelete={() => setPendingDelete([doctor.id])}
-                    onToggleStatus={() => toggleUserStatus(doctor.id)}
+                    onToggleStatus={() => {
+                      setStatusError("");
+                      setPendingStatusUser(doctor);
+                    }}
                   />
                 ))
               )}
@@ -174,6 +197,19 @@ export default function DoctorsPage() {
         <ConfirmDeleteModal
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => deleteDoctors(pendingDelete)}
+        />
+      )}
+
+      {pendingStatusUser && (
+        <ConfirmStatusChangeModal
+          status={pendingStatusUser.status}
+          loading={isStatusUpdating}
+          error={statusError}
+          onCancel={() => {
+            setPendingStatusUser(null);
+            setStatusError("");
+          }}
+          onConfirm={confirmStatusChange}
         />
       )}
     </section>
@@ -342,7 +378,7 @@ function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
           type="button"
           aria-label="تغيير حالة الطبيب"
           className={
-            doctor.status === "inactive" || appointmentsCount === 0
+            doctor.status === "inactive"
               ? "text-[#ff2020]"
               : "text-[#333] dark:text-white"
           }
