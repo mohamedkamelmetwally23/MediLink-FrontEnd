@@ -639,7 +639,7 @@ function PatientStep({
               onChange={(value) =>
                 updatePatientName({ ...nameParts, firstName: value })
               }
-              placeholder=""
+              placeholder="الاسم الأول"
             />
             <InputField
               label="الاسم الأخير"
@@ -647,7 +647,7 @@ function PatientStep({
               onChange={(value) =>
                 updatePatientName({ ...nameParts, lastName: value })
               }
-              placeholder=""
+              placeholder="الاسم الأخير"
             />
           </div>
 
