@@ -835,6 +835,153 @@ export async function getDoctor(id) {
   return normalizeDoctor(hydratedDoctor);
 }
 
+function getCurrentDoctorCandidateIds() {
+  const user = getCurrentAuthUser();
+
+  return Array.from(
+    new Set(
+      [
+        user?.doctorId,
+        user?.doctorProfile?._id,
+        user?.doctorProfile?.id,
+        user?.doctor?._id,
+        user?.doctor?.id,
+        user?.profile?._id,
+        user?.profile?.id,
+        user?.user?._id,
+        user?.user?.id,
+        user?._id,
+        user?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getDoctorLookupIds(doctor = {}) {
+  const value = doctor || {};
+
+  return Array.from(
+    new Set(
+      [
+        value.id,
+        value.profileId,
+        value.userId,
+        value.raw?._id,
+        value.raw?.id,
+        value.raw?.user?._id,
+        value.raw?.user?.id,
+        value.raw?.doctorProfile?._id,
+        value.raw?.doctorProfile?.id,
+        value.raw?.profile?._id,
+        value.raw?.profile?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function doctorMatchesIds(doctor, ids) {
+  const idsSet = new Set(ids.map(String));
+  return getDoctorLookupIds(doctor).some((id) => idsSet.has(id));
+}
+
+export async function getCurrentDoctorProfile() {
+  const currentIds = getCurrentDoctorCandidateIds();
+
+  if (currentIds.length === 0) return null;
+
+  try {
+    const doctors = await listDoctors();
+    const matchedDoctor = doctors.find((doctor) =>
+      doctorMatchesIds(doctor, currentIds),
+    );
+
+    if (matchedDoctor) return matchedDoctor;
+  } catch {
+    // Fall back to direct lookups below when listing is unavailable.
+  }
+
+  for (const id of currentIds) {
+    try {
+      return await getDoctor(id);
+    } catch {
+      // Try the next possible id from the auth payload.
+    }
+  }
+
+  return null;
+}
+
+function normalizeAvailableSlotDay(item = {}) {
+  const slots = Array.isArray(item.slots)
+    ? item.slots
+    : Array.isArray(item.availableSlots)
+      ? item.availableSlots
+      : Array.isArray(item.times)
+        ? item.times
+        : [];
+
+  return {
+    date: normalizeDate(item.date || item.dayDate || item.appointmentDate),
+    day: item.day || item.name || "",
+    slots: slots
+      .map((slot) => {
+        const value = typeof slot === "string" ? { time: slot } : slot || {};
+
+        return {
+          time: normalizeTime(
+            value.time || value.startTime || value.appointmentTime || "",
+          ),
+          status: value.status || value.state || "available",
+          raw: slot,
+        };
+      })
+      .filter((slot) => slot.time),
+    raw: item,
+  };
+}
+
+export async function listDoctorAvailableSlots(doctorId) {
+  if (!doctorId) return [];
+
+  const slots = await listFromPaths(
+    [
+      `/doctors/${doctorId}/available-slots`,
+      `/doctorprofiles/${doctorId}/available-slots`,
+      `/doctorProfiles/${doctorId}/available-slots`,
+      `/doctor-profiles/${doctorId}/available-slots`,
+    ],
+    ["slots", "availableSlots", "days"],
+  );
+
+  return slots.map(normalizeAvailableSlotDay);
+}
+
+export async function listCurrentDoctorAvailableSlots(doctor) {
+  const lookupIds = [
+    ...getDoctorLookupIds(doctor),
+    ...getCurrentDoctorCandidateIds(),
+  ];
+
+  for (const id of Array.from(new Set(lookupIds.filter(Boolean)))) {
+    try {
+      return await listDoctorAvailableSlots(id);
+    } catch (error) {
+      if (
+        !(error instanceof ApiError) ||
+        ![400, 404, 405].includes(error.status)
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  return [];
+}
+
 export async function createDoctor(values) {
   const response = await requestFirst(["/doctors"], {
     method: "POST",

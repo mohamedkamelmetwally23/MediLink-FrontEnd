@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, LogOut, Menu, Stethoscope, UsersRound, X } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
 import doctorAvatar from "../../../assets/landingPage/doctor1.png";
-import currentPatientAvatar from "../../../assets/landingPage/admin.png";
-import patientAvatarOne from "../../../assets/landingPage/12 1.png";
-import patientAvatarTwo from "../../../assets/landingPage/12 1 (1).png";
 import { clearAuthSession } from "../../../services/authApi";
+import {
+  getCurrentDoctorId,
+  getCurrentDoctorProfile,
+  listDoctorAppointments,
+} from "../../../services/medilinkApi";
 
 const navItems = [
   { label: "لوحة التحكم", icon: Home, to: "/doctor/dashboard" },
@@ -14,36 +16,143 @@ const navItems = [
   { label: "المرضى", icon: Stethoscope, to: "/doctor/patients" },
 ];
 
-const waitingList = [
-  {
-    id: 5,
-    name: "أحمد الألفي",
-    time: "4:00 م - 3:30 م",
-    status: "الآن",
-    statusTone: "now",
-    image: currentPatientAvatar,
-    current: true,
-  },
-  {
-    id: 6,
-    name: "خليل محمد",
-    time: "5:00 م - 4:30 م",
-    status: "التالي",
-    statusTone: "soon",
-    image: patientAvatarOne,
-  },
-  {
-    id: 7,
-    name: "يمنى علاء",
-    time: "5:30 م - 5:00 م",
-    status: "التالي",
-    statusTone: "soon",
-    image: patientAvatarTwo,
-  },
-];
+function getIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTimeMinutes(time) {
+  const [hours = 0, minutes = 0] = String(time || "").split(":").map(Number);
+  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+}
+
+function formatTime(value) {
+  if (!value) return "";
+
+  const [hourText = "0", minute = "00"] = String(value).split(":");
+  const hour24 = Number(hourText);
+
+  if (!Number.isFinite(hour24)) return value;
+
+  const hour12 = hour24 % 12 || 12;
+  const period = hour24 >= 12 ? "م" : "ص";
+
+  return `${hour12}:${minute} ${period}`;
+}
+
+function getDoctorName(doctor) {
+  return (
+    [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
+    doctor?.name ||
+    "دكتور ميديلينك"
+  );
+}
+
+function getPatientName(appointment) {
+  const patient = appointment.raw?.patient || appointment.raw?.patientId || {};
+  const user = patient.user || patient.account || patient;
+
+  return (
+    appointment.patient ||
+    appointment.raw?.patientName ||
+    patient.name ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    "مريض"
+  );
+}
+
+function getPatientImage(appointment) {
+  const patient = appointment.raw?.patient || appointment.raw?.patientId || {};
+  const user = patient.user || patient.account || patient;
+
+  return (
+    appointment.raw?.patientImage ||
+    patient.image ||
+    patient.profileImage ||
+    user.image ||
+    user.profileImage ||
+    doctorAvatar
+  );
+}
+
+async function loadDoctorAppointments(doctor) {
+  const ids = Array.from(
+    new Set(
+      [doctor?.profileId, doctor?.id, doctor?.userId, getCurrentDoctorId()]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+
+  for (const id of ids) {
+    try {
+      const appointments = await listDoctorAppointments(id);
+
+      if (appointments.length > 0) return appointments;
+    } catch {
+      // Try another id shape from the current doctor payload.
+    }
+  }
+
+  return [];
+}
+
+function buildWaitingList(appointments) {
+  const todayIso = getIsoDate(new Date());
+
+  return appointments
+    .filter(
+      (appointment) =>
+        appointment.date === todayIso &&
+        !["cancelled", "completed"].includes(appointment.status),
+    )
+    .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time))
+    .slice(0, 3)
+    .map((appointment, index) => ({
+      id: appointment.id || `${appointment.date}-${appointment.time}`,
+      patientId: appointment.patientId,
+      name: getPatientName(appointment),
+      time: formatTime(appointment.time),
+      status: index === 0 ? "الآن" : "التالي",
+      statusTone: index === 0 ? "now" : "soon",
+      image: getPatientImage(appointment),
+      current: index === 0,
+    }));
+}
 
 export default function DoctorLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [doctor, setDoctor] = useState(null);
+  const [waitingList, setWaitingList] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSidebarData() {
+      try {
+        const currentDoctor = await getCurrentDoctorProfile();
+        const appointments = await loadDoctorAppointments(currentDoctor);
+
+        if (!mounted) return;
+
+        setDoctor(currentDoctor);
+        setWaitingList(buildWaitingList(appointments));
+      } catch {
+        if (!mounted) return;
+
+        setDoctor(null);
+        setWaitingList([]);
+      }
+    }
+
+    loadSidebarData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div
@@ -63,6 +172,8 @@ export default function DoctorLayout() {
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          doctor={doctor}
+          waitingList={waitingList}
         />
 
         <main className="min-w-0 flex-1">
@@ -82,7 +193,7 @@ export default function DoctorLayout() {
   );
 }
 
-function Sidebar({ isOpen, onClose }) {
+function Sidebar({ isOpen, onClose, doctor, waitingList }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -107,15 +218,17 @@ function Sidebar({ isOpen, onClose }) {
       </button>
 
       <div className="h-full flex flex-col overflow-y-auto">
-        <DoctorBadge onClose={onClose} />
+        <DoctorBadge doctor={doctor} onClose={onClose} />
         <MainNav onClose={onClose} onLogout={handleLogout} />
-        <WaitingList onClose={onClose} />
+        <WaitingList waitingList={waitingList} onClose={onClose} />
       </div>
     </aside>
   );
 }
 
-function DoctorBadge({ onClose }) {
+function DoctorBadge({ doctor, onClose }) {
+  const doctorName = getDoctorName(doctor);
+
   return (
     <>
       <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#0caee0] to-[#63d0ca] text-center">
@@ -133,8 +246,8 @@ function DoctorBadge({ onClose }) {
         <div className="absolute bottom-[-16px] left-1/2 -translate-x-1/2">
           <div className="h-[130px] w-[130px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
             <img
-              src={doctorAvatar}
-              alt="د. توفيق عبد الله"
+              src={doctor?.image || doctorAvatar}
+              alt={doctorName}
               className="h-full w-full object-cover object-top"
             />
           </div>
@@ -144,10 +257,10 @@ function DoctorBadge({ onClose }) {
 
       <div className="mt-[17px] text-center">
         <h2 className="text-[17px] font-bold leading-6 text-[#333] dark:text-white">
-          توفيق عبد الله
+          {doctorName}
         </h2>
         <p className="mt-1 text-[12px] leading-4 text-[#8d8d8d] dark:text-gray-300">
-          طبيب
+          {doctor?.specialty || "طبيب"}
         </p>
       </div>
     </>
@@ -199,18 +312,26 @@ function SideItem({ icon: Icon, label, to, onClick }) {
   );
 }
 
-function WaitingList({ onClose }) {
+function WaitingList({ waitingList, onClose }) {
+  const remaining = Math.max(waitingList.length - 1, 0);
+
   return (
     <section className="mt-[88px] px-[24px] pb-8">
       <div className="flex items-center justify-between text-[14px] font-bold text-[#333] dark:text-white">
         <h3>قائمة الإنتظار</h3>
-        <span className="font-medium">باقي : 2</span>
+        <span className="font-medium">باقي : {remaining}</span>
       </div>
 
       <div className="mt-[20px] space-y-[10px]">
-        {waitingList.map((item) => (
-          <WaitingItem key={`${item.name}-${item.time}`} item={item} onClose={onClose} />
-        ))}
+        {waitingList.length === 0 ? (
+          <div className="rounded-[8px] bg-[#f7fbfc] px-4 py-5 text-center text-[12px] font-bold text-[#8a8a8a] dark:bg-white/10 dark:text-gray-200">
+            لا توجد مواعيد في الانتظار
+          </div>
+        ) : (
+          waitingList.map((item) => (
+            <WaitingItem key={`${item.id}-${item.time}`} item={item} onClose={onClose} />
+          ))
+        )}
       </div>
     </section>
   );
@@ -219,11 +340,12 @@ function WaitingList({ onClose }) {
 function WaitingItem({ item, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const patientProfileId = item.patientId || item.id;
   const isInExamination = useMemo(
     () =>
-      location.pathname.startsWith(`/doctor/patients/${item.id}/profile`) &&
+      location.pathname.startsWith(`/doctor/patients/${patientProfileId}/profile`) &&
       location.state?.startExam === true,
-    [item.id, location.pathname, location.state],
+    [patientProfileId, location.pathname, location.state],
   );
   const toneClass =
     item.statusTone === "now"
@@ -231,7 +353,9 @@ function WaitingItem({ item, onClose }) {
       : "bg-[#fff1cd] text-[#d79a16] dark:bg-[#5a4515] dark:text-[#ffd36f]";
 
   const openExamination = () => {
-    navigate(`/doctor/patients/${item.id}/profile`, { state: { startExam: true } });
+    if (!patientProfileId) return;
+
+    navigate(`/doctor/patients/${patientProfileId}/profile`, { state: { startExam: true } });
     onClose();
   };
 

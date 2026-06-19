@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getCurrentDoctorId,
+  getCurrentDoctorProfile,
   listDoctorAppointments,
 } from "../../services/medilinkApi";
 
@@ -21,178 +22,31 @@ const weekdayLabels = [
   "السبت",
 ];
 
-const weekHours = [
-  { label: "9ص", value: 9 },
-  { label: "10ص", value: 10 },
-  { label: "11ص", value: 11 },
-  { label: "12م", value: 12 },
-  { label: "1م", value: 13 },
-  { label: "2م", value: 14 },
-  { label: "3م", value: 15 },
-  { label: "4م", value: 16, current: true },
-  { label: "5م", value: 17 },
-  { label: "6م", value: 18 },
-  { label: "7م", value: 19 },
-  { label: "8م", value: 20 },
-];
+const weekHours = Array.from({ length: 13 }, (_, index) => {
+  const value = index + 8;
+  const hour12 = value % 12 || 12;
+  const period = value >= 12 ? "م" : "ص";
 
-const fallbackAppointments = [
-  {
-    day: 13,
-    hour: 13,
-    patient: "كريم رشاد",
-    time: "1:00 مساء - 12:30 مساء",
-    status: "completed",
-  },
-  {
-    day: 13,
-    hour: 15,
-    patient: "أنس طارق",
-    time: "3:00 مساء - 2:30 مساء",
-    status: "completed",
-  },
-  {
-    day: 13,
-    hour: 16,
-    patient: "محمد علي",
-    time: "4:00 مساء - 3:30 مساء",
-    status: "waiting",
-  },
-  {
-    day: 13,
-    hour: 17,
-    patient: "أحمد محمد",
-    time: "5:00 مساء - 4:30 مساء",
-    status: "cancelled",
-  },
-  {
-    day: 14,
-    hour: 13,
-    patient: "حسام محمد",
-    time: "1:30 مساء - 1:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 14,
-    hour: 14,
-    patient: "سلمى خالد",
-    time: "2:30 مساء - 2:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 14,
-    hour: 15,
-    patient: "ندى علي",
-    time: "3:00 مساء - 2:30 مساء",
-    status: "waiting",
-  },
-  {
-    day: 14,
-    hour: 16,
-    patient: "خليل محمد",
-    time: "4:30 مساء - 4:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 15,
-    hour: 13,
-    patient: "محمد حسن",
-    time: "1:30 مساء - 1:00 مساء",
-    status: "cancelled",
-  },
-  {
-    day: 15,
-    hour: 14,
-    patient: "حسن علي",
-    time: "2:30 مساء - 2:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 15,
-    hour: 15,
-    patient: "سارة محمد",
-    time: "3:30 مساء - 3:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 16,
-    hour: 13,
-    patient: "محمد علي",
-    time: "1:30 مساء - 1:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 16,
-    hour: 14,
-    patient: "محمد فهد",
-    time: "2:30 مساء - 2:00 مساء",
-    status: "cancelled",
-  },
-  {
-    day: 16,
-    hour: 15,
-    patient: "محمود علي",
-    time: "3:30 مساء - 3:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 17,
-    hour: 13,
-    patient: "أحمد علي",
-    time: "1:30 مساء - 1:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 17,
-    hour: 14,
-    patient: "خالد محمد",
-    time: "2:30 مساء - 2:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 17,
-    hour: 15,
-    patient: "يوسف خالد",
-    time: "3:30 مساء - 3:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 18,
-    hour: 13,
-    patient: "أحمد علي",
-    time: "1:30 مساء - 1:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 18,
-    hour: 14,
-    patient: "مريم أحمد",
-    time: "2:30 مساء - 2:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 18,
-    hour: 15,
-    patient: "أحمد محمد",
-    time: "3:30 مساء - 3:00 مساء",
-    status: "waiting",
-  },
-  {
-    day: 18,
-    hour: 16,
-    patient: "مروان أحمد",
-    time: "4:30 مساء - 4:00 مساء",
-    status: "cancelled",
-  },
-];
+  return {
+    label: `${hour12}${period}`,
+    value,
+  };
+});
 
 const statusMeta = {
-  waiting: {
-    label: "قيد الإنتظار",
+  pending: {
+    label: "قيد الانتظار",
     dot: "bg-[#37bed9]",
     text: "text-[#22abc6]",
     bg: "bg-[#e9f9fb]",
     border: "border-[#37bed9]",
+  },
+  confirmed: {
+    label: "مؤكد",
+    dot: "bg-[#2360a8]",
+    text: "text-[#2360a8]",
+    bg: "bg-[#eaf2ff]",
+    border: "border-[#2360a8]",
   },
   completed: {
     label: "مكتمل",
@@ -233,13 +87,17 @@ function getIsoDate(date) {
   return `${year}-${month}-${day}`;
 }
 
-function parseAppointmentDate(date, fallbackDate) {
-  if (!date) return fallbackDate;
+function parseAppointmentDate(value, fallbackDate) {
+  if (!value) return fallbackDate;
 
-  const parsedDate = new Date(date);
-  if (Number.isNaN(parsedDate.getTime())) return fallbackDate;
+  const normalizedDate = String(value).includes("T")
+    ? new Date(value)
+    : new Date(`${value}T12:00:00`);
 
-  return startOfDay(parsedDate);
+  if (!Number.isNaN(normalizedDate.getTime())) return startOfDay(normalizedDate);
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? fallbackDate : startOfDay(parsedDate);
 }
 
 function getWeekStart(date) {
@@ -250,6 +108,8 @@ function getWeekStart(date) {
 
 function getWeekDays(date) {
   const weekStart = getWeekStart(date);
+  const todayIso = getIsoDate(startOfDay(new Date()));
+
   return Array.from({ length: 7 }, (_, index) => {
     const dayDate = addDays(weekStart, index);
 
@@ -258,7 +118,7 @@ function getWeekDays(date) {
       dateIso: getIsoDate(dayDate),
       name: weekdayLabels[dayDate.getDay()],
       day: dayDate.getDate(),
-      muted: getIsoDate(dayDate) === getIsoDate(startOfDay(new Date())),
+      current: getIsoDate(dayDate) === todayIso,
     };
   });
 }
@@ -335,17 +195,16 @@ function getCalendarHeading(activeView, selectedDate) {
   });
 }
 
-function getCalendarHour(time, fallbackHour) {
+function getCalendarHour(time) {
   const match = /^(\d{1,2}):/.exec(time || "");
-  if (!match) return fallbackHour;
-
-  return Number(match[1]);
+  return match ? Number(match[1]) : 9;
 }
 
 function getCalendarStatus(status) {
   if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
-  return "waiting";
+  if (status === "pending") return "pending";
+  return "confirmed";
 }
 
 function formatAppointmentTime(time) {
@@ -360,47 +219,67 @@ function formatAppointmentTime(time) {
   return `${hour12}:${minute} ${period}`;
 }
 
-function toCalendarAppointment(appointment, index, baseDate = new Date()) {
-  const fallback = fallbackAppointments[index % fallbackAppointments.length];
-  const fallbackDate = addDays(getWeekStart(baseDate), index % 7);
-  const appointmentDate = parseAppointmentDate(appointment.date, fallbackDate);
-  const time = appointment.time || "";
-
-  return {
-    dateIso: getIsoDate(appointmentDate),
-    day: appointmentDate.getDate(),
-    hour: getCalendarHour(time, fallback.hour),
-    patient: appointment.patient || fallback.patient,
-    time: formatAppointmentTime(time) || fallback.time,
-    status: getCalendarStatus(appointment.status),
-  };
-}
-
-function buildDayTimeline(appointments) {
-  return weekHours.map((hour) => ({
-    label: hour.label,
-    value: `${String(hour.value).padStart(2, "0")}:00`,
-    current: hour.current,
-    events: appointments.filter((appointment) => appointment.hour === hour.value),
-  }));
-}
-
 function formatShortDayMonth(date) {
   return `${date.getDate()} ${date.toLocaleDateString("ar-EG", {
     month: "long",
   })}`;
 }
 
+function toCalendarAppointment(appointment, index, baseDate = new Date()) {
+  const fallbackDate = addDays(getWeekStart(baseDate), index % 7);
+  const appointmentDate = parseAppointmentDate(appointment.date, fallbackDate);
+  const time = appointment.time || "";
+
+  return {
+    id: appointment.id || `${appointment.date}-${appointment.time}-${index}`,
+    dateIso: getIsoDate(appointmentDate),
+    day: appointmentDate.getDate(),
+    hour: getCalendarHour(time),
+    patient: appointment.patient || "مريض",
+    time: formatAppointmentTime(time),
+    status: getCalendarStatus(appointment.status),
+  };
+}
+
+async function loadCurrentDoctorAppointments() {
+  const doctor = await getCurrentDoctorProfile().catch(() => null);
+
+  const ids = Array.from(
+    new Set(
+      [doctor?.profileId, doctor?.id, doctor?.userId, getCurrentDoctorId()]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+
+  for (const id of ids) {
+    try {
+      const appointments = await listDoctorAppointments(id);
+
+      if (appointments.length > 0) return appointments;
+    } catch {
+      // Try another doctor id shape.
+    }
+  }
+
+  return [];
+}
+
 export default function DoctorAppointmentsPage() {
   const [activeView, setActiveView] = useState("week");
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
-  const [calendarAppointments, setCalendarAppointments] =
-    useState(() =>
-      fallbackAppointments.map((appointment, index) =>
-        toCalendarAppointment(appointment, index, new Date()),
-      ),
-    );
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
+  const currentHour = new Date().getHours();
+  const calendarAppointments = useMemo(
+    () =>
+      appointments.map((appointment, index) =>
+        toCalendarAppointment(appointment, index, selectedDate),
+      ),
+    [appointments, selectedDate],
+  );
 
   const goToPreviousRange = () => {
     setSelectedDate((current) => {
@@ -421,17 +300,23 @@ export default function DoctorAppointmentsPage() {
   useEffect(() => {
     let mounted = true;
 
-    listDoctorAppointments(getCurrentDoctorId())
+    loadCurrentDoctorAppointments()
       .then((fetchedAppointments) => {
-        if (mounted && fetchedAppointments.length > 0) {
-          setCalendarAppointments(
-            fetchedAppointments.map((appointment, index) =>
-              toCalendarAppointment(appointment, index),
-            ),
-          );
+        if (mounted) {
+          setAppointments(fetchedAppointments);
         }
       })
-      .catch(() => null);
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError.message || "تعذر تحميل المواعيد");
+          setAppointments([]);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
 
     return () => {
       mounted = false;
@@ -452,6 +337,12 @@ export default function DoctorAppointmentsPage() {
             onViewChange={setActiveView}
           />
 
+          {error && (
+            <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-right text-[13px] font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">
+              {error}
+            </div>
+          )}
+
           <div className="mt-[16px] overflow-x-auto">
             {activeView === "month" && (
               <MonthView
@@ -460,17 +351,28 @@ export default function DoctorAppointmentsPage() {
               />
             )}
             {activeView === "week" && (
-              <WeekView appointments={calendarAppointments} weekDays={weekDays} />
+              <WeekView
+                appointments={calendarAppointments}
+                currentHour={currentHour}
+                weekDays={weekDays}
+              />
             )}
             {activeView === "day" && (
               <DayView
                 appointments={calendarAppointments}
+                currentHour={currentHour}
                 onNext={goToNextRange}
                 onPrevious={goToPreviousRange}
                 selectedDate={selectedDate}
               />
             )}
           </div>
+
+          {!loading && calendarAppointments.length === 0 && (
+            <div className="mt-5 rounded-[8px] bg-[#f7fbfc] px-4 py-6 text-center text-[13px] font-bold text-[#7d8b92] dark:bg-white/10 dark:text-gray-200">
+              لا توجد مواعيد مسجلة حتى الآن
+            </div>
+          )}
         </section>
 
         <Legend />
@@ -604,7 +506,7 @@ function MonthCell({ day, appointments }) {
 
       <div className="mt-[15px] space-y-[3px]">
         {events.slice(0, 3).map((event) => (
-          <CompactEvent key={`${event.patient}-${event.status}`} event={event} />
+          <CompactEvent key={`${event.id}-${event.status}`} event={event} />
         ))}
         {events.length > 3 && (
           <div className="text-[8px] font-bold leading-3 text-[#777] dark:text-gray-300">
@@ -616,7 +518,7 @@ function MonthCell({ day, appointments }) {
   );
 }
 
-function WeekView({ appointments, weekDays }) {
+function WeekView({ appointments, weekDays, currentHour }) {
   return (
     <div className="min-w-[900px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
       <div className="grid h-[48px] grid-cols-[42px_repeat(7,minmax(0,1fr))] bg-white text-[10px] font-bold text-[#555] dark:bg-[#505050] dark:text-gray-100">
@@ -625,13 +527,13 @@ function WeekView({ appointments, weekDays }) {
           <div
             key={day.dateIso}
             className={`flex flex-col items-center justify-center gap-[2px] border-l border-[#edf2f4] last:border-l-0 dark:border-white/15 ${
-              day.muted ? "bg-[#f7fbfc] dark:bg-white/5" : ""
+              day.current ? "bg-[#f7fbfc] dark:bg-white/5" : ""
             }`}
           >
             <span>{day.name}</span>
             <span
               className={`grid h-[18px] min-w-[18px] place-items-center rounded-full px-[5px] text-[8px] ${
-                day.muted ? "bg-[#e7fbfd] text-[#27b6cc]" : "text-[#7e8b91]"
+                day.current ? "bg-[#e7fbfd] text-[#27b6cc]" : "text-[#7e8b91]"
               }`}
             >
               {formatShortDayMonth(day.date)}
@@ -640,34 +542,38 @@ function WeekView({ appointments, weekDays }) {
         ))}
       </div>
 
-      {weekHours.map((hour) => (
-        <div
-          key={hour.value}
-          className={`grid h-[48px] grid-cols-[42px_repeat(7,minmax(0,1fr))] ${
-            hour.current ? "border-t border-[#37bed9]" : ""
-          }`}
-        >
-          <div className="relative flex items-start justify-center border-l border-t border-[#edf2f4] pt-[6px] text-[8px] text-[#97a1a6] dark:border-white/15 dark:text-gray-300">
-            {hour.current ? (
-              <span className="absolute -top-[10px] rounded-full bg-[#35c0d8] px-[8px] py-[2px] text-[8px] font-bold text-white">
-                4:00 م
-              </span>
-            ) : (
-              hour.label
-            )}
-          </div>
+      {weekHours.map((hour) => {
+        const current = hour.value === currentHour;
 
-          {weekDays.map((day) => (
-            <WeekCell
-              key={`${day.dateIso}-${hour.value}`}
-              dateIso={day.dateIso}
-              hour={hour.value}
-              highlighted={day.muted}
-              appointments={appointments}
-            />
-          ))}
-        </div>
-      ))}
+        return (
+          <div
+            key={hour.value}
+            className={`grid h-[48px] grid-cols-[42px_repeat(7,minmax(0,1fr))] ${
+              current ? "border-t border-[#37bed9]" : ""
+            }`}
+          >
+            <div className="relative flex items-start justify-center border-l border-t border-[#edf2f4] pt-[6px] text-[8px] text-[#97a1a6] dark:border-white/15 dark:text-gray-300">
+              {current ? (
+                <span className="absolute -top-[10px] rounded-full bg-[#35c0d8] px-[8px] py-[2px] text-[8px] font-bold text-white">
+                  {formatAppointmentTime(`${String(hour.value).padStart(2, "0")}:00`)}
+                </span>
+              ) : (
+                hour.label
+              )}
+            </div>
+
+            {weekDays.map((day) => (
+              <WeekCell
+                key={`${day.dateIso}-${hour.value}`}
+                appointments={appointments}
+                dateIso={day.dateIso}
+                highlighted={day.current}
+                hour={hour.value}
+              />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -685,19 +591,18 @@ function WeekCell({ dateIso, hour, highlighted, appointments }) {
     >
       <div className="space-y-[2px]">
         {cellEvents.map((event) => (
-          <CompactEvent key={`${event.patient}-${event.time}`} event={event} />
+          <CompactEvent key={`${event.id}-${event.time}`} event={event} />
         ))}
       </div>
     </div>
   );
 }
 
-function DayView({ appointments, selectedDate, onNext, onPrevious }) {
+function DayView({ appointments, selectedDate, currentHour, onNext, onPrevious }) {
   const selectedDateIso = getIsoDate(selectedDate);
   const dayEvents = appointments.filter(
     (appointment) => appointment.dateIso === selectedDateIso,
   );
-  const dayTimeline = buildDayTimeline(dayEvents);
 
   return (
     <div className="min-w-[850px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
@@ -714,37 +619,42 @@ function DayView({ appointments, selectedDate, onNext, onPrevious }) {
         <ArrowButton label="اليوم السابق" icon={ChevronRight} onClick={onPrevious} />
       </div>
 
-      {dayTimeline.map((slot) => (
-        <div
-          key={slot.value}
-          className={`grid h-[42px] grid-cols-[42px_minmax(0,1fr)] ${
-            slot.current ? "border-t border-[#37bed9]" : ""
-          }`}
-        >
-          <div className="relative flex items-start justify-center border-l border-t border-[#edf2f4] pt-[5px] text-[8px] text-[#97a1a6] dark:border-white/15 dark:text-gray-300">
-            {slot.current ? (
-              <span className="absolute -top-[10px] rounded-full bg-[#35c0d8] px-[8px] py-[2px] text-[8px] font-bold text-white">
-                الآن
-              </span>
-            ) : (
-              slot.label
-            )}
-          </div>
-          <div className="border-t border-[#edf2f4] bg-white px-[5px] py-[4px] dark:border-white/15 dark:bg-[#505050]">
-            <div className="grid h-full gap-[3px]">
-              {slot.events.map((event) => (
-                <WideEvent key={`${event.patient}-${event.time}`} event={event} />
-              ))}
+      {weekHours.map((hour) => {
+        const current = hour.value === currentHour;
+        const events = dayEvents.filter((appointment) => appointment.hour === hour.value);
+
+        return (
+          <div
+            key={hour.value}
+            className={`grid h-[42px] grid-cols-[42px_minmax(0,1fr)] ${
+              current ? "border-t border-[#37bed9]" : ""
+            }`}
+          >
+            <div className="relative flex items-start justify-center border-l border-t border-[#edf2f4] pt-[5px] text-[8px] text-[#97a1a6] dark:border-white/15 dark:text-gray-300">
+              {current ? (
+                <span className="absolute -top-[10px] rounded-full bg-[#35c0d8] px-[8px] py-[2px] text-[8px] font-bold text-white">
+                  الآن
+                </span>
+              ) : (
+                hour.label
+              )}
+            </div>
+            <div className="border-t border-[#edf2f4] bg-white px-[5px] py-[4px] dark:border-white/15 dark:bg-[#505050]">
+              <div className="grid h-full gap-[3px]">
+                {events.map((event) => (
+                  <WideEvent key={`${event.id}-${event.time}`} event={event} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function CompactEvent({ event }) {
-  const meta = statusMeta[event.status];
+  const meta = statusMeta[event.status] || statusMeta.confirmed;
 
   return (
     <div
@@ -759,7 +669,7 @@ function CompactEvent({ event }) {
 }
 
 function WideEvent({ event }) {
-  const meta = statusMeta[event.status];
+  const meta = statusMeta[event.status] || statusMeta.confirmed;
 
   return (
     <div
@@ -775,7 +685,7 @@ function WideEvent({ event }) {
 
 function Legend() {
   return (
-    <div className="mt-[14px] flex items-center justify-center gap-[58px] text-[11px] font-bold text-[#333] dark:text-white">
+    <div className="mt-[14px] flex flex-wrap items-center justify-center gap-x-[42px] gap-y-3 text-[11px] font-bold text-[#333] dark:text-white">
       {Object.entries(statusMeta).map(([status, meta]) => (
         <div key={status} className="flex items-center gap-[9px]">
           <span>{meta.label}</span>
