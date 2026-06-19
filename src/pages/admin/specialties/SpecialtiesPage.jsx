@@ -12,13 +12,14 @@ import {
   X,
 } from "lucide-react";
 import { normalizeSpecialtyLabel } from "../users/usersData";
+import { includesSearchText } from "../../../utils/searchText";
 import { useUsersStore } from "../users/useUsersStore";
 import {
   useSpecialtiesStore,
   validateSpecialtyName,
 } from "./useSpecialtiesStore";
 
-const pageSize = 7;
+const pageSize = 10;
 
 function getDoctorAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
@@ -82,7 +83,7 @@ export default function SpecialtiesPage() {
     const query = search.trim();
 
     return specialtiesStats.filter((specialty) =>
-      !query ? true : specialty.name.includes(query),
+      includesSearchText(specialty.name, query),
     );
   }, [specialtiesStats, search]);
 
@@ -94,6 +95,12 @@ export default function SpecialtiesPage() {
   );
   const visibleNames = pageSpecialties.map((specialty) => specialty.name);
   const selectedCount = selectedNames.length;
+  const selectedSpecialties = specialtiesStats.filter((specialty) =>
+    selectedNames.includes(specialty.name),
+  );
+  const hasSelectedSpecialtyWithDoctors = selectedSpecialties.some(
+    (specialty) => specialty.doctorsCount > 0,
+  );
   const allVisibleSelected =
     visibleNames.length > 0 &&
     visibleNames.every((name) => selectedNames.includes(name));
@@ -191,15 +198,27 @@ export default function SpecialtiesPage() {
   };
 
   const removeSpecialties = async (names) => {
+    const deletableNames = names.filter((name) => {
+      const specialty = specialtiesStats.find((item) => item.name === name);
+      return !specialty || specialty.doctorsCount === 0;
+    });
+
+    if (deletableNames.length === 0) {
+      setPendingDelete(null);
+      return;
+    }
+
     try {
-      await deleteSpecialties(names);
-      clearUsersSpecialties(names);
+      await deleteSpecialties(deletableNames);
+      clearUsersSpecialties(deletableNames);
       updatePrices((currentPrices) => {
         const nextPrices = { ...currentPrices };
-        names.forEach((name) => delete nextPrices[name]);
+        deletableNames.forEach((name) => delete nextPrices[name]);
         return nextPrices;
       });
-      setSelectedNames((current) => current.filter((name) => !names.includes(name)));
+      setSelectedNames((current) =>
+        current.filter((name) => !deletableNames.includes(name)),
+      );
       setPendingDelete(null);
     } catch (error) {
       setFormErrors({
@@ -239,6 +258,7 @@ export default function SpecialtiesPage() {
         {selectedCount > 0 && (
           <SelectionBar
             count={selectedCount}
+            disableDelete={hasSelectedSpecialtyWithDoctors}
             onClear={() => setSelectedNames([])}
             onDelete={() => setPendingDelete(selectedNames)}
           />
@@ -262,6 +282,7 @@ export default function SpecialtiesPage() {
                     selected={selectedNames.includes(specialty.name)}
                     onToggle={() => toggleSpecialty(specialty.name)}
                     onEdit={() => openForm("edit", specialty)}
+                    disableDelete={specialty.doctorsCount > 0}
                     onDelete={() => setPendingDelete([specialty.name])}
                   />
                 ))
@@ -341,7 +362,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
+function SelectionBar({ count, disableDelete, onClear, onDelete }) {
   return (
     <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <p className="text-[17px] font-semibold text-[#333] dark:text-white">
@@ -359,7 +380,12 @@ function SelectionBar({ count, onClear, onDelete }) {
         </button>
         <button
           type="button"
-          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
+          disabled={disableDelete}
+          className={`flex h-[40px] items-center gap-[16px] rounded-[11px] border px-[18px] text-[16px] font-semibold transition ${
+            disableDelete
+              ? "cursor-not-allowed border-[#9a9a9a] text-[#9a9a9a] opacity-60"
+              : "border-[#ff2626] text-[#ff2626]"
+          }`}
           onClick={onDelete}
         >
           <span>حذف المحدد</span>
@@ -386,7 +412,14 @@ function TableHeader({ allVisibleSelected, onToggleAll }) {
   );
 }
 
-function SpecialtyRow({ specialty, selected, onToggle, onEdit, onDelete }) {
+function SpecialtyRow({
+  specialty,
+  selected,
+  disableDelete,
+  onToggle,
+  onEdit,
+  onDelete,
+}) {
   return (
     <div
       className={`grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
@@ -412,7 +445,12 @@ function SpecialtyRow({ specialty, selected, onToggle, onEdit, onDelete }) {
         <button
           type="button"
           aria-label="حذف التخصص"
-          className="text-[#333] dark:text-white"
+          disabled={disableDelete}
+          className={`transition ${
+            disableDelete
+              ? "cursor-not-allowed text-[#9a9a9a] opacity-50"
+              : "text-[#ff2626]"
+          }`}
           onClick={onDelete}
         >
           <Trash2 size={24} strokeWidth={1.8} />

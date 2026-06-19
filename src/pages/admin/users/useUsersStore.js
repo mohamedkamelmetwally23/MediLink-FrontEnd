@@ -3,23 +3,106 @@ import {
   createUser as apiCreateUser,
   deleteUser as apiDeleteUser,
   listAllUsers,
+  listPatients,
   toggleUserActiveStatus,
   updateUser as apiUpdateUser,
 } from "../../../services/medilinkApi";
 import { normalizeSpecialtyLabel } from "./usersData";
 
+const patientActiveStorageKey = "medilink-patient-active-statuses";
+
 function sameId(left, right) {
   return String(left) === String(right);
 }
 
+function userMatchesId(user, id) {
+  return (
+    sameId(user.id, id) ||
+    sameId(user.userId, id) ||
+    sameId(user.profileId, id) ||
+    sameId(user.raw?._id, id) ||
+    sameId(user.raw?.user?._id, id) ||
+    sameId(user.raw?.user?.id, id)
+  );
+}
+
+function getExplicitActiveValue(user) {
+  const values = [
+    user?.active,
+    user?.isActive,
+    user?.raw?.active,
+    user?.raw?.isActive,
+    user?.raw?.user?.active,
+    user?.raw?.user?.isActive,
+  ];
+
+  const value = values.find((item) => item !== undefined && item !== null);
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    return !["false", "0", "inactive", "disabled", "blocked", "not active"].includes(
+      normalizedValue,
+    );
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  return typeof value === "boolean" ? value : null;
+}
+
+function getPatientUserId(user) {
+  return user?.userId || user?.raw?.user?._id || user?.raw?.user?.id || user?.id || "";
+}
+
+function readPatientActiveStatuses() {
+  if (typeof localStorage === "undefined") return {};
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(patientActiveStorageKey) || "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePatientActiveStatus(user, active) {
+  const userId = getPatientUserId(user);
+  if (!userId || typeof localStorage === "undefined") return;
+
+  const statuses = readPatientActiveStatuses();
+  localStorage.setItem(
+    patientActiveStorageKey,
+    JSON.stringify({
+      ...statuses,
+      [userId]: active,
+    }),
+  );
+}
+
 function normalizeLoadedUser(user) {
-  if (user.role !== "doctor" || !user.specialty) {
-    return user;
+  const savedActive = readPatientActiveStatuses()[getPatientUserId(user)];
+  const explicitActive =
+    typeof savedActive === "boolean" && getExplicitActiveValue(user) === null
+      ? savedActive
+      : getExplicitActiveValue(user);
+  const syncedUser =
+    explicitActive === null
+      ? user
+      : {
+          ...user,
+          active: explicitActive,
+          status: explicitActive ? "active" : "inactive",
+        };
+
+  if (syncedUser.role !== "doctor" || !syncedUser.specialty) {
+    return syncedUser;
   }
 
   return {
-    ...user,
-    specialty: normalizeSpecialtyLabel(user.specialty),
+    ...syncedUser,
+    specialty: normalizeSpecialtyLabel(syncedUser.specialty),
   };
 }
 
@@ -50,10 +133,38 @@ function stripSensitiveFields(user) {
   return safeUser;
 }
 
-export function useUsersStore() {
+function getActiveFromToggleResponse(response) {
+  return getExplicitActiveValue({
+    ...response,
+    raw: response?.data || response?.user || response?.patient || response,
+  });
+}
+
+function getStatusFromToggleResponse(response, fallbackActive) {
+  const responseActive = getActiveFromToggleResponse(response);
+
+  if (responseActive !== null) {
+    return responseActive ? "active" : "inactive";
+  }
+
+  const message = String(response?.message || response?.data?.message || "").toLowerCase();
+
+  if (message.includes("inactive") || message.includes("deactive")) {
+    return "inactive";
+  }
+
+  if (message.includes("active")) {
+    return "active";
+  }
+
+  return fallbackActive ? "inactive" : "active";
+}
+
+export function useUsersStore(scope = "all") {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const listUsers = scope === "patients" ? listPatients : listAllUsers;
 
   const commitUsers = (getNextUsers) => {
     setUsers((currentUsers) => {
@@ -67,7 +178,7 @@ export function useUsersStore() {
     setError("");
 
     try {
-      const fetchedUsers = await listAllUsers();
+      const fetchedUsers = await listUsers();
       commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
     } catch (requestError) {
       setError(requestError.message || "");
@@ -79,7 +190,7 @@ export function useUsersStore() {
   useEffect(() => {
     let mounted = true;
 
-    listAllUsers()
+    listUsers()
       .then((fetchedUsers) => {
         if (!mounted) return;
         commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
@@ -98,7 +209,7 @@ export function useUsersStore() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [listUsers]);
 
   const addUser = async (values) => {
     const normalizedUser = normalizeUser(values);
@@ -115,18 +226,18 @@ export function useUsersStore() {
   };
 
   const updateUser = async (id, values) => {
-    const currentUser = users.find((user) => sameId(user.id, id));
+    const currentUser = users.find((user) => userMatchesId(user, id));
     const normalizedUser = normalizeUser({ ...currentUser, ...values });
     const updatedUser = await apiUpdateUser(id, normalizedUser, currentUser);
     const safeUser = stripSensitiveFields(normalizedUser);
     const nextUser = normalizeLoadedUser({
-      ...updatedUser,
       ...safeUser,
+      ...updatedUser,
       id: updatedUser.id || safeUser.id || id,
     });
 
     commitUsers((currentUsers) =>
-      currentUsers.map((user) => (sameId(user.id, id) ? nextUser : user)),
+      currentUsers.map((user) => (userMatchesId(user, id) ? nextUser : user)),
     );
 
     return nextUser;
@@ -147,24 +258,45 @@ export function useUsersStore() {
       });
   };
 
-  const toggleUserStatus = (id) => {
+  const toggleUserStatus = async (id) => {
     const targetUser = users.find((user) => sameId(user.id, id));
     if (!targetUser) return;
 
-    toggleUserActiveStatus(targetUser)
-      .catch(() => null)
-      .finally(() => {
-        commitUsers((currentUsers) =>
-          currentUsers.map((user) =>
-            sameId(user.id, id)
-              ? {
-                  ...user,
-                  status: user.status === "active" ? "inactive" : "active",
-                }
-              : user,
-          ),
-        );
-      });
+    try {
+      const response = await toggleUserActiveStatus(targetUser);
+      const currentActive = getExplicitActiveValue(targetUser) ?? targetUser.status === "active";
+      const nextStatus = getStatusFromToggleResponse(response, currentActive);
+      const nextActive = nextStatus === "active";
+      savePatientActiveStatus(targetUser, nextActive);
+      commitUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          sameId(user.id, id)
+            ? {
+                ...user,
+                status: nextStatus,
+                active: nextActive,
+                raw: {
+                  ...user.raw,
+                  active: nextActive,
+                  status: nextStatus,
+                  user:
+                    user.raw?.user && typeof user.raw.user === "object"
+                      ? {
+                          ...user.raw.user,
+                          active: nextActive,
+                          status: nextStatus,
+                        }
+                      : user.raw?.user,
+                },
+              }
+            : user,
+        ),
+      );
+      refreshUsers();
+    } catch (requestError) {
+      setError(requestError.message || "");
+      throw requestError;
+    }
   };
 
   const updateUsersSpecialty = (oldSpecialty, nextSpecialty) => {
@@ -188,7 +320,8 @@ export function useUsersStore() {
     );
   };
 
-  const getUser = (id) => users.find((user) => sameId(user.id, id));
+  const getUser = (id) =>
+    users.find((user) => userMatchesId(user, id));
 
   return {
     users,

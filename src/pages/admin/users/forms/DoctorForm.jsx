@@ -22,7 +22,7 @@ const initialValues = {
   status: "active",
   specialty: "",
   experience: "",
-  workDays: ["السبت", "الإثنين", "الأربعاء"],
+  workDays: ["السبت", "الاثنين", "الاربعاء"],
   workStart: "",
   workEnd: "",
   password: "",
@@ -187,25 +187,29 @@ export default function DoctorForm({
           />
         </div>
 
-        <Field label="كلمة المرور" error={errors.password} className="lg:col-span-2">
-          <PasswordInput
-            value={values.password}
-            error={errors.password}
-            onChange={(event) => setField("password", event.target.value)}
-          />
-        </Field>
+        {mode === "create" && (
+          <>
+            <Field label="كلمة المرور" error={errors.password} className="lg:col-span-2">
+              <PasswordInput
+                value={values.password}
+                error={errors.password}
+                onChange={(event) => setField("password", event.target.value)}
+              />
+            </Field>
 
-        <Field
-          label="تأكيد كلمة المرور"
-          error={errors.confirmPassword}
-          className="lg:col-span-2"
-        >
-          <PasswordInput
-            value={values.confirmPassword}
-            error={errors.confirmPassword}
-            onChange={(event) => setField("confirmPassword", event.target.value)}
-          />
-        </Field>
+            <Field
+              label="تأكيد كلمة المرور"
+              error={errors.confirmPassword}
+              className="lg:col-span-2"
+            >
+              <PasswordInput
+                value={values.confirmPassword}
+                error={errors.confirmPassword}
+                onChange={(event) => setField("confirmPassword", event.target.value)}
+              />
+            </Field>
+          </>
+        )}
 
         {errors.general && (
           <p className="text-center text-sm font-semibold text-red-500 lg:col-span-2">

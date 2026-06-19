@@ -6,6 +6,7 @@ import doctorImage from "../../../assets/landingPage/doctor1.png";
 import doctorDarkImage from "../../../assets/landingPage/login-doctor-dark (2).png";
 import loginDoctorImage from "../../../assets/landingPage/login-doctor.png";
 import signupDoctorImage from "../../../assets/landingPage/signupDoctor.png";
+import { includesSearchText } from "../../../utils/searchText";
 import { normalizeSpecialtyLabel } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
 
@@ -51,7 +52,7 @@ export default function SpecialtyDoctorsPage() {
 
   const filteredDoctors = useMemo(() => {
     const query = search.trim();
-    return doctors.filter((doctor) => (!query ? true : doctor.name.includes(query)));
+    return doctors.filter((doctor) => includesSearchText(doctor.name, query));
   }, [doctors, search]);
 
   return (

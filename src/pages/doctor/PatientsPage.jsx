@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useUsersStore } from "../admin/users/useUsersStore";
+import { includesSearchText } from "../../utils/searchText";
 
 const pageSize = 10;
 
@@ -47,9 +48,9 @@ export default function DoctorPatientsPage() {
     return patients.filter((patient) => {
       const matchesSearch =
         !query ||
-        patient.name.includes(query) ||
-        patient.phone.includes(query) ||
-        String(patient.casesCount).includes(query);
+        includesSearchText(patient.name, query) ||
+        includesSearchText(patient.phone, query) ||
+        includesSearchText(patient.casesCount, query);
 
       return matchesSearch && (!statusFilter || patient.status === statusFilter);
     });

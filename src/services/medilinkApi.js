@@ -2,30 +2,40 @@ import { ApiError, apiRequest } from "./apiClient";
 
 const arabicWeekDays = {
   saturday: "\u0627\u0644\u0633\u0628\u062A",
-  sunday: "\u0627\u0644\u0623\u062D\u062F",
-  monday: "\u0627\u0644\u0625\u062B\u0646\u064A\u0646",
+  sunday: "\u0627\u0644\u0627\u062D\u062F",
+  monday: "\u0627\u0644\u0627\u062B\u0646\u064A\u0646",
   tuesday: "\u0627\u0644\u062B\u0644\u0627\u062B\u0627\u0621",
-  wednesday: "\u0627\u0644\u0623\u0631\u0628\u0639\u0627\u0621",
+  wednesday: "\u0627\u0644\u0627\u0631\u0628\u0639\u0627\u0621",
   thursday: "\u0627\u0644\u062E\u0645\u064A\u0633",
-  friday: "\u0627\u0644\u062C\u0645\u0639\u0629",
+  friday: "\u0627\u0644\u062C\u0645\u0639\u0647",
 };
 
-const englishWeekDays = Object.fromEntries(
-  Object.entries(arabicWeekDays).map(([english, arabic]) => [arabic, english]),
-);
+const weekDayAliases = {
+  "\u0627\u0644\u0623\u062D\u062F": arabicWeekDays.sunday,
+  "\u0627\u0644\u0625\u062B\u0646\u064A\u0646": arabicWeekDays.monday,
+  "\u0627\u0644\u0623\u0631\u0628\u0639\u0627\u0621": arabicWeekDays.wednesday,
+  "\u0627\u0644\u062C\u0645\u0639\u0629": arabicWeekDays.friday,
+};
 
 function unwrapData(response) {
   return response?.data ?? response ?? {};
 }
 
 function findArray(response, keys) {
-  const roots = [response, unwrapData(response)];
+  const roots = [
+    response,
+    unwrapData(response),
+    response?.data?.data,
+    response?.data?.result,
+    response?.result,
+  ];
 
   for (const root of roots) {
     if (Array.isArray(root)) return root;
 
     for (const key of keys) {
       if (Array.isArray(root?.[key])) return root[key];
+      if (Array.isArray(root?.data?.[key])) return root.data[key];
     }
   }
 
@@ -33,13 +43,21 @@ function findArray(response, keys) {
 }
 
 function findEntity(response, keys) {
-  const roots = [response, unwrapData(response)];
+  const roots = [
+    response,
+    unwrapData(response),
+    response?.data?.data,
+    response?.data?.result,
+    response?.result,
+  ];
 
   for (const root of roots) {
     if (!root || Array.isArray(root) || typeof root !== "object") continue;
 
     for (const key of keys) {
       if (root[key] && typeof root[key] === "object") return root[key];
+      if (root.data?.[key] && typeof root.data[key] === "object")
+        return root.data[key];
     }
   }
 
@@ -55,7 +73,10 @@ async function requestFirst(paths, options = {}) {
     } catch (error) {
       lastError = error;
 
-      if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
+      if (
+        !(error instanceof ApiError) ||
+        ![400, 404, 405].includes(error.status)
+      ) {
         throw error;
       }
     }
@@ -96,6 +117,30 @@ function getProfileUserId(value) {
   return typeof user === "string" ? user : getId(user);
 }
 
+function getDoctorUpdateIds(id, values = {}, currentDoctor = {}) {
+  return Array.from(
+    new Set(
+      [
+        id,
+        values.userId,
+        currentDoctor.userId,
+        getProfileUserId(currentDoctor.raw),
+        getProfileUserId(values.raw),
+        currentDoctor.raw?.user?._id,
+        currentDoctor.raw?.user?.id,
+        values.raw?.user?._id,
+        values.raw?.user?.id,
+        currentDoctor.raw?._id,
+        currentDoctor.profileId,
+        values.raw?._id,
+        values.profileId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
 function compactObject(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => {
@@ -108,12 +153,19 @@ function compactObject(value) {
 }
 
 function normalizeStatus(value) {
+  const normalizedValue =
+    typeof value === "string" ? value.trim().toLowerCase() : value;
+
   if (
-    value === false ||
-    value === 0 ||
-    value === "inactive" ||
-    value === "disabled" ||
-    value === "blocked"
+    normalizedValue === false ||
+    normalizedValue === 0 ||
+    normalizedValue === "0" ||
+    normalizedValue === "false" ||
+    normalizedValue === "inactive" ||
+    normalizedValue === "disabled" ||
+    normalizedValue === "blocked" ||
+    normalizedValue === "not active" ||
+    normalizedValue === "notactive"
   ) {
     return "inactive";
   }
@@ -141,6 +193,24 @@ function splitName(name = "") {
   };
 }
 
+function normalizeUserRole(role) {
+  const value = String(role || "")
+    .trim()
+    .toLowerCase();
+
+  if (["patient", "user", "مريض"].includes(value)) return "patient";
+  if (["doctor", "dr", "طبيب"].includes(value)) return "doctor";
+  if (
+    ["receptionist", "reception", "موظف استقبال", "موظف_استقبال"].includes(
+      value,
+    )
+  ) {
+    return "receptionist";
+  }
+
+  return value;
+}
+
 function normalizeBaseUser(item = {}) {
   return {
     id: getId(item),
@@ -149,7 +219,9 @@ function normalizeBaseUser(item = {}) {
     gender: item.gender || "",
     birthDate: item.birthDate || "",
     phone: item.phone || item.phoneNumber || item.mobile || "",
-    role: item.role || item.userRole || "",
+    role: normalizeUserRole(item.role || item.userRole),
+    active:
+      normalizeStatus(item.active ?? item.isActive ?? item.status) === "active",
     status: normalizeStatus(item.active ?? item.isActive ?? item.status),
     raw: item,
   };
@@ -173,17 +245,23 @@ function mergeProfileUser(profile, usersById) {
       birthDate: user.birthDate,
       phone: user.phone,
       role: user.role,
+      active: user.active,
       status: user.status,
     },
   };
 }
 
 export function normalizeWorkingDays(days = []) {
-  return days.map((day) => arabicWeekDays[String(day).toLowerCase()] || day);
+  return days.map((day) => {
+    const value = String(day);
+    return (
+      arabicWeekDays[value.toLowerCase()] || weekDayAliases[value] || value
+    );
+  });
 }
 
 export function serializeWorkingDays(days = []) {
-  return days.map((day) => englishWeekDays[day] || String(day).toLowerCase());
+  return normalizeWorkingDays(days);
 }
 
 function normalizeTime(value) {
@@ -196,7 +274,11 @@ function normalizeTime(value) {
     return `${String(Number(timeMatch[1])).padStart(2, "0")}:${timeMatch[2]}`;
   }
 
-  const period = text.includes("\u0645") ? "pm" : text.includes("\u0635") ? "am" : "";
+  const period = text.includes("\u0645")
+    ? "pm"
+    : text.includes("\u0635")
+      ? "am"
+      : "";
   const localizedMatch = /^(\d{1,2}):(\d{2})/.exec(text);
 
   if (!localizedMatch) return text;
@@ -238,46 +320,118 @@ export function normalizeSpecialization(item = {}) {
     id: getSpecializationId(raw),
     name: raw.name || raw.specializationName || raw.title || "",
     price:
-      raw.consultationFee ??
-      raw.price ??
-      raw.fee ??
-      raw.examinationPrice ??
-      "",
+      raw.consultationFee ?? raw.price ?? raw.fee ?? raw.examinationPrice ?? "",
     raw,
   };
 }
 
 export function normalizeDoctor(item = {}) {
-  const user = item.user || item.account || item;
+  const profile = item.doctorProfile || item.doctor || item.profile || item;
+  const user = profile.user || item.user || item.account || item;
   const specialization =
-    item.specialization || item.speciality || item.specialty || item.specializationId;
+    profile.specialization ||
+    profile.speciality ||
+    profile.specialty ||
+    profile.specializationId ||
+    item.specialization ||
+    item.speciality ||
+    item.specialty ||
+    item.specializationId;
   const normalizedSpecialization =
     typeof specialization === "object"
       ? normalizeSpecialization(specialization)
-      : { id: specialization || "", name: item.specializationName || item.specialty || "" };
+      : {
+          id: specialization || "",
+          name:
+            profile.specializationName ||
+            profile.specialty ||
+            item.specializationName ||
+            item.specialty ||
+            "",
+        };
 
   return {
-    id: getId(item),
-    userId: getProfileUserId(item) || getId(user),
-    firstName: user.firstName || item.firstName || splitName(item.name).firstName,
-    lastName: user.lastName || item.lastName || splitName(item.name).lastName,
-    gender: user.gender || item.gender || "male",
-    birthDate: user.birthDate || item.birthDate || "",
-    phone: user.phone || item.phone || "",
+    id: getProfileUserId(profile) || getProfileUserId(item) || getId(user),
+    profileId: getId(profile),
+    userId: getProfileUserId(profile) || getProfileUserId(item) || getId(user),
+    firstName:
+      user.firstName ||
+      profile.firstName ||
+      item.firstName ||
+      splitName(profile.name || item.name).firstName,
+    lastName:
+      user.lastName ||
+      profile.lastName ||
+      item.lastName ||
+      splitName(profile.name || item.name).lastName,
+    gender: user.gender || profile.gender || item.gender || "male",
+    birthDate: user.birthDate || profile.birthDate || item.birthDate || "",
+    phone: user.phone || profile.phone || item.phone || "",
     role: "doctor",
-    status: normalizeStatus(item.status ?? user.status ?? item.isActive ?? user.isActive),
+    status: normalizeStatus(
+      profile.active ??
+        item.active ??
+        user.active ??
+        profile.status ??
+        item.status ??
+        user.status ??
+        profile.isActive ??
+        item.isActive ??
+        user.isActive,
+    ),
     specialty: normalizedSpecialization.name,
     specializationId: normalizedSpecialization.id,
     consultationFee: normalizedSpecialization.price,
-    experience: item.experienceYears ?? item.experience ?? "",
-    experienceYears: item.experienceYears ?? item.experience ?? "",
-    workDays: normalizeWorkingDays(item.workingDays || item.workDays || []),
-    workingDays: item.workingDays || serializeWorkingDays(item.workDays || []),
-    workStart: normalizeTime(item.startTime || item.workStart || ""),
-    workEnd: normalizeTime(item.endTime || item.workEnd || ""),
+    experience:
+      profile.experienceYears ??
+      profile.experience ??
+      item.experienceYears ??
+      item.experience ??
+      "",
+    experienceYears:
+      profile.experienceYears ??
+      profile.experience ??
+      item.experienceYears ??
+      item.experience ??
+      "",
+    workDays: normalizeWorkingDays(
+      profile.workingDays ||
+        profile.workDays ||
+        item.workingDays ||
+        item.workDays ||
+        [],
+    ),
+    workingDays:
+      profile.workingDays ||
+      serializeWorkingDays(
+        profile.workDays || item.workingDays || item.workDays || [],
+      ),
+    workStart: normalizeTime(
+      profile.startTime ||
+        profile.workStart ||
+        item.startTime ||
+        item.workStart ||
+        "",
+    ),
+    workEnd: normalizeTime(
+      profile.endTime || profile.workEnd || item.endTime || item.workEnd || "",
+    ),
     appointmentsCount:
-      item.appointmentsCount ?? item.caseCount ?? item.casesCount ?? item.appointments?.length ?? 0,
+      profile.appointmentsCount ??
+      item.appointmentsCount ??
+      profile.caseCount ??
+      item.caseCount ??
+      profile.casesCount ??
+      item.casesCount ??
+      profile.appointments?.length ??
+      item.appointments?.length ??
+      0,
     image:
+      profile.profileImage ||
+      profile.image ||
+      profile.imageUrl ||
+      profile.photo ||
+      profile.avatar ||
       item.profileImage ||
       item.image ||
       item.imageUrl ||
@@ -290,23 +444,46 @@ export function normalizeDoctor(item = {}) {
       user.avatar ||
       "",
     rating: normalizeNumber(
-      item.rating ??
+      profile.rating ??
+        item.rating ??
+        profile.averageRating ??
         item.averageRating ??
+        profile.avgRating ??
         item.avgRating ??
+        profile.ratingsAverage ??
         item.ratingsAverage ??
+        profile.reviewAverage ??
         item.reviewAverage ??
         0,
       0,
     ),
     reviewsCount: normalizeNumber(
-      item.reviewsCount ?? item.ratingsCount ?? item.reviewCount ?? item.reviews?.length ?? 0,
+      profile.reviewsCount ??
+        item.reviewsCount ??
+        profile.ratingsCount ??
+        item.ratingsCount ??
+        profile.reviewCount ??
+        item.reviewCount ??
+        profile.reviews?.length ??
+        item.reviews?.length ??
+        0,
       0,
     ),
     available:
+      profile.available ??
       item.available ??
+      profile.isAvailable ??
       item.isAvailable ??
+      profile.acceptingAppointments ??
       item.acceptingAppointments ??
-      normalizeStatus(item.status ?? user.status ?? item.isActive ?? user.isActive) === "active",
+      normalizeStatus(
+        profile.status ??
+          item.status ??
+          user.status ??
+          profile.isActive ??
+          item.isActive ??
+          user.isActive,
+      ) === "active",
     raw: item,
   };
 }
@@ -317,13 +494,16 @@ export function normalizeReceptionist(item = {}) {
   return {
     id: getId(item),
     userId: getProfileUserId(item) || getId(user),
-    firstName: user.firstName || item.firstName || splitName(item.name).firstName,
+    firstName:
+      user.firstName || item.firstName || splitName(item.name).firstName,
     lastName: user.lastName || item.lastName || splitName(item.name).lastName,
     gender: user.gender || item.gender || "male",
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
     role: "receptionist",
-    status: normalizeStatus(item.status ?? user.status ?? item.isActive ?? user.isActive),
+    status: normalizeStatus(
+      item.status ?? user.status ?? item.isActive ?? user.isActive,
+    ),
     education: item.education || item.qualification || "",
     workDays: normalizeWorkingDays(item.workingDays || item.workDays || []),
     workingDays: item.workingDays || serializeWorkingDays(item.workDays || []),
@@ -337,6 +517,14 @@ export function normalizePatient(item = {}) {
   const user = item.user || item.account || item;
   const name = item.name || joinName(user) || joinName(item);
   const nameParts = splitName(name);
+  const status = normalizeStatus(
+    user.active ??
+      user.status ??
+      user.isActive ??
+      item.active ??
+      item.status ??
+      item.isActive,
+  );
 
   return {
     id: getId(item),
@@ -348,7 +536,8 @@ export function normalizePatient(item = {}) {
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
     role: "patient",
-    status: normalizeStatus(item.status ?? user.status ?? item.isActive ?? user.isActive),
+    active: status === "active",
+    status,
     casesCount:
       item.casesCount ??
       item.caseCount ??
@@ -367,7 +556,20 @@ export async function listBaseUsers() {
 }
 
 async function withHydratedUsers(items) {
-  if (!items.some((item) => typeof item?.user === "string")) return items;
+  const needsUserHydration = items.some((item) => {
+    if (typeof item?.user === "string") return true;
+
+    const user = item?.user || item?.account;
+    return (
+      user &&
+      typeof user === "object" &&
+      user.active === undefined &&
+      user.isActive === undefined &&
+      user.status === undefined
+    );
+  });
+
+  if (!needsUserHydration) return items;
 
   try {
     const users = await listBaseUsers();
@@ -390,7 +592,9 @@ export function normalizeAppointment(item = {}) {
     item.startDate ||
     item.createdAt ||
     "";
-  const time = normalizeTime(item.time || item.appointmentTime || item.startTime || "");
+  const time = normalizeTime(
+    item.time || item.appointmentTime || item.startTime || "",
+  );
 
   return {
     id: getId(item),
@@ -399,7 +603,9 @@ export function normalizeAppointment(item = {}) {
     patient: joinName(patient) || item.patientName || item.name || "",
     doctor: joinName(doctor) || item.doctorName || "",
     specialty:
-      (typeof specialization === "object" ? specialization.name : specialization) || "",
+      (typeof specialization === "object"
+        ? specialization.name
+        : specialization) || "",
     phone: patient.phone || item.phone || "",
     date: normalizeDate(date),
     time,
@@ -435,9 +641,15 @@ function doctorPayload(values, mode = "create") {
     phone: values.phone?.trim(),
     birthDate: getBirthDatePayload(values, mode === "create"),
     role: "doctor",
-    specialization: values.specializationId || values.specialtyId || values.specialty,
-    experienceYears: normalizeNumber(values.experience ?? values.experienceYears, 0),
-    workingDays: serializeWorkingDays(values.workDays || values.workingDays || []),
+    specialization:
+      values.specializationId || values.specialtyId || values.specialty,
+    experienceYears: normalizeNumber(
+      values.experience ?? values.experienceYears,
+      0,
+    ),
+    workingDays: serializeWorkingDays(
+      values.workDays || values.workingDays || [],
+    ),
     startTime: normalizeTime(values.workStart || values.startTime),
     endTime: normalizeTime(values.workEnd || values.endTime),
     password: values.password,
@@ -463,7 +675,9 @@ function receptionistPayload(values, mode = "create") {
     birthDate: getBirthDatePayload(values, mode === "create"),
     education: values.education,
     status: mode === "create" ? "student" : values.status,
-    workingDays: serializeWorkingDays(values.workDays || values.workingDays || []),
+    workingDays: serializeWorkingDays(
+      values.workDays || values.workingDays || [],
+    ),
     startTime: normalizeTime(values.workStart || values.startTime),
     endTime: normalizeTime(values.workEnd || values.endTime),
     password: values.password,
@@ -522,10 +736,24 @@ export async function createDoctor(values) {
   return normalizeDoctor(findEntity(response, ["doctor"]));
 }
 
-export async function updateDoctor(id, values) {
-  const response = await requestFirst([`/doctors/${id}`, `/doctorprofiles/${id}`], {
+export async function updateDoctor(id, values, currentDoctor) {
+  const doctorIds = getDoctorUpdateIds(id, values, currentDoctor);
+
+  if (doctorIds.length === 0) {
+    throw new ApiError("تعذر تحديد رقم الطبيب");
+  }
+
+  const body = doctorPayload(values, "edit");
+  const doctorPaths = doctorIds.flatMap((doctorId) => [
+    `/doctors/${doctorId}`,
+    `/doctorprofiles/${doctorId}`,
+    `/doctorProfiles/${doctorId}`,
+    `/doctor-profiles/${doctorId}`,
+  ]);
+
+  const response = await requestFirst(doctorPaths, {
     method: "PATCH",
-    body: doctorPayload(values, "edit"),
+    body,
   });
   return normalizeDoctor(findEntity(response, ["doctor"]));
 }
@@ -543,23 +771,6 @@ export async function listSpecializations() {
   );
   return specializations.map(normalizeSpecialization);
 }
-
-// export async function listPublicSpecializations() {
-//   try {
-//     const specializations = await listSpecializations();
-//     if (specializations.length > 0) return specializations;
-//   } catch (error) {
-//     if (
-//       !(error instanceof ApiError) ||
-//       ![401, 403, 404, 405].includes(error.status)
-//     ) {
-//       throw error;
-//     }
-//   }
-
-//   return listSpecializationsFromDoctors();
-// }
-
 export async function listSpecializationsFromDoctors() {
   const doctors = await listDoctors();
   const byName = new Map();
@@ -585,7 +796,9 @@ export async function createSpecialization(values) {
     }),
   });
 
-  return normalizeSpecialization(findEntity(response, ["specialization", "specialty"]));
+  return normalizeSpecialization(
+    findEntity(response, ["specialization", "specialty"]),
+  );
 }
 
 export async function updateSpecialization(id, values) {
@@ -600,7 +813,9 @@ export async function updateSpecialization(id, values) {
     },
   );
 
-  return normalizeSpecialization(findEntity(response, ["specialization", "specialty"]));
+  return normalizeSpecialization(
+    findEntity(response, ["specialization", "specialty"]),
+  );
 }
 
 export async function deleteSpecialization(specialization) {
@@ -616,31 +831,19 @@ export async function deleteSpecialization(specialization) {
 }
 
 export async function listPatients() {
-  try {
-    const response = await apiRequest("/patient");
-    const patients = findArray(
-      response,
-      [
-        "patients",
-        "patient",
-        "allPatients",
-        "allPatient",
-        "users",
-        "patientprofiles",
-        "patientProfiles",
-        "profiles",
-      ],
-    );
-    const hydratedPatients = await withHydratedUsers(patients);
-    return hydratedPatients.map(normalizePatient);
-  } catch (error) {
-    if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
-      throw error;
-    }
-
-    const users = await listBaseUsers();
-    return users.filter((user) => user.role === "patient").map(normalizePatient);
-  }
+  const response = await apiRequest("/patient?limit=500");
+  const patients = findArray(response, [
+    "patients",
+    "patient",
+    "allPatients",
+    "allPatient",
+    "users",
+    "patientprofiles",
+    "patientProfiles",
+    "profiles",
+  ]);
+  const hydratedPatients = await withHydratedUsers(patients);
+  return hydratedPatients.map(normalizePatient);
 }
 
 export async function getPatient(id) {
@@ -713,13 +916,7 @@ export async function deletePatient(id) {
 export async function listReceptionists() {
   const receptionists = await listFromPaths(
     ["/receptionist", "/receptionists"],
-    [
-    "receptionists",
-    "receptionist",
-    "reseptionists",
-    "reseptionist",
-    "users",
-    ],
+    ["receptionists", "receptionist", "reseptionists", "reseptionist", "users"],
   );
   const hydratedReceptionists = await withHydratedUsers(receptionists);
   return hydratedReceptionists.map(normalizeReceptionist);
@@ -739,15 +936,22 @@ export async function createReceptionist(values) {
     method: "POST",
     body: receptionistPayload(values, "create"),
   });
-  return normalizeReceptionist(findEntity(response, ["receptionist", "reseptionist"]));
+  return normalizeReceptionist(
+    findEntity(response, ["receptionist", "reseptionist"]),
+  );
 }
 
 export async function updateReceptionist(id, values) {
-  const response = await requestFirst([`/receptionist/${id}`, `/receptionists/${id}`], {
-    method: "PATCH",
-    body: receptionistPayload(values, "edit"),
-  });
-  return normalizeReceptionist(findEntity(response, ["receptionist", "reseptionist"]));
+  const response = await requestFirst(
+    [`/receptionist/${id}`, `/receptionists/${id}`],
+    {
+      method: "PATCH",
+      body: receptionistPayload(values, "edit"),
+    },
+  );
+  return normalizeReceptionist(
+    findEntity(response, ["receptionist", "reseptionist"]),
+  );
 }
 
 export async function deleteReceptionist(id) {
@@ -778,17 +982,20 @@ export async function createUser(values) {
   if (values.role === "doctor") return createDoctor(values);
   if (values.role === "receptionist") return createReceptionist(values);
 
-  const response = await requestFirst(["/patient", "/patients", "/patientprofiles"], {
-    method: "POST",
-    body: patientPayload(values),
-  });
+  const response = await requestFirst(
+    ["/patient", "/patients", "/patientprofiles"],
+    {
+      method: "POST",
+      body: patientPayload(values),
+    },
+  );
   return normalizePatient(findEntity(response, ["patient", "user"]));
 }
 
 export async function updateUser(id, values, currentUser) {
   const role = values.role || currentUser?.role;
 
-  if (role === "doctor") return updateDoctor(id, values);
+  if (role === "doctor") return updateDoctor(id, values, currentUser);
   if (role === "receptionist") return updateReceptionist(id, values);
   return updatePatient(id, values);
 }
@@ -803,20 +1010,33 @@ export async function toggleUserActiveStatus(user) {
   const nextStatus = user.status === "active" ? "inactive" : "active";
   const nextValues = { ...user, status: nextStatus };
 
-  try {
-    if (user.role === "patient") {
-      return await requestFirst(
+  if (user.role === "patient") {
+    const patientIds = Array.from(
+      new Set(
         [
-          `/patient/changeActiveStatus/${user.id}`,
-          `/patients/${user.id}/changeActiveStatus`,
-        ],
-        {
-          method: "PATCH",
-        },
-      );
+          user.userId,
+          getProfileUserId(user.raw),
+          user.raw?.user?._id,
+          user.raw?.user?.id,
+          user.raw?._id,
+          user.profileId,
+          user.id,
+        ]
+          .filter(Boolean)
+          .map(String),
+      ),
+    );
+
+    if (patientIds.length === 0) {
+      throw new ApiError("تعذر تحديد رقم المريض في قاعدة البيانات");
     }
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+
+    return requestFirst(
+      patientIds.map((id) => `/patient/${id}/active`),
+      {
+        method: "PATCH",
+      },
+    );
   }
 
   return updateUser(user.id, nextValues, user);
@@ -835,7 +1055,9 @@ function readDemoAppointments() {
   if (typeof localStorage === "undefined") return [];
 
   try {
-    const stored = JSON.parse(localStorage.getItem(demoAppointmentsStorageKey) || "[]");
+    const stored = JSON.parse(
+      localStorage.getItem(demoAppointmentsStorageKey) || "[]",
+    );
     return Array.isArray(stored) ? stored : [];
   } catch {
     return [];
@@ -844,7 +1066,10 @@ function readDemoAppointments() {
 
 function writeDemoAppointments(appointments) {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(demoAppointmentsStorageKey, JSON.stringify(appointments));
+  localStorage.setItem(
+    demoAppointmentsStorageKey,
+    JSON.stringify(appointments),
+  );
 }
 
 function mergeAppointments(primaryAppointments, demoAppointments) {
@@ -894,8 +1119,12 @@ function getCurrentPatientPhone() {
 function buildDemoAppointment(values) {
   const patientId = values.patientId || values.patient || getCurrentPatientId();
   const doctorId = values.doctorId || values.doctor;
-  const date = normalizeDate(values.date || values.appointmentDate || values.day);
-  const time = normalizeTime(values.time || values.appointmentTime || values.startTime);
+  const date = normalizeDate(
+    values.date || values.appointmentDate || values.day,
+  );
+  const time = normalizeTime(
+    values.time || values.appointmentTime || values.startTime,
+  );
   const deposit = {
     ...demoDepositPayment,
     ...(values.deposit || values.payment || {}),
@@ -907,7 +1136,11 @@ function buildDemoAppointment(values) {
     doctorId,
     patientName: values.patientName || getCurrentPatientName(),
     doctorName: values.doctorName || values.doctorLabel || "",
-    specialty: values.specialty || values.specialization || values.specializationName || "",
+    specialty:
+      values.specialty ||
+      values.specialization ||
+      values.specializationName ||
+      "",
     phone: values.phone || values.patientPhone || getCurrentPatientPhone(),
     date,
     time,
@@ -939,15 +1172,13 @@ export async function listAppointments() {
   try {
     const appointments = await listFromPaths(
       ["/appointment", "/appointments"],
-      [
-        "appointments",
-        "appointment",
-        "bookings",
-        "reservations",
-      ],
+      ["appointments", "appointment", "bookings", "reservations"],
     );
 
-    return mergeAppointments(appointments.map(normalizeAppointment), demoAppointments);
+    return mergeAppointments(
+      appointments.map(normalizeAppointment),
+      demoAppointments,
+    );
   } catch (error) {
     if (demoAppointments.length > 0) return demoAppointments;
     throw error;
@@ -991,20 +1222,27 @@ export async function listDoctorAppointments(doctorId) {
         return doctorDemoAppointments;
       }
 
-      if (!(error instanceof ApiError) || (error.status !== 404 && error.status !== 400)) {
+      if (
+        !(error instanceof ApiError) ||
+        (error.status !== 404 && error.status !== 400)
+      ) {
         throw error;
       }
     }
   }
 
   const appointments = await listAppointments();
-  return appointments.filter((appointment) => appointment.doctorId === String(doctorId));
+  return appointments.filter(
+    (appointment) => appointment.doctorId === String(doctorId),
+  );
 }
 
 export async function deleteAppointment(id) {
   if (String(id).startsWith("demo-")) {
     writeDemoAppointments(
-      readDemoAppointments().filter((appointment) => getId(appointment) !== String(id)),
+      readDemoAppointments().filter(
+        (appointment) => getId(appointment) !== String(id),
+      ),
     );
     return { deleted: true };
   }
@@ -1046,17 +1284,17 @@ export async function createAppointment(values) {
     body = formData;
   }
 
-  const response = await requestFirst([
-    "/appointment",
-    "/appointments",
-    "/booking",
-    "/bookings",
-  ], {
-    method: "POST",
-    body,
-  });
+  const response = await requestFirst(
+    ["/appointment", "/appointments", "/booking", "/bookings"],
+    {
+      method: "POST",
+      body,
+    },
+  );
 
-  return normalizeAppointment(findEntity(response, ["appointment", "booking", "reservation"]));
+  return normalizeAppointment(
+    findEntity(response, ["appointment", "booking", "reservation"]),
+  );
 }
 
 export async function createPaidDemoAppointment(values) {
@@ -1098,7 +1336,9 @@ export async function updateAppointmentStatus(id, status) {
   if (String(id).startsWith("demo-")) {
     const appointments = readDemoAppointments();
     const updatedAppointments = appointments.map((appointment) =>
-      getId(appointment) === String(id) ? { ...appointment, status } : appointment,
+      getId(appointment) === String(id)
+        ? { ...appointment, status }
+        : appointment,
     );
     const updatedAppointment = updatedAppointments.find(
       (appointment) => getId(appointment) === String(id),
@@ -1108,17 +1348,22 @@ export async function updateAppointmentStatus(id, status) {
     return normalizeAppointment(updatedAppointment);
   }
 
-  const response = await requestFirst([
-    `/appointment/${id}`,
-    `/appointments/${id}`,
-    `/booking/${id}`,
-    `/bookings/${id}`,
-  ], {
-    method: "PATCH",
-    body: payload,
-  });
+  const response = await requestFirst(
+    [
+      `/appointment/${id}`,
+      `/appointments/${id}`,
+      `/booking/${id}`,
+      `/bookings/${id}`,
+    ],
+    {
+      method: "PATCH",
+      body: payload,
+    },
+  );
 
-  return normalizeAppointment(findEntity(response, ["appointment", "booking", "reservation"]));
+  return normalizeAppointment(
+    findEntity(response, ["appointment", "booking", "reservation"]),
+  );
 }
 
 export function getCurrentAuthUser() {

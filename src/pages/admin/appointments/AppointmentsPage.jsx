@@ -14,6 +14,7 @@ import {
   deleteAppointment,
   listAppointments,
 } from "../../../services/medilinkApi";
+import { includesSearchText } from "../../../utils/searchText";
 
 const pageSize = 10;
 
@@ -111,10 +112,10 @@ export default function AppointmentsPage() {
     return appointments.filter((appointment) => {
       const matchesSearch =
         !query ||
-        appointment.patient.includes(query) ||
-        appointment.doctor.includes(query) ||
-        appointment.phone.includes(query) ||
-        appointment.specialty.includes(query);
+        includesSearchText(appointment.patient, query) ||
+        includesSearchText(appointment.doctor, query) ||
+        includesSearchText(appointment.phone, query) ||
+        includesSearchText(appointment.specialty, query);
 
       return (
         matchesSearch &&

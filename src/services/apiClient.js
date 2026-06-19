@@ -80,6 +80,7 @@ export async function apiRequest(path, options = {}) {
       method,
       headers: requestHeaders,
       body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
+      cache: "no-store",
       signal,
     });
   } catch {

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Banknote,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronRight,
   Stethoscope,
@@ -77,6 +78,21 @@ const monthNames = [
   "ديسمبر",
 ];
 
+const appointmentRangeOptions = [
+  { id: "day", label: "يوم" },
+  { id: "week", label: "أسبوع" },
+  { id: "month", label: "شهر" },
+  { id: "year", label: "سنة" },
+];
+
+const doctorPeriodOptions = [
+  { id: "all", label: "الكل" },
+  { id: "day", label: "اليوم" },
+  { id: "week", label: "الأسبوع" },
+  { id: "month", label: "الشهر" },
+  { id: "year", label: "السنة" },
+];
+
 function useDarkTheme() {
   const getIsDark = () =>
     typeof document !== "undefined" &&
@@ -108,30 +124,150 @@ function getAppointmentRevenue(appointment) {
   ) || 0;
 }
 
-function buildMonthlyAppointmentChart(appointments) {
-  const monthCounts = new Map();
+function getAppointmentDate(appointment) {
+  const date = new Date(
+    appointment.date ||
+      appointment.appointmentDate ||
+      appointment.day ||
+      appointment.raw?.appointmentDate ||
+      appointment.raw?.date ||
+      appointment.raw?.createdAt ||
+      "",
+  );
 
-  appointments.forEach((appointment) => {
-    const date = new Date(appointment.date || appointment.raw?.createdAt || "");
-    if (Number.isNaN(date.getTime())) return;
-
-    const month = monthNames[date.getMonth()];
-    monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
-  });
-
-  return Array.from(monthCounts, ([month, value]) => ({ month, value }));
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function buildDoctorChart(appointments, users) {
+function getDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getWeekStart(date) {
+  const weekStart = new Date(date);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(date.getDate() - ((date.getDay() + 1) % 7));
+  return weekStart;
+}
+
+function formatDayLabel(date) {
+  return `${date.getDate()} ${monthNames[date.getMonth()]}`;
+}
+
+function getAppointmentBucket(date, range) {
+  if (range === "day") {
+    return {
+      key: getDateKey(date),
+      label: formatDayLabel(date),
+    };
+  }
+
+  if (range === "week") {
+    const start = getWeekStart(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    return {
+      key: getDateKey(start),
+      label: `${formatDayLabel(start)} - ${formatDayLabel(end)}`,
+    };
+  }
+
+  if (range === "year") {
+    return {
+      key: String(date.getFullYear()),
+      label: String(date.getFullYear()),
+    };
+  }
+
+  return {
+    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+    label: monthNames[date.getMonth()],
+  };
+}
+
+function getVisibleBucketsLimit(range) {
+  return {
+    day: 14,
+    week: 12,
+    month: 12,
+    year: 6,
+  }[range];
+}
+
+function buildAppointmentChart(appointments, range) {
+  const counts = new Map();
+
+  appointments.forEach((appointment) => {
+    const date = getAppointmentDate(appointment);
+    if (!date) return;
+
+    const bucket = getAppointmentBucket(date, range);
+    const current = counts.get(bucket.key) || { ...bucket, value: 0 };
+    counts.set(bucket.key, { ...current, value: current.value + 1 });
+  });
+
+  return Array.from(counts.values())
+    .sort((first, second) => first.key.localeCompare(second.key))
+    .slice(-getVisibleBucketsLimit(range));
+}
+
+function getDoctorName(doctor) {
+  return `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "طبيب";
+}
+
+function isSameDay(firstDate, secondDate) {
+  return getDateKey(firstDate) === getDateKey(secondDate);
+}
+
+function isDateInCurrentPeriod(date, period) {
+  if (period === "all") return true;
+
+  const today = new Date();
+
+  if (period === "day") {
+    return isSameDay(date, today);
+  }
+
+  if (period === "week") {
+    const currentWeekStart = getWeekStart(today);
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+    currentWeekEnd.setHours(23, 59, 59, 999);
+
+    return date >= currentWeekStart && date <= currentWeekEnd;
+  }
+
+  if (period === "month") {
+    return (
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth()
+    );
+  }
+
+  return date.getFullYear() === today.getFullYear();
+}
+
+function getDoctorFilterOptions(users) {
+  return users
+    .filter((user) => user.role === "doctor")
+    .map((doctor) => ({
+      id: String(doctor.id || doctor.userId || doctor.raw?._id || doctor.raw?.user?._id || ""),
+      label: getDoctorName(doctor),
+    }))
+    .filter((doctor) => doctor.id);
+}
+
+function buildDoctorChart(appointments, users, selectedDoctorId, selectedPeriod) {
   const doctors = users.filter((user) => user.role === "doctor");
   const doctorsById = new Map();
   const doctorCounts = new Map(
     doctors.map((doctor) => {
-      const name = `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "طبيب";
-
-      [doctor.id, doctor.userId, doctor.raw?._id, doctor.raw?.user?._id]
+      const name = getDoctorName(doctor);
+      const doctorIds = [doctor.id, doctor.userId, doctor.raw?._id, doctor.raw?.user?._id]
         .filter(Boolean)
-        .forEach((id) => doctorsById.set(String(id), name));
+        .map(String);
+
+      doctorIds.forEach((id) => doctorsById.set(id, { id: doctorIds[0], name }));
 
       return [name, 0];
     }),
@@ -140,16 +276,25 @@ function buildDoctorChart(appointments, users) {
   appointments.forEach((appointment) => {
     const doctorId = String(appointment.doctorId || appointment.raw?.doctorId || "");
     const appointmentDoctor = String(appointment.doctor || "").trim();
-    const name =
+    const doctor =
       doctorsById.get(doctorId) ||
       doctorsById.get(appointmentDoctor) ||
-      (/^[a-f\d]{24}$/i.test(appointmentDoctor) ? "" : appointmentDoctor);
+      (/^[a-f\d]{24}$/i.test(appointmentDoctor)
+        ? null
+        : { id: appointmentDoctor, name: appointmentDoctor });
 
-    if (!name) return;
-    doctorCounts.set(name, (doctorCounts.get(name) || 0) + 1);
+    if (!doctor?.name) return;
+    if (selectedDoctorId !== "all" && doctor.id !== selectedDoctorId) return;
+
+    const date = getAppointmentDate(appointment);
+    if (!date || !isDateInCurrentPeriod(date, selectedPeriod)) return;
+
+    doctorCounts.set(doctor.name, (doctorCounts.get(doctor.name) || 0) + 1);
   });
 
-  return Array.from(doctorCounts, ([name, value]) => ({ name, value }));
+  return Array.from(doctorCounts, ([name, value]) => ({ name, value })).filter(
+    (item) => item.value > 0,
+  );
 }
 
 function formatDoctorTick(name) {
@@ -186,6 +331,9 @@ export default function Dashboard() {
   const isDark = useDarkTheme();
   const { users } = useUsersStore();
   const [dashboardAppointments, setDashboardAppointments] = useState([]);
+  const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("month");
+  const [selectedDoctorId, setSelectedDoctorId] = useState("all");
+  const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("year");
   const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
   const axisLineColor = isDark ? "#d1d5db" : "#3f4b52";
   const gridColor = isDark ? "#6b7280" : "#d9e2e7";
@@ -195,12 +343,19 @@ export default function Dashboard() {
     fontWeight: 600,
   };
   const appointmentChart = useMemo(
-    () => buildMonthlyAppointmentChart(dashboardAppointments),
-    [dashboardAppointments],
+    () => buildAppointmentChart(dashboardAppointments, selectedAppointmentRange),
+    [dashboardAppointments, selectedAppointmentRange],
   );
+  const doctorFilterOptions = useMemo(() => getDoctorFilterOptions(users), [users]);
   const doctorChart = useMemo(
-    () => buildDoctorChart(dashboardAppointments, users),
-    [dashboardAppointments, users],
+    () =>
+      buildDoctorChart(
+        dashboardAppointments,
+        users,
+        selectedDoctorId,
+        selectedDoctorPeriod,
+      ),
+    [dashboardAppointments, users, selectedDoctorId, selectedDoctorPeriod],
   );
   const specializationChart = useMemo(
     () => buildSpecializationChart(users),
@@ -254,7 +409,13 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-2">
           <DashboardCard
             title="عدد الحجوزات"
-            action={<RangeTabs options={["يوم", "أسبوع", "شهر", "سنة"]} />}
+            action={
+              <RangeTabs
+                options={appointmentRangeOptions}
+                value={selectedAppointmentRange}
+                onChange={setSelectedAppointmentRange}
+              />
+            }
             className="h-[317px]"
           >
             {appointmentChart.length === 0 ? (
@@ -277,7 +438,7 @@ export default function Dashboard() {
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="month"
+                    dataKey="label"
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
                     tick={tickStyle}
@@ -309,8 +470,18 @@ export default function Dashboard() {
             title="عدد الحجوزات لكل طبيب"
             action={
               <div className="flex gap-2.5">
-                <SelectButton text="الكل" />
-                <SelectButton text="السنة" />
+                <SelectControl
+                  value={selectedDoctorId}
+                  onChange={setSelectedDoctorId}
+                  options={[{ id: "all", label: "الكل" }, ...doctorFilterOptions]}
+                  className="w-[150px]"
+                />
+                <SelectControl
+                  value={selectedDoctorPeriod}
+                  onChange={setSelectedDoctorPeriod}
+                  options={doctorPeriodOptions}
+                  className="w-[128px]"
+                />
               </div>
             }
             className="h-[317px]"
@@ -515,34 +686,96 @@ function ChartState({ text = "لا توجد بيانات من قاعدة الب�
   );
 }
 
-function RangeTabs({ options }) {
+function RangeTabs({ options, value, onChange }) {
   return (
     <div className="flex h-[36px] w-[280px] overflow-hidden rounded-[9px] bg-[#fafafa] p-[2px] text-[12px] text-[#333] dark:bg-[#3f3f3f] dark:text-gray-200">
       {options.map((item) => (
         <button
-          key={item}
+          key={item.id}
           type="button"
+          onClick={() => onChange(item.id)}
           className={`flex-1 rounded-[9px] transition ${
-            item === "شهر" ? "bg-[#35c0d8] text-white" : ""
+            item.id === value ? "bg-[#35c0d8] text-white" : ""
           }`}
         >
-          {item}
+          {item.label}
         </button>
       ))}
     </div>
   );
 }
 
-function SelectButton({ text }) {
+function SelectControl({ value, onChange, options, className = "w-[128px]" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.id === value) || options[0];
+
+  const chooseOption = (optionId) => {
+    onChange(optionId);
+    setIsOpen(false);
+  };
+
   return (
-    <button
-      type="button"
-      className="flex h-[37px] w-[101px] items-center justify-center gap-3 rounded-[9px] border border-[#d8d8d8] bg-[#fafafa] text-[17px] leading-5 text-[#333] dark:border-white/20 dark:bg-transparent dark:text-white"
-      dir="ltr"
+    <div
+      className={`relative h-[37px] ${className}`}
+      dir="rtl"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+        }
+      }}
     >
-      <ChevronDown size={19} strokeWidth={1.8} />
-      {text}
-    </button>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className={`flex h-full w-full items-center justify-between gap-2 rounded-[10px] border px-3 text-[15px] font-semibold leading-5 outline-none transition ${
+          isOpen
+            ? "border-[#35c0d8] bg-[#35c0d8]/10 text-[#1daec8] shadow-[0_0_0_3px_rgba(53,192,216,0.14)] dark:text-white"
+            : "border-[#d8d8d8] bg-[#fafafa] text-[#333] hover:border-[#35c0d8] dark:border-white/20 dark:bg-white/5 dark:text-white"
+        }`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <ChevronDown
+          className={`shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
+          size={18}
+          strokeWidth={2}
+        />
+        <span className="min-w-0 flex-1 truncate text-center">
+          {selectedOption?.label}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute right-0 top-[calc(100%+8px)] z-30 max-h-64 w-full overflow-hidden rounded-[12px] border border-[#dce8ec] bg-white p-1.5 shadow-[0_16px_40px_rgba(20,72,89,0.18)] dark:border-white/10 dark:bg-[#3f3f3f] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)]"
+          role="listbox"
+        >
+          <div className="max-h-56 overflow-y-auto pe-1">
+            {options.map((option) => {
+              const active = option.id === value;
+
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => chooseOption(option.id)}
+                  className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-[9px] px-3 text-right text-[14px] font-medium transition ${
+                    active
+                      ? "bg-[#35c0d8] text-white shadow-[0_6px_14px_rgba(53,192,216,0.24)]"
+                      : "text-[#333] hover:bg-[#eefbfd] hover:text-[#1298b2] dark:text-gray-100 dark:hover:bg-white/10 dark:hover:text-white"
+                  }`}
+                  role="option"
+                  aria-selected={active}
+                >
+                  <span className="min-w-0 truncate">{option.label}</span>
+                  {active && <Check size={16} strokeWidth={2.4} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

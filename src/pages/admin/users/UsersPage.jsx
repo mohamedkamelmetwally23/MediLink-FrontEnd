@@ -7,39 +7,82 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
-import { userRoles, userStatuses } from "./usersData";
+import { includesSearchText } from "../../../utils/searchText";
+import { userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
 
 const pageSize = 10;
+
+function getUserDisplayName(user) {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return fullName || user.name || user.raw?.name || "";
+}
+
+function hasUserDisplayName(user) {
+  return getUserDisplayName(user).trim().length > 0;
+}
+
+function normalizeActiveValue(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    return !["false", "0", "inactive", "disabled", "blocked", "not active"].includes(
+      normalizedValue,
+    );
+  }
+
+  return null;
+}
+
+function getUserActiveStatus(user) {
+  const activeValue = [
+    user?.active,
+    user?.isActive,
+    user?.raw?.active,
+    user?.raw?.isActive,
+    user?.raw?.user?.active,
+    user?.raw?.user?.isActive,
+  ]
+    .map(normalizeActiveValue)
+    .find((value) => value !== null);
+
+  return activeValue === false ? "inactive" : "active";
+}
 
 export default function UsersPage() {
   const {
     users,
     loading,
     error,
-    deleteUsers: removeUsers,
     toggleUserStatus,
-  } = useUsersStore();
+  } = useUsersStore("patients");
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingStatusUser, setPendingStatusUser] = useState(null);
+  const [statusRequestError, setStatusRequestError] = useState("");
+  const [statusRequestLoading, setStatusRequestLoading] = useState(false);
+  const [bulkBlockLoading, setBulkBlockLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim();
 
     return users.filter((user) => {
-      const fullName = `${user.firstName} ${user.lastName}`;
+      const fullName = getUserDisplayName(user);
 
       return (
         user.role === "patient" &&
-        (!query || fullName.includes(query) || user.phone.includes(query)) &&
-        (!statusFilter || user.status === statusFilter)
+        hasUserDisplayName(user) &&
+        (!query ||
+          includesSearchText(fullName, query) ||
+          includesSearchText(user.phone, query)) &&
+        (!statusFilter || getUserActiveStatus(user) === statusFilter)
       );
     });
   }, [users, search, statusFilter]);
@@ -73,10 +116,40 @@ export default function UsersPage() {
     });
   };
 
-  const deleteUsers = (ids) => {
-    removeUsers(ids);
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
+  const confirmToggleStatus = async () => {
+    if (!pendingStatusUser) return;
+
+    setStatusRequestLoading(true);
+    setStatusRequestError("");
+
+    try {
+      await toggleUserStatus(pendingStatusUser.id);
+      setPendingStatusUser(null);
+    } catch (requestError) {
+      setStatusRequestError(requestError.message || "تعذر تحديث حالة المريض");
+    } finally {
+      setStatusRequestLoading(false);
+    }
+  };
+
+  const blockSelectedUsers = async () => {
+    const activeSelectedIds = users
+      .filter((user) => selectedIds.includes(user.id) && getUserActiveStatus(user) === "active")
+      .map((user) => user.id);
+
+    if (activeSelectedIds.length === 0) {
+      setSelectedIds([]);
+      return;
+    }
+
+    setBulkBlockLoading(true);
+
+    try {
+      await Promise.all(activeSelectedIds.map((id) => toggleUserStatus(id)));
+      setSelectedIds([]);
+    } finally {
+      setBulkBlockLoading(false);
+    }
   };
 
   return (
@@ -98,7 +171,8 @@ export default function UsersPage() {
           <SelectionBar
             count={selectedCount}
             onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
+            onBlock={blockSelectedUsers}
+            blocking={bulkBlockLoading}
           />
         )}
 
@@ -128,8 +202,10 @@ export default function UsersPage() {
                     user={user}
                     selected={selectedIds.includes(user.id)}
                     onToggle={() => toggleUser(user.id)}
-                    onDelete={() => setPendingDelete([user.id])}
-                    onToggleStatus={() => toggleUserStatus(user.id)}
+                    onToggleStatus={() => {
+                      setStatusRequestError("");
+                      setPendingStatusUser(user);
+                    }}
                   />
                 ))
               )}
@@ -140,16 +216,25 @@ export default function UsersPage() {
             <Pagination
               currentPage={safeCurrentPage}
               totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              onPageChange={(page) => {
+                setCurrentPage(Math.min(Math.max(page, 1), totalPages));
+              }}
             />
           )}
         </section>
       </main>
 
-      {pendingDelete && (
-        <ConfirmDeleteModal
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deleteUsers(pendingDelete)}
+      {pendingStatusUser && (
+        <ConfirmStatusModal
+          user={pendingStatusUser}
+          error={statusRequestError}
+          loading={statusRequestLoading}
+          onCancel={() => {
+            if (statusRequestLoading) return;
+            setPendingStatusUser(null);
+            setStatusRequestError("");
+          }}
+          onConfirm={confirmToggleStatus}
         />
       )}
     </section>
@@ -189,7 +274,7 @@ function SearchBox({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
+        placeholder="ابحث هنا..."
         dir="rtl"
       />
       <Search size={20} strokeWidth={1.7} />
@@ -197,7 +282,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
+function SelectionBar({ count, onClear, onBlock, blocking }) {
   return (
     <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <p className="text-[17px] font-semibold text-[#333] dark:text-white">
@@ -215,11 +300,11 @@ function SelectionBar({ count, onClear, onDelete }) {
         </button>
         <button
           type="button"
-          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
-          onClick={onDelete}
+          disabled={blocking}
+          className="flex h-[40px] items-center rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626] transition hover:bg-[#fff0f0] disabled:cursor-wait disabled:opacity-60 dark:hover:bg-red-500/10"
+          onClick={onBlock}
         >
-          <span>حذف المحدد</span>
-          <Trash2 size={22} strokeWidth={1.8} />
+          {blocking ? "جاري الحظر..." : "حظر المحدد"}
         </button>
       </div>
     </div>
@@ -233,13 +318,12 @@ function TableHeader({
   onStatusChange,
 }) {
   return (
-    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+    <div className="grid h-[56px] grid-cols-[64px_1.6fr_1.35fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
-      <span className="text-center">الأسم</span>
+      <span className="text-center">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
-      <span className="text-center">{userRoles.patient}</span>
       <FilterSelect
         value={statusFilter}
         onChange={onStatusChange}
@@ -272,10 +356,12 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function UserRow({ user, selected, onToggle, onDelete, onToggleStatus }) {
+function UserRow({ user, selected, onToggle, onToggleStatus }) {
+  const activeStatus = getUserActiveStatus(user);
+
   return (
     <div
-      className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+      className={`grid h-[56px] grid-cols-[64px_1.6fr_1.35fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
         selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
@@ -283,29 +369,20 @@ function UserRow({ user, selected, onToggle, onDelete, onToggleStatus }) {
         <Checkbox checked={selected} onClick={onToggle} />
       </div>
       <span className="truncate text-center">
-        {user.firstName} {user.lastName}
+        {getUserDisplayName(user)}
       </span>
       <span className="text-center" dir="ltr">
         {user.phone}
       </span>
-      <span className="text-center">{userRoles[user.role]}</span>
       <div className="flex justify-center">
-        <StatusBadge status={user.status} />
+        <StatusBadge status={activeStatus} />
       </div>
       <div className="flex items-center justify-center gap-[18px]" dir="ltr">
         <button
           type="button"
-          aria-label="حذف المستخدم"
-          className="text-[#333] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={24} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
           aria-label="تغيير حالة المستخدم"
           className={
-            user.status === "inactive"
+            activeStatus === "inactive"
               ? "text-[#ff2020]"
               : "text-[#333] dark:text-white"
           }
@@ -368,15 +445,16 @@ function TableState({ text }) {
 
 function Pagination({ currentPage, totalPages, onPageChange }) {
   const pages = getPaginationPages(currentPage, totalPages);
+  const goToPage = (page) => onPageChange(Math.min(Math.max(page, 1), totalPages));
 
   return (
-    <div className="flex h-[79px] items-center justify-center gap-[25px] text-[16px] font-bold text-[#333] dark:text-white">
+    <div className="flex h-[79px] items-center justify-center gap-[14px] text-[16px] font-bold text-[#333] dark:text-white">
       <button
         type="button"
         aria-label="الصفحة الأولى"
         disabled={currentPage === 1}
-        className="disabled:opacity-30"
-        onClick={() => onPageChange(1)}
+        className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-[#eefbfd] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/10"
+        onClick={() => goToPage(1)}
       >
         <ChevronsRight size={18} strokeWidth={1.7} />
       </button>
@@ -384,8 +462,8 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة السابقة"
         disabled={currentPage === 1}
-        className="disabled:opacity-30"
-        onClick={() => onPageChange(currentPage - 1)}
+        className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-[#eefbfd] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/10"
+        onClick={() => goToPage(currentPage - 1)}
       >
         <ChevronRight size={18} strokeWidth={1.7} />
       </button>
@@ -397,10 +475,12 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
           <button
             key={page}
             type="button"
-            className={`grid h-[28px] w-[28px] place-items-center rounded-full ${
-              page === currentPage ? "bg-[#38bfd7] text-white" : ""
+            className={`grid h-9 w-9 place-items-center rounded-full transition ${
+              page === currentPage
+                ? "bg-[#38bfd7] text-white shadow-[0_8px_18px_rgba(56,191,215,0.25)]"
+                : "hover:bg-[#eefbfd] dark:hover:bg-white/10"
             }`}
-            onClick={() => onPageChange(page)}
+            onClick={() => goToPage(page)}
           >
             {page}
           </button>
@@ -411,8 +491,8 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة التالية"
         disabled={currentPage === totalPages}
-        className="disabled:opacity-30"
-        onClick={() => onPageChange(currentPage + 1)}
+        className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-[#eefbfd] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/10"
+        onClick={() => goToPage(currentPage + 1)}
       >
         <ChevronLeft size={18} strokeWidth={1.7} />
       </button>
@@ -420,8 +500,8 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         aria-label="الصفحة الأخيرة"
         disabled={currentPage === totalPages}
-        className="disabled:opacity-30"
-        onClick={() => onPageChange(totalPages)}
+        className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-[#eefbfd] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/10"
+        onClick={() => goToPage(totalPages)}
       >
         <ChevronsLeft size={18} strokeWidth={1.7} />
       </button>
@@ -440,27 +520,43 @@ function getPaginationPages(currentPage, totalPages) {
   });
 }
 
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
+function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
+  const isActive = getUserActiveStatus(user) === "active";
+
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
-      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
-        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/25 p-4">
+      <div className="w-full max-w-[390px] rounded-[12px] bg-white px-[26px] pb-[18px] pt-[30px] text-center shadow-[0_16px_45px_rgba(0,0,0,0.18)] dark:bg-[#3f3f3f]">
+        <div
+          className={`mx-auto grid h-[54px] w-[54px] place-items-center rounded-full text-[30px] font-bold leading-none text-white ${
+            isActive ? "bg-[#ff3b3b]" : "bg-[#22b66f]"
+          }`}
+        >
           !
         </div>
-        <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
+        <h2 className="mt-[20px] text-[21px] font-bold leading-7 text-[#333] dark:text-white">
+          {isActive ? "هل أنت متأكد من حظر هذا العنصر" : "هل أنت متأكد من تفعيل هذا العنصر"}
         </h2>
-        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
+        <p className="mt-2 text-[14px] text-[#777] dark:text-gray-300">
+          سيتم تحديث الحالة في قاعدة البيانات.
+        </p>
+        {error && (
+          <p className="mt-3 rounded-[8px] bg-[#fff0f0] px-3 py-2 text-[13px] font-medium text-[#d71919]">
+            {error}
+          </p>
+        )}
+        <div className="mt-[18px] grid grid-cols-2 gap-[6px]" dir="ltr">
           <button
             type="button"
-            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
+            disabled={loading}
+            className="h-[36px] rounded-[6px] border border-[#ff2626] bg-white text-[13px] font-semibold text-[#ff2626] transition hover:bg-[#fff0f0] disabled:opacity-60"
             onClick={onConfirm}
           >
-            نعم
+            {loading ? "جاري الحفظ..." : "نعم"}
           </button>
           <button
             type="button"
-            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
+            disabled={loading}
+            className="h-[36px] rounded-[6px] bg-linear-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
             onClick={onCancel}
           >
             لا

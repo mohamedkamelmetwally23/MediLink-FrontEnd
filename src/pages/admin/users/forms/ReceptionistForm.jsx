@@ -20,7 +20,7 @@ const initialValues = {
   phone: "",
   status: "active",
   education: "",
-  workDays: ["السبت", "الإثنين", "الأربعاء"],
+  workDays: ["السبت", "الاثنين", "الاربعاء"],
   workStart: "",
   workEnd: "",
   password: "",

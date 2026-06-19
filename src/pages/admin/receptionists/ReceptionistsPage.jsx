@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
+import { includesSearchText } from "../../../utils/searchText";
 import { userRoles, userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
 
@@ -38,7 +39,9 @@ export default function ReceptionistsPage() {
 
       return (
         user.role === "receptionist" &&
-        (!query || fullName.includes(query) || user.phone.includes(query)) &&
+        (!query ||
+          includesSearchText(fullName, query) ||
+          includesSearchText(user.phone, query)) &&
         (!statusFilter || user.status === statusFilter)
       );
     });
@@ -198,7 +201,7 @@ function SearchBox({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
+        placeholder="ابحث هنا..."
         dir="rtl"
       />
       <Search size={20} strokeWidth={1.7} />
@@ -241,7 +244,7 @@ function TableHeader({ allVisibleSelected, onToggleAll, statusFilter, onStatusCh
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
-      <span className="text-center">الأسم</span>
+      <span className="text-center">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
       <FilterSelect value="receptionist" onChange={() => {}} label="الدور">
         <option value="receptionist">{userRoles.receptionist}</option>
@@ -306,14 +309,6 @@ function ReceptionistRow({ user, selected, onToggle, onDelete, onToggleStatus })
         >
           <Pencil size={23} strokeWidth={1.8} />
         </Link>
-        <button
-          type="button"
-          aria-label="حذف موظف الاستقبال"
-          className="text-[#333] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={24} strokeWidth={1.8} />
-        </button>
         <button
           type="button"
           aria-label="تغيير حالة موظف الاستقبال"

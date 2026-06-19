@@ -210,7 +210,7 @@ function SideItem({
           activePaths.includes(location.pathname) ||
               isPrefixActive;
 
-          return `flex h-[47px] items-center justify-start gap-[34px] rounded-xl px-0 transition ${
+          return `relative flex h-[47px] items-center justify-start gap-[34px] rounded-xl px-0 transition ${
             isItemActive
               ? "text-[#30bfd6]"
               : "text-[#b8b8b8] hover:text-[#30bfd6] dark:text-gray-300"
@@ -218,8 +218,23 @@ function SideItem({
         }
       }
     >
-      <Icon size={27} strokeWidth={1.8} />
-      <span className="whitespace-nowrap">{label}</span>
+      {({ isActive }) => {
+        const isItemActive = forcedActiveTo
+          ? to === forcedActiveTo
+          : (!disableDefaultActive && isActive) ||
+            activePaths.includes(location.pathname) ||
+            isPrefixActive;
+
+        return (
+          <>
+            {isItemActive && (
+              <span className="absolute right-[-18px] top-1/2 h-[34px] w-[4px] -translate-y-1/2 rounded-l-full bg-[#30bfd6]" />
+            )}
+            <Icon size={27} strokeWidth={1.8} />
+            <span className="whitespace-nowrap">{label}</span>
+          </>
+        );
+      }}
     </NavLink>
   );
 }

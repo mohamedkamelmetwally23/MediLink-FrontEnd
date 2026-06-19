@@ -29,10 +29,11 @@ export default function UserFormShell({
         <button
           type="button"
           onClick={handleBack}
-          className="absolute left-6 bottom-8 inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#333] shadow-sm transition hover:border-cyan-300 hover:text-[#18b9d4] dark:border-white/10 dark:bg-[#454545] dark:text-white lg:left-8"
+          aria-label="رجوع"
+          className="absolute left-6 bottom-8 inline-flex flex-row-reverse items-center gap-2 text-[18px] font-semibold text-[#20b7d5] transition hover:text-[#159fbb] lg:left-8"
         >
-          <ArrowRight size={18} />
-          رجوع
+          <span>{"\u0631\u062C\u0648\u0639"}</span>
+          <ArrowRight size={20} strokeWidth={2.2} />
         </button>
       </header>
 

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { transcribeAudio } from "../../services/chatApi";
+import { includesSearchText } from "../../utils/searchText";
 import patientImage from "../../assets/landingPage/admin.png";
 import cigaretteIcon from "../../assets/doctor departement/ph_cigarette.png";
 import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
@@ -690,10 +691,10 @@ function ProfileExtraInfo({ search }) {
 }
 
 function filterItems(items, search, getText) {
-  const query = search.trim().toLowerCase();
+  const query = search.trim();
   if (!query) return items;
 
-  return items.filter((item) => getText(item).toLowerCase().includes(query));
+  return items.filter((item) => includesSearchText(getText(item), query));
 }
 
 function Stepper({ currentStep }) {

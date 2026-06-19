@@ -264,7 +264,7 @@ function TableHeader({
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
-      <span className="text-center">الأسم</span>
+      <span className="text-center">الاسم</span>
       <FilterSelect
         value={specialtyFilter}
         onChange={onSpecialtyChange}
@@ -310,7 +310,9 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
+function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
+  const appointmentsCount = getAppointmentsCount(doctor);
+
   return (
     <div
       className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
@@ -324,7 +326,7 @@ function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
         {doctor.firstName} {doctor.lastName}
       </span>
       <span className="truncate text-center">{doctor.specialty || "غير محدد"}</span>
-      <span className="text-center">{getAppointmentsCount(doctor)}</span>
+      <span className="text-center">{appointmentsCount}</span>
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>
@@ -338,17 +340,9 @@ function DoctorRow({ doctor, selected, onToggle, onDelete, onToggleStatus }) {
         </Link>
         <button
           type="button"
-          aria-label="حذف الطبيب"
-          className="text-[#333] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={24} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
           aria-label="تغيير حالة الطبيب"
           className={
-            doctor.status === "inactive"
+            doctor.status === "inactive" || appointmentsCount === 0
               ? "text-[#ff2020]"
               : "text-[#333] dark:text-white"
           }

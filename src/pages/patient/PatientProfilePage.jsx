@@ -12,6 +12,7 @@ import {
   listAppointments,
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
+import { includesSearchText } from "../../utils/searchText";
 import { getDoctorImage, getDoctorName, useDoctors } from "../../hooks/useDoctors";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
@@ -258,7 +259,7 @@ function UploadButton({ setFiles }) {
 }
 
 function MedicalFiles({ files, search }) {
-  const filtered = files.filter((file) => file.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = files.filter((file) => includesSearchText(file.name, search));
   return filtered.length ? (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {filtered.map((file) => (
@@ -272,7 +273,9 @@ function MedicalFiles({ files, search }) {
 }
 
 function MedicalRecords({ search }) {
-  const filtered = records.filter((record) => `${record.title} ${record.notes}`.includes(search));
+  const filtered = records.filter((record) =>
+    includesSearchText(`${record.title} ${record.notes}`, search),
+  );
   return filtered.length ? (
     <div className="space-y-4">
       {filtered.map((record) => (
@@ -287,7 +290,7 @@ function MedicalRecords({ search }) {
 
 function Prescriptions({ search }) {
   const filtered = prescriptions.filter((prescription) =>
-    prescription.rows.some((row) => row.join(" ").toLowerCase().includes(search.toLowerCase())),
+    prescription.rows.some((row) => includesSearchText(row.join(" "), search)),
   );
   return filtered.length ? (
     <div className="space-y-8">
@@ -309,7 +312,10 @@ function Prescriptions({ search }) {
 function Appointments({ appointments, doctorById, search, onCancel }) {
   const filtered = appointments.filter((appointment) => {
     const doctor = doctorById.get(String(appointment.doctorId));
-    return `${appointment.doctor} ${doctor?.specialty || appointment.specialty}`.toLowerCase().includes(search.toLowerCase());
+    return includesSearchText(
+      `${appointment.doctor} ${doctor?.specialty || appointment.specialty}`,
+      search,
+    );
   });
   return filtered.length ? (
     <div className="space-y-5">

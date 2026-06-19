@@ -48,12 +48,12 @@ export function normalizeSpecialtyLabel(specialty = "") {
 
 export const workDays = [
   "السبت",
-  "الأحد",
-  "الإثنين",
+  "الاحد",
+  "الاثنين",
   "الثلاثاء",
-  "الأربعاء",
+  "الاربعاء",
   "الخميس",
-  "الجمعة",
+  "الجمعه",
 ];
 
 export const timeOptions = Array.from({ length: 48 }, (_, index) => {

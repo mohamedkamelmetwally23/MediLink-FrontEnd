@@ -29,6 +29,7 @@ import {
   listAppointments,
   listDoctors,
 } from "../services/medilinkApi";
+import { includesSearchText, normalizeSearchText } from "../utils/searchText";
 import doctorImage1 from "../assets/landingPage/12 1.png";
 import doctorImage2 from "../assets/landingPage/12 1 (1).png";
 import doctorImage3 from "../assets/landingPage/12 1 (2).png";
@@ -247,12 +248,7 @@ function blobToBase64(blob) {
 }
 
 function normalizeText(text) {
-  return String(text || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ة/g, "ه");
+  return normalizeSearchText(text);
 }
 
 function containsAny(text, words) {
@@ -484,7 +480,7 @@ function filterPatientAppointments(appointments, user) {
     return (
       (patientId && String(appointment.patientId) === patientId) ||
       (phone && appointment.phone === phone) ||
-      (name && appointment.patient?.includes(name))
+      (name && includesSearchText(appointment.patient, name))
     );
   });
 }
