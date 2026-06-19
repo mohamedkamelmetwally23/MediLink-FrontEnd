@@ -5,6 +5,7 @@ import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
 import {
   getAccountRole,
+  getPatientAccountId,
   loginUser,
   saveAuthSession,
 } from "../../services/authApi";
@@ -66,13 +67,14 @@ export default function LoginForm() {
       saveAuthSession(data);
       toast.success("تم تسجيل الدخول بنجاح");
       const role = getAccountRole(data);
+      const patientId = getPatientAccountId(data);
       navigate(
         role === "admin"
           ? "/admin/dashboard"
           : role === "doctor"
             ? "/doctor/dashboard"
             : role === "patient" || role === "user"
-              ? "/patient"
+              ? `/patient/${encodeURIComponent(patientId)}/patientinformation`
               : "/",
       );
     } catch (error) {

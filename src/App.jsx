@@ -67,7 +67,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
-        <Route path="/patient" element={<PatientOnboardingPage />} />
+        <Route path="/patient/:patientId/patientinformation" element={<PatientOnboardingPage />} />
         <Route path="/patient/home" element={<PatientHomePage />} />
         <Route path="/patient/doctors" element={<PatientDoctorsPage />} />
         <Route path="/patient/doctors/:doctorId" element={<PatientDoctorProfilePage />} />

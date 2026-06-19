@@ -236,6 +236,37 @@ export function getAccountRole(data) {
   return "user";
 }
 
+export function getPatientAccountId(data) {
+  const candidates = [
+    data?.patient?._id,
+    data?.patient?.id,
+    data?.data?.patient?._id,
+    data?.data?.patient?.id,
+    data?.data?.data?.patient?._id,
+    data?.data?.data?.patient?.id,
+    data?.patientProfile?._id,
+    data?.patientProfile?.id,
+    data?.data?.patientProfile?._id,
+    data?.data?.patientProfile?.id,
+    data?.profile?._id,
+    data?.profile?.id,
+    data?.data?.profile?._id,
+    data?.data?.profile?.id,
+    data?.user?.patientId,
+    data?.data?.user?.patientId,
+    data?.user?._id,
+    data?.user?.id,
+    data?.data?.user?._id,
+    data?.data?.user?.id,
+    data?.data?.data?.user?._id,
+    data?.data?.data?.user?.id,
+    data?._id,
+    data?.id,
+  ];
+
+  return candidates.find(Boolean) || "";
+}
+
 export function isDoctorAccount(data) {
   return getAccountRole(data) === "doctor";
 }
