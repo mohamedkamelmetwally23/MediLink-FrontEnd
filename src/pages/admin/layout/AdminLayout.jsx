@@ -172,7 +172,10 @@ function getProfileActiveRoute(location, getUser) {
     return null;
   }
 
-  return getRoleActiveRoute(getUser(profileMatch[1])?.role);
+  return getRoleActiveRoute(
+    getUser(profileMatch[1])?.role ||
+      new URLSearchParams(location.search).get("role"),
+  );
 }
 
 function getRoleActiveRoute(role) {

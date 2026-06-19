@@ -30,6 +30,17 @@ function getExplicitActiveValue(user) {
   const values = [
     user?.active,
     user?.isActive,
+    user?.user?.active,
+    user?.receptionist?.active,
+    user?.receptionist?.user?.active,
+    user?.data?.active,
+    user?.data?.user?.active,
+    user?.data?.receptionist?.active,
+    user?.data?.receptionist?.user?.active,
+    user?.data?.data?.active,
+    user?.data?.data?.user?.active,
+    user?.data?.data?.receptionist?.active,
+    user?.data?.data?.receptionist?.user?.active,
     user?.raw?.active,
     user?.raw?.isActive,
     user?.raw?.user?.active,
@@ -259,7 +270,7 @@ export function useUsersStore(scope = "all") {
   };
 
   const toggleUserStatus = async (id) => {
-    const targetUser = users.find((user) => sameId(user.id, id));
+    const targetUser = users.find((user) => userMatchesId(user, id));
     if (!targetUser) return;
 
     try {
@@ -270,7 +281,7 @@ export function useUsersStore(scope = "all") {
       savePatientActiveStatus(targetUser, nextActive);
       commitUsers((currentUsers) =>
         currentUsers.map((user) =>
-          sameId(user.id, id)
+          userMatchesId(user, id)
             ? {
                 ...user,
                 status: nextStatus,
@@ -290,9 +301,8 @@ export function useUsersStore(scope = "all") {
                 },
               }
             : user,
-        ),
+          ),
       );
-      refreshUsers();
     } catch (requestError) {
       setError(requestError.message || "");
       throw requestError;

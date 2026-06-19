@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
+import ConfirmStatusChangeModal from "../../../components/admin/ConfirmStatusChangeModal";
 import { includesSearchText } from "../../../utils/searchText";
 import { userRoles, userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
@@ -29,6 +30,9 @@ export default function ReceptionistsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingStatusUser, setPendingStatusUser] = useState(null);
+  const [statusError, setStatusError] = useState("");
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredUsers = useMemo(() => {
@@ -80,6 +84,22 @@ export default function ReceptionistsPage() {
     removeUsers(ids);
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setPendingDelete(null);
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusUser) return;
+
+    setIsStatusUpdating(true);
+    setStatusError("");
+
+    try {
+      await toggleUserStatus(pendingStatusUser.id);
+      setPendingStatusUser(null);
+    } catch (error) {
+      setStatusError(error.message || "تعذر تحديث الحالة، حاول مرة أخرى.");
+    } finally {
+      setIsStatusUpdating(false);
+    }
   };
 
   return (
@@ -139,8 +159,10 @@ export default function ReceptionistsPage() {
                       user={user}
                       selected={selectedIds.includes(user.id)}
                       onToggle={() => toggleUser(user.id)}
-                      onDelete={() => setPendingDelete([user.id])}
-                      onToggleStatus={() => toggleUserStatus(user.id)}
+                      onToggleStatus={() => {
+                        setStatusError("");
+                        setPendingStatusUser(user);
+                      }}
                     />
                   ))
                 )}
@@ -162,6 +184,19 @@ export default function ReceptionistsPage() {
         <ConfirmDeleteModal
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => deleteUsers(pendingDelete)}
+        />
+      )}
+
+      {pendingStatusUser && (
+        <ConfirmStatusChangeModal
+          status={pendingStatusUser.status}
+          loading={isStatusUpdating}
+          error={statusError}
+          onCancel={() => {
+            setPendingStatusUser(null);
+            setStatusError("");
+          }}
+          onConfirm={confirmStatusChange}
         />
       )}
     </section>
@@ -281,7 +316,7 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function ReceptionistRow({ user, selected, onToggle, onDelete, onToggleStatus }) {
+function ReceptionistRow({ user, selected, onToggle, onToggleStatus }) {
   return (
     <div
       className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
@@ -323,7 +358,7 @@ function ReceptionistRow({ user, selected, onToggle, onDelete, onToggleStatus })
         </button>
       </div>
       <Link
-        to={`/admin/users/${user.id}/profile`}
+        to={`/admin/users/${user.id}/profile?role=receptionist`}
         aria-label="عرض موظف الاستقبال"
         className="grid h-full place-items-center text-[#333] dark:text-white"
       >
