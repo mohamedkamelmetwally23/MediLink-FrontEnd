@@ -15,7 +15,7 @@ import {
 import CustomSelect from "../../../components/admin/CustomSelect";
 import ConfirmStatusChangeModal from "../../../components/admin/ConfirmStatusChangeModal";
 import { includesSearchText } from "../../../utils/searchText";
-import { userRoles, userStatuses } from "../users/usersData";
+import { userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
 
 const pageSize = 10;
@@ -278,15 +278,12 @@ function SelectionBar({ count, onClear, onDelete }) {
 
 function TableHeader({ allVisibleSelected, onToggleAll, statusFilter, onStatusChange }) {
   return (
-    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+    <div className="grid h-[56px] grid-cols-[64px_1.6fr_1.25fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
       <span className="text-center">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
-      <FilterSelect value="receptionist" onChange={() => {}} label="الدور">
-        <option value="receptionist">{userRoles.receptionist}</option>
-      </FilterSelect>
       <FilterSelect
         value={statusFilter}
         onChange={onStatusChange}
@@ -322,7 +319,7 @@ function FilterSelect({ value, onChange, label, children }) {
 function ReceptionistRow({ user, selected, onToggle, onToggleStatus }) {
   return (
     <div
-      className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+      className={`grid h-[56px] grid-cols-[64px_1.6fr_1.25fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
         selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
@@ -335,7 +332,6 @@ function ReceptionistRow({ user, selected, onToggle, onToggleStatus }) {
       <span className="text-center" dir="ltr">
         {user.phone}
       </span>
-      <span className="text-center">{userRoles.receptionist}</span>
       <div className="flex justify-center">
         <StatusBadge status={user.status} />
       </div>
