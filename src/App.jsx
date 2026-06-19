@@ -116,7 +116,7 @@ function App() {
         closeOnClick
         pauseOnFocusLoss
         draggable
-        pauseOnHover
+        pauseOnHover={false}
         rtl
         theme={dark ? "dark" : "light"}
       />

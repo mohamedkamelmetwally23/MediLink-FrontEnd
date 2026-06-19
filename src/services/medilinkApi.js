@@ -557,12 +557,13 @@ export function normalizeDoctor(item = {}) {
 export function normalizeReceptionist(item = {}) {
   const user = item.user || item.account || item;
   const status = normalizeStatus(
-    user.active ??
+    item.status ??
       item.active ??
+      item.isActive ??
+      user.active ??
       user.status ??
-      item.status ??
       user.isActive ??
-      item.isActive,
+      "",
   );
 
   return {
@@ -773,7 +774,7 @@ function receptionistPayload(values, mode = "create") {
     firstName: values.firstName?.trim(),
     lastName: values.lastName?.trim(),
     gender: values.gender,
-    phone: values.phone?.trim(),
+    phone: mode === "create" ? values.phone?.trim() : undefined,
     birthDate: getBirthDatePayload(values, mode === "create"),
     education: values.education,
     status: mode === "create" ? "student" : values.status,
