@@ -307,7 +307,7 @@ function SearchBox() {
     >
       <input
         className="min-w-0 flex-1 bg-transparent text-right text-[12px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
+        placeholder="ابحث هنا..."
         dir="rtl"
       />
       <Search size={17} strokeWidth={1.7} />

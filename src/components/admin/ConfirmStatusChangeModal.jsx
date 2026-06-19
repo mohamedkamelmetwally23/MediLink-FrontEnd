@@ -30,7 +30,7 @@ export default function ConfirmStatusChangeModal({
           <button
             type="button"
             disabled={loading}
-            className="h-[45px] rounded-[8px] border border-[#ff3030] font-semibold text-[#ff3030] disabled:opacity-60"
+            className="h-[45px] rounded-[8px] border border-[#ff3030] bg-transparent font-semibold text-[#ff3030] transition hover:bg-[#ff3030]/10 disabled:opacity-60"
             onClick={onConfirm}
           >
             {loading ? "جاري التحديث..." : "نعم"}

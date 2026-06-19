@@ -180,7 +180,7 @@ export function validateSpecialtyName(name, specialties, currentName = "") {
   const normalizedName = normalizeSpecialtyName(name);
 
   if (!normalizedName) {
-    return "اسم التخصص مطلوب";
+    return "يرجى إدخال بيانات صحيحة";
   }
 
   if (normalizedName.length < 2) {

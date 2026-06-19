@@ -20,6 +20,7 @@ import {
 } from "./useSpecialtiesStore";
 
 const pageSize = 10;
+const maxSpecialtyPrice = 1000;
 
 function getDoctorAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
@@ -141,6 +142,8 @@ export default function SpecialtiesPage() {
 
     if (!normalizedPrice || Number(normalizedPrice) <= 0) {
       errors.price = "ادخل سعر كشف صحيح";
+    } else if (Number(normalizedPrice) > maxSpecialtyPrice) {
+      errors.price = `سعر الكشف لا يمكن أن يزيد عن ${maxSpecialtyPrice} جنيه`;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -354,7 +357,7 @@ function SearchBox({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
+        placeholder="ابحث هنا..."
         dir="rtl"
       />
       <Search size={20} strokeWidth={1.7} />

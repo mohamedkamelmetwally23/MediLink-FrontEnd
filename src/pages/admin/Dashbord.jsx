@@ -124,22 +124,74 @@ function getAppointmentRevenue(appointment) {
   ) || 0;
 }
 
-function getAppointmentDate(appointment) {
-  const date = new Date(
-    appointment.date ||
-      appointment.appointmentDate ||
-      appointment.day ||
-      appointment.raw?.appointmentDate ||
-      appointment.raw?.date ||
-      appointment.raw?.createdAt ||
-      "",
+function parseAppointmentDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const normalizedText = text.replace(/\//g, "-");
+  const isoDateOnlyMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(
+    normalizedText,
+  );
+  const localDateOnlyMatch = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(
+    normalizedText,
   );
 
+  if (isoDateOnlyMatch || localDateOnlyMatch) {
+    const [, first, second, third] = isoDateOnlyMatch || localDateOnlyMatch;
+    const year = isoDateOnlyMatch ? Number(first) : Number(third);
+    const month = Number(second) - 1;
+    const day = isoDateOnlyMatch ? Number(third) : Number(first);
+    const date = new Date(year, month, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getAppointmentDate(appointment) {
+  const raw = appointment.raw || {};
+  const dateCandidates = [
+    appointment.date,
+    appointment.appointmentDate,
+    appointment.day,
+    appointment.startDate,
+    raw.appointmentDate,
+    raw.date,
+    raw.day,
+    raw.startDate,
+    raw.bookingDate,
+    raw.appointmentDay,
+    raw.visitDate,
+    raw.slotDate,
+    raw.scheduleDate,
+    raw.appointment?.date,
+    raw.appointment?.appointmentDate,
+    raw.booking?.date,
+    raw.reservation?.date,
+    raw.slot?.date,
+    raw.createdAt,
+    raw.created_at,
+  ];
+
+  for (const candidate of dateCandidates) {
+    const date = parseAppointmentDate(candidate);
+    if (date) return date;
+  }
+
+  return null;
+}
+
 function getDateKey(date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getWeekStart(date) {
@@ -215,6 +267,84 @@ function getDoctorName(doctor) {
   return `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "طبيب";
 }
 
+function collectIds(...values) {
+  const ids = [];
+  const seenObjects = new WeakSet();
+
+  const addId = (value) => {
+    if (!value) return;
+
+    if (typeof value === "string" || typeof value === "number") {
+      const id = String(value).trim();
+      if (id) ids.push(id);
+      return;
+    }
+
+    if (typeof value !== "object") return;
+    if (seenObjects.has(value)) return;
+    seenObjects.add(value);
+
+    addId(value.id);
+    addId(value._id);
+    addId(value.userId);
+    addId(value.profileId);
+    addId(value.doctorId);
+    addId(value.doctorProfileId);
+    addId(value.user);
+    addId(value.account);
+    addId(value.profile);
+    addId(value.doctorProfile);
+  };
+
+  values.forEach(addId);
+  return Array.from(new Set(ids));
+}
+
+function getDoctorIds(doctor) {
+  return collectIds(
+    doctor.id,
+    doctor.userId,
+    doctor.profileId,
+    doctor.raw,
+    doctor.raw?.user,
+    doctor.raw?.account,
+    doctor.raw?.profile,
+    doctor.raw?.doctorProfile,
+  );
+}
+
+function getAppointmentDoctorIds(appointment) {
+  const raw = appointment.raw || {};
+
+  return collectIds(
+    appointment.doctorId,
+    raw.doctorId,
+    raw.doctor,
+    raw.doctorProfile,
+    raw.doctorProfileId,
+    raw.profile,
+    raw.appointment?.doctor,
+    raw.appointment?.doctorId,
+    raw.booking?.doctor,
+    raw.booking?.doctorId,
+    raw.reservation?.doctor,
+    raw.reservation?.doctorId,
+  );
+}
+
+function normalizeComparableText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function looksLikeId(value) {
+  const text = String(value || "").trim();
+  return (
+    /^[a-f\d]{24}$/i.test(text) ||
+    /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(text) ||
+    /^\d+$/.test(text)
+  );
+}
+
 function isSameDay(firstDate, secondDate) {
   return getDateKey(firstDate) === getDateKey(secondDate);
 }
@@ -250,36 +380,51 @@ function isDateInCurrentPeriod(date, period) {
 function getDoctorFilterOptions(users) {
   return users
     .filter((user) => user.role === "doctor")
-    .map((doctor) => ({
-      id: String(doctor.id || doctor.userId || doctor.raw?._id || doctor.raw?.user?._id || ""),
-      label: getDoctorName(doctor),
-    }))
+    .map((doctor) => {
+      const doctorIds = getDoctorIds(doctor);
+
+      return {
+        id: doctorIds[0] || "",
+        label: getDoctorName(doctor),
+      };
+    })
     .filter((doctor) => doctor.id);
 }
 
 function buildDoctorChart(appointments, users, selectedDoctorId, selectedPeriod) {
   const doctors = users.filter((user) => user.role === "doctor");
   const doctorsById = new Map();
-  const doctorCounts = new Map(
-    doctors.map((doctor) => {
+  const doctorsByName = new Map();
+  const doctorRows = doctors
+    .map((doctor) => {
+      const ids = getDoctorIds(doctor);
       const name = getDoctorName(doctor);
-      const doctorIds = [doctor.id, doctor.userId, doctor.raw?._id, doctor.raw?.user?._id]
-        .filter(Boolean)
-        .map(String);
 
-      doctorIds.forEach((id) => doctorsById.set(id, { id: doctorIds[0], name }));
-
-      return [name, 0];
-    }),
+      return {
+        id: ids[0] || name,
+        ids,
+        name,
+      };
+    })
+    .filter((doctor) => doctor.id);
+  const doctorCounts = new Map(
+    doctorRows.map((doctor) => [doctor.id, { name: doctor.name, value: 0 }]),
   );
 
+  doctorRows.forEach((doctor) => {
+    doctor.ids.forEach((id) => doctorsById.set(id, doctor));
+    doctorsByName.set(normalizeComparableText(doctor.name), doctor);
+  });
+
   appointments.forEach((appointment) => {
-    const doctorId = String(appointment.doctorId || appointment.raw?.doctorId || "");
     const appointmentDoctor = String(appointment.doctor || "").trim();
+    const matchedById = getAppointmentDoctorIds(appointment)
+      .map((doctorId) => doctorsById.get(doctorId))
+      .find(Boolean);
     const doctor =
-      doctorsById.get(doctorId) ||
-      doctorsById.get(appointmentDoctor) ||
-      (/^[a-f\d]{24}$/i.test(appointmentDoctor)
+      matchedById ||
+      doctorsByName.get(normalizeComparableText(appointmentDoctor)) ||
+      (looksLikeId(appointmentDoctor)
         ? null
         : { id: appointmentDoctor, name: appointmentDoctor });
 
@@ -287,14 +432,21 @@ function buildDoctorChart(appointments, users, selectedDoctorId, selectedPeriod)
     if (selectedDoctorId !== "all" && doctor.id !== selectedDoctorId) return;
 
     const date = getAppointmentDate(appointment);
-    if (!date || !isDateInCurrentPeriod(date, selectedPeriod)) return;
+    if (
+      selectedPeriod !== "all" &&
+      (!date || !isDateInCurrentPeriod(date, selectedPeriod))
+    ) {
+      return;
+    }
 
-    doctorCounts.set(doctor.name, (doctorCounts.get(doctor.name) || 0) + 1);
+    const current = doctorCounts.get(doctor.id) || {
+      name: doctor.name,
+      value: 0,
+    };
+    doctorCounts.set(doctor.id, { ...current, value: current.value + 1 });
   });
 
-  return Array.from(doctorCounts, ([name, value]) => ({ name, value })).filter(
-    (item) => item.value > 0,
-  );
+  return Array.from(doctorCounts.values()).filter((item) => item.value > 0);
 }
 
 function formatDoctorTick(name) {
@@ -365,6 +517,10 @@ export default function Dashboard() {
     (total, appointment) => total + getAppointmentRevenue(appointment),
     0,
   );
+  const emptyAppointmentsText =
+    dashboardAppointments.length > 0
+      ? "لا توجد حجوزات مطابقة للفلتر المحدد"
+      : undefined;
   const dashboardStats = statsConfig.map((item, index) => {
     const values = [
       users.length,
@@ -419,7 +575,7 @@ export default function Dashboard() {
             className="h-[317px]"
           >
             {appointmentChart.length === 0 ? (
-              <ChartState />
+              <ChartState text={emptyAppointmentsText} />
             ) : (
               <ChartBox>
                 <AreaChart
@@ -487,7 +643,7 @@ export default function Dashboard() {
             className="h-[317px]"
           >
             {doctorChart.length === 0 ? (
-              <ChartState />
+              <ChartState text={emptyAppointmentsText} />
             ) : (
               <ChartBox>
                 <BarChart

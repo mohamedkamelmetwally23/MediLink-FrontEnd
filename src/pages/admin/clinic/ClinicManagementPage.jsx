@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import CustomSelect from "../../../components/admin/CustomSelect";
 import {
   getWorkingDayId,
   loadClinicInfo,
@@ -392,7 +393,7 @@ function WorkingHoursForm({
         </div>
 
         <div
-          className="grid gap-3 border-t border-gray-200 pt-5 dark:border-white/10 sm:grid-cols-2"
+          className="grid gap-3 border-t border-gray-200 pt-5 dark:border-white/10"
           dir="ltr"
         >
           <WorkSettingField
@@ -484,22 +485,30 @@ function WorkCheckbox({ checked, onChange, "aria-label": ariaLabel }) {
 }
 
 function TimeSelect({ disabled, value, onChange }) {
+  const options = [
+    { value: "", label: "---" },
+    ...timeOptions.map((time) => ({
+      value: time,
+      label: formatClinicTime(time),
+    })),
+  ];
+
   return (
-    <label className="block w-[136px]">
-      <select
+    <div className="w-[148px]">
+      <CustomSelect
         value={disabled ? "" : value}
-        onChange={onChange}
+        options={options}
+        onChange={(nextValue) => onChange?.({ target: { value: nextValue } })}
         disabled={disabled}
-        className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 text-center text-base text-[#333] outline-none transition focus:border-[#16B9E7] disabled:appearance-none disabled:bg-transparent disabled:text-[#333] dark:bg-[#505050] dark:text-white dark:disabled:bg-transparent dark:disabled:text-white [&>option]:bg-white [&>option]:text-[#333] dark:[&>option]:bg-[#505050] dark:[&>option]:text-white"
-      >
-        <option value="">---</option>
-        {timeOptions.map((time) => (
-          <option key={time} value={time}>
-            {formatClinicTime(time)}
-          </option>
-        ))}
-      </select>
-    </label>
+        placeholder="---"
+        buttonClassName={`flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm font-semibold outline-none transition ${
+          disabled
+            ? "cursor-not-allowed border-transparent bg-transparent text-[#9a9a9a] dark:text-gray-400"
+            : "border-[#d9eef3] bg-white text-[#333] shadow-[0_6px_18px_rgba(20,72,89,0.06)] hover:border-[#16B9E7] focus:border-[#16B9E7] focus:shadow-[0_0_0_3px_rgba(22,185,231,0.12)] dark:border-white/15 dark:bg-[#4a4a4a] dark:text-white"
+        } [&>span]:text-center`}
+        menuClassName="rounded-2xl border-[#d9eef3] shadow-[0_18px_45px_rgba(20,72,89,0.18)] dark:border-white/10"
+      />
+    </div>
   );
 }
 

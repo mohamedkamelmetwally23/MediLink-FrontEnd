@@ -214,6 +214,12 @@ function compactObject(value) {
 }
 
 function normalizeStatus(value) {
+  return normalizeStatusValue(value) || "active";
+}
+
+function normalizeStatusValue(value) {
+  if (value === undefined || value === null || value === "") return null;
+
   const normalizedValue =
     typeof value === "string" ? value.trim().toLowerCase() : value;
 
@@ -226,12 +232,43 @@ function normalizeStatus(value) {
     normalizedValue === "disabled" ||
     normalizedValue === "blocked" ||
     normalizedValue === "not active" ||
-    normalizedValue === "notactive"
+    normalizedValue === "notactive" ||
+    normalizedValue === "\u063A\u064A\u0631 \u0645\u0641\u0639\u0644" ||
+    normalizedValue === "\u063A\u064A\u0631 \u0646\u0634\u0637"
   ) {
     return "inactive";
   }
 
-  return "active";
+  if (
+    normalizedValue === true ||
+    normalizedValue === 1 ||
+    normalizedValue === "1" ||
+    normalizedValue === "true" ||
+    normalizedValue === "active" ||
+    normalizedValue === "enabled" ||
+    normalizedValue === "enable" ||
+    normalizedValue === "available" ||
+    normalizedValue === "\u0645\u0641\u0639\u0644" ||
+    normalizedValue === "\u0646\u0634\u0637"
+  ) {
+    return "active";
+  }
+
+  return null;
+}
+
+function normalizeEntityStatus(activeValues = [], statusValues = [], fallback = "active") {
+  const activeStatus = activeValues
+    .map(normalizeStatusValue)
+    .find((status) => status);
+
+  if (activeStatus) return activeStatus;
+
+  const status = statusValues
+    .map(normalizeStatusValue)
+    .find((normalizedStatus) => normalizedStatus);
+
+  return status || fallback;
 }
 
 function normalizeNumber(value, fallback = 0) {
@@ -273,6 +310,12 @@ function normalizeUserRole(role) {
 }
 
 function normalizeBaseUser(item = {}) {
+  const status = normalizeEntityStatus(
+    [item.active, item.isActive],
+    [item.status],
+    "",
+  );
+
   return {
     id: getId(item),
     firstName: item.firstName || splitName(item.name).firstName,
@@ -282,9 +325,8 @@ function normalizeBaseUser(item = {}) {
     createdAt: getCreatedAt(item),
     phone: item.phone || item.phoneNumber || item.mobile || "",
     role: normalizeUserRole(item.role || item.userRole),
-    active:
-      normalizeStatus(item.active ?? item.isActive ?? item.status) === "active",
-    status: normalizeStatus(item.active ?? item.isActive ?? item.status),
+    active: status ? status === "active" : undefined,
+    status,
     raw: item,
   };
 }
@@ -412,6 +454,18 @@ export function normalizeDoctor(item = {}) {
             item.specialty ||
             "",
         };
+  const status = normalizeEntityStatus(
+    [
+      profile.active,
+      item.active,
+      user.active,
+      profile.isActive,
+      item.isActive,
+      user.isActive,
+    ],
+    [profile.status, item.status, user.status],
+    "inactive",
+  );
 
   return {
     id: getProfileUserId(profile) || getProfileUserId(item) || getId(user),
@@ -434,17 +488,7 @@ export function normalizeDoctor(item = {}) {
     ),
     phone: user.phone || profile.phone || item.phone || "",
     role: "doctor",
-    status: normalizeStatus(
-      profile.active ??
-        item.active ??
-        user.active ??
-        profile.status ??
-        item.status ??
-        user.status ??
-        profile.isActive ??
-        item.isActive ??
-        user.isActive,
-    ),
+    status,
     specialty: normalizedSpecialization.name,
     specializationId: normalizedSpecialization.id,
     consultationFee: normalizedSpecialization.price,
@@ -542,14 +586,7 @@ export function normalizeDoctor(item = {}) {
       item.isAvailable ??
       profile.acceptingAppointments ??
       item.acceptingAppointments ??
-      normalizeStatus(
-        profile.status ??
-          item.status ??
-          user.status ??
-          profile.isActive ??
-          item.isActive ??
-          user.isActive,
-      ) === "active",
+      status === "active",
     raw: item,
   };
 }

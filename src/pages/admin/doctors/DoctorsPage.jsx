@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
 import ConfirmStatusChangeModal from "../../../components/admin/ConfirmStatusChangeModal";
+import { includesSearchText } from "../../../utils/searchText";
 import { useSpecialtiesStore } from "../specialties/useSpecialtiesStore";
 import { userStatuses } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
@@ -50,9 +51,9 @@ export default function DoctorsPage() {
       return (
         doctor.role === "doctor" &&
         (!query ||
-          fullName.includes(query) ||
-          doctor.phone?.includes(query) ||
-          doctor.specialty?.includes(query)) &&
+          includesSearchText(fullName, query) ||
+          includesSearchText(doctor.phone, query) ||
+          includesSearchText(doctor.specialty, query)) &&
         (!specialtyFilter || doctor.specialty === specialtyFilter) &&
         (!statusFilter || doctor.status === statusFilter)
       );
@@ -249,7 +250,7 @@ function SearchBox({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-right text-[15px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="إبحث هنا..."
+        placeholder="ابحث هنا..."
         dir="rtl"
       />
       <Search size={20} strokeWidth={1.7} />

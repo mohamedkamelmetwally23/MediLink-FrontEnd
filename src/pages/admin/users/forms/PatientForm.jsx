@@ -119,7 +119,7 @@ export default function PatientForm({
           </p>
         )}
 
-        <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2">
+        <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2" dir="ltr">
           <button
             type="submit"
             disabled={isSubmitting}

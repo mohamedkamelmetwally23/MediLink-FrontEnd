@@ -548,7 +548,7 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
           <button
             type="button"
             disabled={loading}
-            className="h-[36px] rounded-[6px] border border-[#ff2626] bg-white text-[13px] font-semibold text-[#ff2626] transition hover:bg-[#fff0f0] disabled:opacity-60"
+            className="h-[36px] rounded-[6px] border border-[#ff2626] bg-transparent text-[13px] font-semibold text-[#ff2626] transition hover:bg-[#ff2626]/10 disabled:opacity-60"
             onClick={onConfirm}
           >
             {loading ? "جاري الحفظ..." : "نعم"}

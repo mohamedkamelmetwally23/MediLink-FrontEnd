@@ -12,6 +12,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import asideLogo from "../../../assets/aside.png";
 import doctor from "../../../assets/landingPage/admin.png";
 import { clearAuthSession } from "../../../services/authApi";
 import { useUsersStore } from "../users/useUsersStore";
@@ -108,9 +109,9 @@ function Sidebar({ isOpen, onClose }) {
       <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5acbd0] text-center">
         <Link
           to="/admin"
-          className="block pt-[42px] text-[24px] font-bold leading-7 text-white"
+          className="mx-auto flex w-[170px] justify-center pt-[36px]"
         >
-          Medilink
+          <img src={asideLogo} alt="MediLink" className="h-auto w-full object-contain" />
         </Link>
 
         <div className="absolute bottom-0 h-[46px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
