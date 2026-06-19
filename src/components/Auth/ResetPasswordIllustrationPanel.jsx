@@ -10,15 +10,16 @@ import {useTheme} from "../../hooks/useTheme"
 import { ArrowButton } from "../ui/ArrowButton";
 
 
-export default function ResetPasswordIllustrationPanel() {
+export default function ResetPasswordIllustrationPanel({ onBack }) {
   const {dark} = useTheme()
   return (
     <section className="relative flex w-1/2 items-center justify-center overflow-hidden rounded-r-[3rem] bg-(--bg-primary)">
       {/* Back Button */}
       <ArrowButton
-        to="/login"
+        to={onBack ? undefined : "/login"}
+        onClick={onBack}
         className="absolute left-5 top-7 z-40 h-9 w-9 bg-white text-[#05ADE8] hover:bg-white"
-        ariaLabel="Back to login"
+        ariaLabel={onBack ? "Back to phone number" : "Back to login"}
       />
 
       {/* Illustration */}

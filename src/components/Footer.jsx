@@ -31,7 +31,6 @@ const columns = [
       { label: "الاستشارات", href: "#features" },
       { label: "الملفات الطبية", href: "#features" },
       { label: "المتابعة والتنبيهات", href: "#features" },
-      { label: "الدعم الفني", href: "#contact" },
     ],
   },
   {

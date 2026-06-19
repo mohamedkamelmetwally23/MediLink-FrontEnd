@@ -29,7 +29,6 @@ export default function OtpForm({
   otpHint = "",
   submitText = "تأكيد",
   onVerified,
-  onBack,
   onResend,
 }) {
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
@@ -212,7 +211,8 @@ export default function OtpForm({
           {isChecking ? "جاري التأكيد..." : submitText}
         </PrimaryButton>
 
-        <div className="mt-5 flex items-center justify-center gap-4 text-sm">
+        <div className="mt-4 text-center text-sm text-gray-500 dark:text-[#D2D2D2]">
+          <span>لم يصلك رمز التحقق؟ </span>
           <button
             type="button"
             onClick={handleResend}
@@ -220,17 +220,8 @@ export default function OtpForm({
           >
             إعادة إرسال الكود
           </button>
-
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="text-gray-500 underline dark:text-[#D2D2D2]"
-            >
-              تعديل الرقم
-            </button>
-          ) : null}
         </div>
+
       </form>
     </section>
   );
