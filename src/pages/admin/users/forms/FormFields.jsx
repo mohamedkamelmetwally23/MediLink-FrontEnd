@@ -196,7 +196,7 @@ export function PasswordInput({ error, ...props }) {
         className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300"
         onClick={() => setVisible((current) => !current)}
       >
-        {visible ? <EyeOff size={20} /> : <Eye size={20} />}
+        {visible ? <Eye size={20} /> : <EyeOff size={20} />}
       </button>
     </div>
   );

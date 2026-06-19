@@ -5,6 +5,8 @@ import {
   FiCheckCircle,
   FiClock,
   FiCreditCard,
+  FiEye,
+  FiEyeOff,
   FiMic,
   FiSend,
   FiThumbsDown,
@@ -30,6 +32,7 @@ import {
   listDoctors,
 } from "../services/medilinkApi";
 import { includesSearchText, normalizeSearchText } from "../utils/searchText";
+import ThemeLogo from "./ThemeLogo";
 import doctorImage1 from "../assets/landingPage/12 1.png";
 import doctorImage2 from "../assets/landingPage/12 1 (1).png";
 import doctorImage3 from "../assets/landingPage/12 1 (2).png";
@@ -704,6 +707,8 @@ function Message({ message, onPickSlot, onPayDeposit, pendingPaymentId }) {
 }
 
 function LoginCard({ isLoggingIn, loginData, setLoginData, onLogin, onDemoLogin }) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900/25 px-5 backdrop-blur-[1px]">
       <form
@@ -736,15 +741,26 @@ function LoginCard({ isLoggingIn, loginData, setLoginData, onLogin, onDemoLogin 
         <label className="mt-3 block text-xs font-semibold text-gray-700 dark:text-[#F0F0F0]">
           كلمة المرور
         </label>
-        <input
-          type="password"
-          value={loginData.password}
-          onChange={(event) =>
-            setLoginData((prev) => ({ ...prev, password: event.target.value }))
-          }
-          placeholder="********"
-          className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-right text-xs outline-none focus:ring-1 focus:ring-[#05ADE8] dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]"
-        />
+        <div className="relative mt-1">
+          <input
+            type={showPassword ? "text" : "password"}
+            value={loginData.password}
+            onChange={(event) =>
+              setLoginData((prev) => ({ ...prev, password: event.target.value }))
+            }
+            placeholder="********"
+            className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 pl-10 text-right text-xs outline-none focus:ring-1 focus:ring-[#05ADE8] dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]"
+          />
+          <button
+            type="button"
+            aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            aria-pressed={showPassword}
+            className="absolute left-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center text-gray-400 transition hover:text-[#05ADE8]"
+            onClick={() => setShowPassword((current) => !current)}
+          >
+            {showPassword ? <FiEye size={16} /> : <FiEyeOff size={16} />}
+          </button>
+        </div>
 
         <button
           type="submit"
@@ -1211,7 +1227,7 @@ export default function AiAgent({ onClose }) {
           </button>
         </div>
 
-        <h2 className="text-base font-bold text-[#05ADE8]">ميديلينك</h2>
+        <ThemeLogo alt="ميديلينك" className="h-8 w-auto object-contain" />
       </header>
 
       <main className="relative flex-1 overflow-y-auto bg-[#F5FBFD] px-4 py-4 dark:bg-[#1F1F1F]">

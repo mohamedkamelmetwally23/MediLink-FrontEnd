@@ -251,7 +251,7 @@ function PasswordField({ label, value, visible, invalid, onToggle, onChange }) {
       <span className={`mb-2 block font-bold ${invalid ? "text-red-600" : ""}`}>{label}</span>
       <span className={`flex h-13 items-center rounded-xl border bg-[#F1F1F1] px-4 dark:bg-[#454545] ${invalid ? "border-red-500" : "border-transparent focus-within:border-[#20B7D5]"}`}>
         <input type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none" autoComplete={label.includes("القديمة") ? "current-password" : "new-password"} />
-        <button type="button" onClick={onToggle} className="text-[#999]">{visible ? <Eye size={20} /> : <EyeOff size={20} />}</button>
+        <button type="button" aria-label={visible ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"} aria-pressed={visible} onClick={onToggle} className="grid h-8 w-8 place-items-center text-[#999] transition hover:text-[#20B7D5]">{visible ? <Eye size={20} /> : <EyeOff size={20} />}</button>
       </span>
     </label>
   );
