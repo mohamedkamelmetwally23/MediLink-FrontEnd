@@ -809,7 +809,12 @@ function patientPayload(values) {
 
 export async function listDoctors() {
   const doctors = await listFromPaths(
-    ["/doctors", "/doctorprofiles", "/doctorProfiles", "/doctor-profiles"],
+    [
+      "/doctors?limit=500",
+      "/doctorprofiles?limit=500",
+      "/doctorProfiles?limit=500",
+      "/doctor-profiles?limit=500",
+    ],
     ["doctors", "doctor", "doctorprofiles", "doctorProfiles", "profiles"],
   );
   const hydratedDoctors = await withHydratedUsers(doctors);
@@ -1019,7 +1024,7 @@ export async function deletePatient(id) {
 
 export async function listReceptionists() {
   const receptionists = await listFromPaths(
-    ["/receptionist", "/receptionists"],
+    ["/receptionist?limit=500", "/receptionists?limit=500"],
     ["receptionists", "receptionist", "reseptionists", "reseptionist", "users"],
   );
   const hydratedReceptionists = await withHydratedUsers(receptionists);
