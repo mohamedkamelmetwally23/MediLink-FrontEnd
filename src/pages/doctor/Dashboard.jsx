@@ -361,6 +361,10 @@ export default function DoctorDashboard() {
   const axisColor = isDark ? "#f3f4f6" : "#777";
   const axisLineColor = isDark ? "#d1d5db" : "#cad6dd";
   const gridColor = isDark ? "#6b7280" : "#e8eef2";
+  const chartTooltipStyle = getTooltipStyle(isDark);
+  const chartTooltipTextStyle = {
+    color: isDark ? "#f9fafb" : "#2f3a40",
+  };
   const todayIso = getIsoDate(new Date());
   const availableSlots = useMemo(
     () => flattenAvailableSlots(availableSlotDays),
@@ -475,7 +479,7 @@ export default function DoctorDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={monthlyBookings}
-                  margin={{ top: 8, right: 3, left: -22, bottom: 0 }}
+                  margin={{ top: 8, right: 3, left: 0, bottom: 0 }}
                 >
                   <defs>
                     <linearGradient
@@ -505,11 +509,17 @@ export default function DoctorDashboard() {
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
                     tick={{ fontSize: 9, fill: axisColor, fontWeight: 600 }}
+                    tickMargin={10}
                     allowDecimals={false}
                     domain={[0, maxChartValue]}
-                    width={38}
+                    width={46}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    itemStyle={chartTooltipTextStyle}
+                    labelStyle={chartTooltipTextStyle}
+                    formatter={(value) => [value, "قيمة"]}
+                  />
                   <Area
                     type="monotone"
                     dataKey="value"
@@ -862,11 +872,17 @@ function LoadingRows() {
   );
 }
 
-const tooltipStyle = {
-  border: "1px solid #e2edf1",
-  borderRadius: 8,
-  boxShadow: "0 8px 20px rgba(20, 72, 89, 0.1)",
-  direction: "rtl",
-  fontFamily: "Cairo, sans-serif",
-  fontSize: 12,
-};
+function getTooltipStyle(isDark) {
+  return {
+    backgroundColor: isDark ? "#3f3f3f" : "#ffffff",
+    border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.16)" : "#e2edf1"}`,
+    borderRadius: 8,
+    boxShadow: isDark
+      ? "0 10px 24px rgba(0, 0, 0, 0.32)"
+      : "0 8px 20px rgba(20, 72, 89, 0.1)",
+    color: isDark ? "#f9fafb" : "#2f3a40",
+    direction: "rtl",
+    fontFamily: "Cairo, sans-serif",
+    fontSize: 12,
+  };
+}

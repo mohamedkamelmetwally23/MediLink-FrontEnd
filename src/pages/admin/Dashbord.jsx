@@ -358,6 +358,10 @@ export default function Dashboard() {
   const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
   const axisLineColor = isDark ? "#d1d5db" : "#3f4b52";
   const gridColor = isDark ? "#6b7280" : "#d9e2e7";
+  const chartTooltipStyle = getTooltipStyle(isDark);
+  const chartTooltipTextStyle = {
+    color: isDark ? "#f9fafb" : "#2f3a40",
+  };
   const tickStyle = {
     fontSize: 11,
     fill: axisColor,
@@ -479,10 +483,16 @@ export default function Dashboard() {
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
                     tick={tickStyle}
+                    tickMargin={10}
                     allowDecimals={false}
-                    width={43}
+                    width={50}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    itemStyle={chartTooltipTextStyle}
+                    labelStyle={chartTooltipTextStyle}
+                    formatter={(value) => [value, "قيمة"]}
+                  />
                   <Area
                     type="monotone"
                     dataKey="value"
@@ -550,11 +560,15 @@ export default function Dashboard() {
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
                     tick={tickStyle}
+                    tickMargin={10}
                     allowDecimals={false}
-                    width={43}
+                    width={50}
                   />
                   <Tooltip
-                    contentStyle={tooltipStyle}
+                    contentStyle={chartTooltipStyle}
+                    itemStyle={chartTooltipTextStyle}
+                    labelStyle={chartTooltipTextStyle}
+                    formatter={(value) => [value, "قيمة"]}
                     cursor={{ fill: "rgba(49, 185, 219, 0.08)" }}
                   />
                   <Bar
@@ -812,11 +826,17 @@ function SelectControl({ value, onChange, options, className = "w-[128px]" }) {
   );
 }
 
-const tooltipStyle = {
-  border: "1px solid #e2edf1",
-  borderRadius: 8,
-  boxShadow: "0 8px 20px rgba(20, 72, 89, 0.1)",
-  direction: "rtl",
-  fontFamily: "Cairo, sans-serif",
-  fontSize: 12,
-};
+function getTooltipStyle(isDark) {
+  return {
+    backgroundColor: isDark ? "#3f3f3f" : "#ffffff",
+    border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.16)" : "#e2edf1"}`,
+    borderRadius: 8,
+    boxShadow: isDark
+      ? "0 10px 24px rgba(0, 0, 0, 0.32)"
+      : "0 8px 20px rgba(20, 72, 89, 0.1)",
+    color: isDark ? "#f9fafb" : "#2f3a40",
+    direction: "rtl",
+    fontFamily: "Cairo, sans-serif",
+    fontSize: 12,
+  };
+}
