@@ -38,6 +38,7 @@ export default function DoctorsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [pendingStatusUser, setPendingStatusUser] = useState(null);
+  const [pendingStatusNote, setPendingStatusNote] = useState("");
   const [statusError, setStatusError] = useState("");
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -95,15 +96,16 @@ export default function DoctorsPage() {
     setPendingDelete(null);
   };
 
-  const confirmStatusChange = async () => {
+  const confirmStatusChange = async (note = pendingStatusNote) => {
     if (!pendingStatusUser) return;
 
     setIsStatusUpdating(true);
     setStatusError("");
 
     try {
-      await toggleUserStatus(pendingStatusUser.id);
+      await toggleUserStatus(pendingStatusUser.id, { note });
       setPendingStatusUser(null);
+      setPendingStatusNote("");
     } catch (error) {
       setStatusError(error.message || "تعذر تحديث الحالة، حاول مرة أخرى.");
     } finally {
@@ -147,7 +149,7 @@ export default function DoctorsPage() {
 
         <section className="overflow-hidden bg-white dark:bg-[#505050]">
           <div className="overflow-x-auto">
-            <div className="min-w-[980px]">
+            <div className="min-w-[1120px]">
               <TableHeader
                 allVisibleSelected={allVisibleSelected}
                 onToggleAll={toggleAllVisible}
@@ -176,6 +178,9 @@ export default function DoctorsPage() {
                     onDelete={() => setPendingDelete([doctor.id])}
                     onToggleStatus={() => {
                       setStatusError("");
+                      setPendingStatusNote(
+                        doctor.status === "active" ? "" : doctor.statusNote || "",
+                      );
                       setPendingStatusUser(doctor);
                     }}
                   />
@@ -206,8 +211,11 @@ export default function DoctorsPage() {
           status={pendingStatusUser.status}
           loading={isStatusUpdating}
           error={statusError}
+          note={pendingStatusNote}
+          onNoteChange={setPendingStatusNote}
           onCancel={() => {
             setPendingStatusUser(null);
+            setPendingStatusNote("");
             setStatusError("");
           }}
           onConfirm={confirmStatusChange}
@@ -297,7 +305,7 @@ function TableHeader({
   onStatusChange,
 }) {
   return (
-    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+    <div className="grid h-[56px] grid-cols-[64px_1.25fr_1.1fr_0.7fr_0.8fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
@@ -327,6 +335,7 @@ function TableHeader({
           </option>
         ))}
       </FilterSelect>
+      <span className="text-center">ملاحظه</span>
       <span />
       <span />
     </div>
@@ -352,7 +361,7 @@ function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
 
   return (
     <div
-      className={`grid h-[56px] grid-cols-[64px_1.45fr_1.25fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+      className={`grid h-[56px] grid-cols-[64px_1.25fr_1.1fr_0.7fr_0.8fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
         selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
@@ -367,6 +376,12 @@ function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>
+      <span
+        className="truncate px-2 text-center text-[14px] text-[#777] dark:text-gray-300"
+        title={doctor.statusNote || ""}
+      >
+        {doctor.status === "inactive" && doctor.statusNote ? doctor.statusNote : "-"}
+      </span>
       <div className="flex items-center justify-center gap-[12px]" dir="ltr">
         <Link
           to={`/admin/doctors/${doctor.id}/edit`}

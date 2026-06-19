@@ -194,7 +194,7 @@ function SearchBox({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-right text-[12px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="ابحث هنا..."
+        placeholder="إبحث هنا..."
         dir="rtl"
       />
       <Search size={17} strokeWidth={1.7} />

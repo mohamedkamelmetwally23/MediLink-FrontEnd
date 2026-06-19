@@ -12,6 +12,10 @@ function normalizeSpecialtyName(name) {
   return normalizeSpecialtyLabel(name);
 }
 
+function normalizeSpecialtyPrice(price) {
+  return String(price ?? "").replace(/[^\d]/g, "");
+}
+
 function toSpecialtyItem(value) {
   if (typeof value === "string") {
     return {
@@ -21,12 +25,12 @@ function toSpecialtyItem(value) {
     };
   }
 
-  return {
-    id: value.id || value._id || "",
-    name: normalizeSpecialtyName(value.name || ""),
-    price: value.price ?? value.consultationFee ?? "",
-  };
-}
+    return {
+      id: value.id || value._id || "",
+      name: normalizeSpecialtyName(value.name || ""),
+      price: normalizeSpecialtyPrice(value.price ?? value.consultationFee ?? ""),
+    };
+  }
 
 function normalizeSpecialtyItems(items) {
   const itemMap = new Map();
@@ -100,14 +104,15 @@ export function useSpecialtiesStore() {
 
   const addSpecialty = async (name, price = "") => {
     const normalizedName = normalizeSpecialtyName(name);
+    const normalizedPrice = normalizeSpecialtyPrice(price);
     const createdSpecialty = await createSpecialization({
       name: normalizedName,
-      price,
+      price: normalizedPrice,
     });
     const nextSpecialty = toSpecialtyItem({
       ...createdSpecialty,
       name: createdSpecialty.name || normalizedName,
-      price: createdSpecialty.price || price,
+      price: createdSpecialty.price || normalizedPrice,
     });
 
     commitSpecialties((currentSpecialties) => [nextSpecialty, ...currentSpecialties]);
@@ -116,20 +121,21 @@ export function useSpecialtiesStore() {
 
   const updateSpecialty = async (oldName, nextName, price = "") => {
     const normalizedName = normalizeSpecialtyName(nextName);
+    const normalizedPrice = normalizeSpecialtyPrice(price);
     const currentSpecialty = specialtyItems.find(
       (specialty) => specialty.name === oldName,
     );
     const updatedSpecialty = currentSpecialty?.id
       ? await updateSpecialization(currentSpecialty.id, {
           name: normalizedName,
-          price,
+          price: normalizedPrice,
         })
-      : { ...currentSpecialty, name: normalizedName, price };
+      : { ...currentSpecialty, name: normalizedName, price: normalizedPrice };
     const nextSpecialty = toSpecialtyItem({
       ...updatedSpecialty,
       id: updatedSpecialty.id || currentSpecialty?.id || "",
       name: updatedSpecialty.name || normalizedName,
-      price: updatedSpecialty.price || price,
+      price: updatedSpecialty.price || normalizedPrice,
     });
 
     commitSpecialties((currentSpecialties) =>
@@ -180,7 +186,7 @@ export function validateSpecialtyName(name, specialties, currentName = "") {
   const normalizedName = normalizeSpecialtyName(name);
 
   if (!normalizedName) {
-    return "يرجى إدخال بيانات صحيحة";
+    return "اسم التخصص مطلوب";
   }
 
   if (normalizedName.length < 2) {

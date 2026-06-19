@@ -10,6 +10,7 @@ import {
 import { normalizeSpecialtyLabel } from "./usersData";
 
 const patientActiveStorageKey = "medilink-patient-active-statuses";
+const userStatusNotesStorageKey = "medilink-user-status-notes";
 
 function sameId(left, right) {
   return String(left) === String(right);
@@ -67,6 +68,10 @@ function getPatientUserId(user) {
   return user?.userId || user?.raw?.user?._id || user?.raw?.user?.id || user?.id || "";
 }
 
+function getStatusUserId(user) {
+  return user?.userId || user?.profileId || user?.raw?._id || user?.raw?.user?._id || user?.raw?.user?.id || user?.id || "";
+}
+
 function readPatientActiveStatuses() {
   if (typeof localStorage === "undefined") return {};
 
@@ -92,6 +97,51 @@ function savePatientActiveStatus(user, active) {
   );
 }
 
+function readUserStatusNotes() {
+  if (typeof localStorage === "undefined") return {};
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(userStatusNotesStorageKey) || "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+function getUserStatusNote(user) {
+  const savedNote = readUserStatusNotes()[getStatusUserId(user)];
+
+  if (typeof savedNote === "string") return savedNote;
+
+  return (
+    user?.statusNote ||
+    user?.inactiveNote ||
+    user?.note ||
+    user?.raw?.statusNote ||
+    user?.raw?.inactiveNote ||
+    user?.raw?.note ||
+    user?.raw?.user?.statusNote ||
+    user?.raw?.user?.inactiveNote ||
+    user?.raw?.user?.note ||
+    ""
+  );
+}
+
+function saveUserStatusNote(user, note) {
+  const userId = getStatusUserId(user);
+  if (!userId || typeof localStorage === "undefined") return;
+
+  const notes = readUserStatusNotes();
+
+  if (note) {
+    notes[userId] = note;
+  } else {
+    delete notes[userId];
+  }
+
+  localStorage.setItem(userStatusNotesStorageKey, JSON.stringify(notes));
+}
+
 function normalizeLoadedUser(user) {
   const savedActive = readPatientActiveStatuses()[getPatientUserId(user)];
   const explicitActive =
@@ -106,14 +156,18 @@ function normalizeLoadedUser(user) {
           active: explicitActive,
           status: explicitActive ? "active" : "inactive",
         };
+  const userWithStatusNote = {
+    ...syncedUser,
+    statusNote: getUserStatusNote(syncedUser),
+  };
 
-  if (syncedUser.role !== "doctor" || !syncedUser.specialty) {
-    return syncedUser;
+  if (userWithStatusNote.role !== "doctor" || !userWithStatusNote.specialty) {
+    return userWithStatusNote;
   }
 
   return {
-    ...syncedUser,
-    specialty: normalizeSpecialtyLabel(syncedUser.specialty),
+    ...userWithStatusNote,
+    specialty: normalizeSpecialtyLabel(userWithStatusNote.specialty),
   };
 }
 
@@ -269,16 +323,19 @@ export function useUsersStore(scope = "all") {
       });
   };
 
-  const toggleUserStatus = async (id) => {
+  const toggleUserStatus = async (id, options = {}) => {
     const targetUser = users.find((user) => userMatchesId(user, id));
     if (!targetUser) return;
 
     try {
-      const response = await toggleUserActiveStatus(targetUser);
+      const statusNote = String(options.note || "").trim();
+      const response = await toggleUserActiveStatus(targetUser, { note: statusNote });
       const currentActive = getExplicitActiveValue(targetUser) ?? targetUser.status === "active";
       const nextStatus = getStatusFromToggleResponse(response, currentActive);
       const nextActive = nextStatus === "active";
+      const nextStatusNote = nextActive ? "" : statusNote;
       savePatientActiveStatus(targetUser, nextActive);
+      saveUserStatusNote(targetUser, nextStatusNote);
       commitUsers((currentUsers) =>
         currentUsers.map((user) =>
           userMatchesId(user, id)
@@ -286,16 +343,21 @@ export function useUsersStore(scope = "all") {
                 ...user,
                 status: nextStatus,
                 active: nextActive,
+                statusNote: nextStatusNote,
                 raw: {
                   ...user.raw,
                   active: nextActive,
                   status: nextStatus,
+                  statusNote: nextStatusNote,
+                  inactiveNote: nextStatusNote,
                   user:
                     user.raw?.user && typeof user.raw.user === "object"
                       ? {
                           ...user.raw.user,
                           active: nextActive,
                           status: nextStatus,
+                          statusNote: nextStatusNote,
+                          inactiveNote: nextStatusNote,
                         }
                       : user.raw?.user,
                 },

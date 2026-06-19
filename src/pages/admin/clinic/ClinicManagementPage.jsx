@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import CustomSelect from "../../../components/admin/CustomSelect";
 import {
   getWorkingDayId,
   loadClinicInfo,
@@ -8,6 +7,7 @@ import {
   updateClinicInfo,
   useClinicInfo,
 } from "../../../services/clinicInfoStore";
+import CustomSelect from "../../../components/admin/CustomSelect";
 import { timeOptions } from "../users/usersData";
 
 const tabs = [
@@ -392,10 +392,7 @@ function WorkingHoursForm({
           </div>
         </div>
 
-        <div
-          className="grid gap-3 border-t border-gray-200 pt-5 dark:border-white/10"
-          dir="ltr"
-        >
+        <div className="grid gap-3 border-t border-gray-200 pt-5 dark:border-white/10">
           <WorkSettingField
             label="مدة الموعد"
             unit="دقيقة"
@@ -500,13 +497,9 @@ function TimeSelect({ disabled, value, onChange }) {
         options={options}
         onChange={(nextValue) => onChange?.({ target: { value: nextValue } })}
         disabled={disabled}
-        placeholder="---"
-        buttonClassName={`flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm font-semibold outline-none transition ${
-          disabled
-            ? "cursor-not-allowed border-transparent bg-transparent text-[#9a9a9a] dark:text-gray-400"
-            : "border-[#d9eef3] bg-white text-[#333] shadow-[0_6px_18px_rgba(20,72,89,0.06)] hover:border-[#16B9E7] focus:border-[#16B9E7] focus:shadow-[0_0_0_3px_rgba(22,185,231,0.12)] dark:border-white/15 dark:bg-[#4a4a4a] dark:text-white"
-        } [&>span]:text-center`}
-        menuClassName="rounded-2xl border-[#d9eef3] shadow-[0_18px_45px_rgba(20,72,89,0.18)] dark:border-white/10"
+        className="w-full"
+        buttonClassName="flex h-10 w-full items-center gap-2 rounded-xl border border-white/10 bg-white/70 px-3 text-sm font-semibold text-[#333] shadow-sm outline-none transition hover:border-[#16B9E7]/60 focus-visible:border-[#16B9E7] focus-visible:ring-2 focus-visible:ring-[#16B9E7]/20 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-60 dark:bg-[#505050] dark:text-white"
+        menuClassName="rounded-xl border-white/10 p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.22)]"
       />
     </div>
   );

@@ -15,6 +15,7 @@ import {
 import asideLogo from "../../../assets/aside.png";
 import doctor from "../../../assets/landingPage/admin.png";
 import { clearAuthSession } from "../../../services/authApi";
+import { getCurrentAuthUser } from "../../../services/medilinkApi";
 import { useUsersStore } from "../users/useUsersStore";
 
 const navItems = [
@@ -36,6 +37,26 @@ const navItems = [
   { label: "المواعيد", icon: CalendarCheck, to: "/admin/appointments" },
   { label: "إدارة العيادة", icon: Building2, to: "/admin/clinic" },
 ];
+
+function getAuthUserDisplayName(user, fallback = "المستخدم") {
+  const profile =
+    user?.profile ||
+    user?.admin ||
+    user?.doctor ||
+    user?.receptionist ||
+    user?.patient ||
+    user?.user ||
+    user;
+
+  return (
+    profile?.name ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim() ||
+    profile?.fullName ||
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    fallback
+  );
+}
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -82,6 +103,7 @@ function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const forcedActiveTo = getProfileActiveRoute(location, getUser);
+  const displayName = getAuthUserDisplayName(getCurrentAuthUser(), "مدير النظام");
 
   const handleLogout = () => {
     clearAuthSession();
@@ -109,9 +131,10 @@ function Sidebar({ isOpen, onClose }) {
       <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#13a9d8] to-[#5acbd0] text-center">
         <Link
           to="/admin"
-          className="mx-auto flex w-[170px] justify-center pt-[36px]"
+          className="mx-auto flex w-fit pt-[42px]"
+          aria-label="Medilink"
         >
-          <img src={asideLogo} alt="MediLink" className="h-auto w-full object-contain" />
+          <img src={asideLogo} alt="Medilink" className="h-[42px] w-auto object-contain" />
         </Link>
 
         <div className="absolute bottom-0 h-[46px] w-full rounded-t-[50%] bg-white dark:bg-[#3a3a3a]" />
@@ -130,7 +153,7 @@ function Sidebar({ isOpen, onClose }) {
 
       <div className="mt-[17px] text-center">
         <h2 className="text-[17px] font-bold leading-6 text-[#333] dark:text-white">
-          د. أحمد محمد
+          {displayName}
         </h2>
         <p className="mt-1 text-[13px] leading-5 text-[#888] dark:text-gray-300">
           مدير النظام

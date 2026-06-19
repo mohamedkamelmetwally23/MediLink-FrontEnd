@@ -2,6 +2,8 @@ export default function ConfirmStatusChangeModal({
   status,
   loading,
   error,
+  note = "",
+  onNoteChange,
   onCancel,
   onConfirm,
 }) {
@@ -26,12 +28,28 @@ export default function ConfirmStatusChangeModal({
 
         {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
 
+        {isActive && (
+          <label className="mt-5 block text-right">
+            <span className="mb-2 block text-[14px] font-semibold text-[#333] dark:text-white">
+              ملاحظه
+            </span>
+            <textarea
+              value={note}
+              onChange={(event) => onNoteChange?.(event.target.value)}
+              rows={3}
+              disabled={loading}
+              className="w-full resize-none rounded-[10px] border border-white/10 bg-transparent px-4 py-3 text-right text-[14px] text-[#333] outline-none transition placeholder:text-[#999] focus:border-[#35c0d8] dark:text-white"
+              placeholder="اكتب سبب الحظر هنا..."
+            />
+          </label>
+        )}
+
         <div className="mt-6 grid grid-cols-2 gap-3" dir="ltr">
           <button
             type="button"
             disabled={loading}
             className="h-[45px] rounded-[8px] border border-[#ff3030] bg-transparent font-semibold text-[#ff3030] transition hover:bg-[#ff3030]/10 disabled:opacity-60"
-            onClick={onConfirm}
+            onClick={() => onConfirm?.(note)}
           >
             {loading ? "جاري التحديث..." : "نعم"}
           </button>

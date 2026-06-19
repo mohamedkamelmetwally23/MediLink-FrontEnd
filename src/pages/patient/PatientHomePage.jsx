@@ -82,7 +82,7 @@ const whyFeatures = [
 
 const assistantCards = [
   {
-    title: "ابحث عن طبيب",
+    title: "إبحث عن طبيب",
     description: "ابحث عن أفضل الأطباء والمواعيد المتاحة المناسبة لك.",
     image: searchDoctorIcon,
   },
