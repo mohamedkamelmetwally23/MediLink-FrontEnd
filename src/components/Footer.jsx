@@ -9,8 +9,8 @@ import {
 import { FaXTwitter } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import logo from "../assets/landingPage/logo.png";
 import { useClinicInfo } from "../services/clinicInfoStore";
+import ThemeLogo from "./ThemeLogo";
 
 const columns = [
       {
@@ -76,7 +76,7 @@ export default function Footer() {
             style={{ "--reveal-delay": "0ms" }}
             className="reveal-item sm:col-span-2 lg:col-span-1"
           >
-            <img src={logo} alt="MediLink" className="mb-5 h-12 object-contain" />
+            <ThemeLogo className="mb-5 h-12 w-auto object-contain" />
             <p className="leading-8 text-gray-700 dark:text-[#F0F0F0]">
               نظام متكامل لإدارة العيادات والمراكز الطبية وتقديم تجربة أفضل
               للمرضى والأطباء.

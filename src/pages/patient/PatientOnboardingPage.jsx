@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import logo from "../../assets/landingPage/logo.png";
+import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/landingPage/doctor1.png";
 import patientVector from "../../assets/patient departement/Vector.png";
 import { completePatientProfile } from "../../services/medilinkApi";
@@ -85,7 +85,7 @@ function PatientHeader() {
       dir="rtl"
     >
       <Link to="/" className="justify-self-end max-md:justify-self-start" aria-label="MediLink">
-        <img src={logo} alt="MediLink" className="h-auto w-[150px] object-contain max-lg:w-[132px]" />
+        <ThemeLogo className="h-auto w-[150px] object-contain max-lg:w-[132px]" />
       </Link>
 
       <nav
@@ -121,7 +121,7 @@ function PatientFooter() {
     <footer id="contact" className="bg-white shadow-[0_-7px_20px_rgba(0,0,0,0.04)] dark:bg-[#343434]" dir="rtl">
       <div className="mx-auto grid w-[min(1320px,calc(100%_-_110px))] grid-cols-[1.35fr_repeat(3,1fr)_1.15fr] items-start gap-12 py-[72px] max-lg:w-[min(980px,calc(100%_-_40px))] max-lg:grid-cols-2 max-md:w-[min(520px,calc(100%_-_32px))] max-md:grid-cols-1 max-md:gap-7 max-md:py-10">
         <section>
-          <img src={logo} alt="MediLink" className="mb-6 w-40" />
+          <ThemeLogo className="mb-6 w-40 object-contain" />
           <p className="m-0 max-w-[290px] text-[17px] font-semibold leading-tight text-[#333333] dark:text-[#F0F0F0]">
             نظام متكامل لإدارة العيادات والمراكز الطبية وتقديم أفضل تجربة للمرضى والأطباء
           </p>
