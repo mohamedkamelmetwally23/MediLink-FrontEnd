@@ -67,14 +67,14 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
-        <Route path="/patient" element={<PatientOnboardingPage />} />
-        <Route path="/patient/home" element={<PatientHomePage />} />
+        <Route path="/patient/:patientId/patientinformation" element={<PatientOnboardingPage />} />
+        <Route path="/patient/:patientId/home" element={<PatientHomePage />} />
         <Route path="/patient/doctors" element={<PatientDoctorsPage />} />
         <Route path="/patient/doctors/:doctorId" element={<PatientDoctorProfilePage />} />
         <Route path="/patient/doctors/:doctorId/book" element={<PatientBookingPage />} />
-        <Route path="/patient/profile" element={<PatientProfilePage />} />
-        <Route path="/patient/profile/edit" element={<PatientEditProfilePage />} />
-        <Route path="/patient/profile/change-password" element={<PatientChangePasswordPage />} />
+        <Route path="/patient/:patientId/profile" element={<PatientProfilePage />} />
+        <Route path="/patient/:patientId/profile/edit" element={<PatientEditProfilePage />} />
+        <Route path="/patient/:patientId/profile/change-password" element={<PatientChangePasswordPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

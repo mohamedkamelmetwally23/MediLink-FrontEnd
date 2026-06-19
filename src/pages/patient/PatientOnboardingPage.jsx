@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   Check,
   FileText,
@@ -16,6 +17,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import logo from "../../assets/landingPage/logo.png";
 import avatar from "../../assets/landingPage/doctor1.png";
 import patientVector from "../../assets/patient departement/Vector.png";
+import { completePatientProfile } from "../../services/medilinkApi";
 
 const gradient = "bg-linear-to-b from-[#13B5DF] to-[#64CAC6]";
 
@@ -343,6 +345,11 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
   const config = checklistScreens[screen];
   const selected = values[screen] ?? config.defaults;
   const noneSelected = selected.includes(config.none);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customValue, setCustomValue] = useState("");
+  const customItems = selected.filter(
+    (item) => item !== config.none && !config.options.includes(item),
+  );
 
   const toggle = (item) => {
     setValues((current) => {
@@ -357,6 +364,30 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
         : [...withoutNone, item];
       return { ...current, [screen]: next };
     });
+  };
+
+  const addCustomItem = () => {
+    const item = customValue.trim();
+    if (!item) return;
+
+    setValues((current) => {
+      const list = (current[screen] ?? []).filter(
+        (entry) => entry !== config.none,
+      );
+
+      return {
+        ...current,
+        [screen]: list.includes(item) ? list : [...list, item],
+      };
+    });
+    setCustomValue("");
+  };
+
+  const removeCustomItem = (item) => {
+    setValues((current) => ({
+      ...current,
+      [screen]: (current[screen] ?? []).filter((entry) => entry !== item),
+    }));
   };
 
   return (
@@ -393,10 +424,65 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
             noneSelected ? "text-[#8A8A8A] dark:text-[#B8B8B8]" : "text-[#333333] dark:text-[#F0F0F0]"
           }`}
           disabled={noneSelected}
+          onClick={() => setShowCustomInput((current) => !current)}
         >
           <Plus size={20} className={`rounded-full text-white ${noneSelected ? "bg-[#777777]" : "bg-[#35BBD3]"}`} />
           {config.add}
         </button>
+
+        {showCustomInput && !noneSelected && (
+          <div className="mt-2">
+            <div className="flex gap-2">
+              <input
+                value={customValue}
+                onChange={(event) => setCustomValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addCustomItem();
+                  }
+                }}
+                placeholder={
+                  screen === "chronic"
+                    ? "اكتب اسم المرض"
+                    : screen === "allergies"
+                      ? "اكتب نوع الحساسية"
+                      : "اكتب اسم الدواء"
+                }
+                className="h-10 min-w-0 flex-1 rounded-lg border border-[#35BBD3] bg-white px-3 text-right text-sm text-[#333] outline-none placeholder:text-[#999] dark:bg-[#454545] dark:text-white"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={addCustomItem}
+                className="h-10 rounded-lg bg-[#35BBD3] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                disabled={!customValue.trim()}
+              >
+                إضافة
+              </button>
+            </div>
+
+            {customItems.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {customItems.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#EAF9FC] px-3 py-2 text-sm font-semibold text-[#168DA5] dark:bg-[#35BBD3]/15 dark:text-[#7DDEEF]"
+                  >
+                    {item}
+                    <button
+                      type="button"
+                      aria-label={`حذف ${item}`}
+                      onClick={() => removeCustomItem(item)}
+                    >
+                      <X size={15} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <WizardActions onNext={onNext} onPrevious={onPrevious} />
@@ -404,7 +490,13 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
   );
 }
 
-function FilesScreen({ files, setFiles, onNext, onPrevious }) {
+function FilesScreen({
+  files,
+  setFiles,
+  onNext,
+  onPrevious,
+  isSubmitting,
+}) {
   const fileInputRef = useRef(null);
   const previews = useMemo(
     () =>
@@ -510,12 +602,17 @@ function FilesScreen({ files, setFiles, onNext, onPrevious }) {
         )}
       </div>
 
-      <WizardActions onNext={onNext} onPrevious={onPrevious} />
+      <WizardActions
+        onNext={onNext}
+        onPrevious={onPrevious}
+        isSubmitting={isSubmitting}
+        nextLabel="حفظ البيانات"
+      />
     </section>
   );
 }
 
-function SuccessScreen() {
+function SuccessScreen({ patientId }) {
   return (
     <section className="flex min-h-[650px] w-full max-w-[1320px] flex-col items-center justify-center text-center">
       <div className="relative h-[450px] w-[470px] max-w-[90vw] max-md:h-[320px]" aria-hidden="true">
@@ -532,27 +629,41 @@ function SuccessScreen() {
       <p className="mb-10 mt-2 text-xl font-semibold text-[#333333] dark:text-[#F0F0F0] max-md:text-[17px]">
         يمكنك الآن حجز المواعيد، متابعة سجلك الطبي، والحصول على توصيات طبية أكثر دقة.
       </p>
-      <Link to="/patient/home" className={`${primaryButtonClass} w-full max-w-[820px]`}>
+      <Link
+        to={`/patient/${encodeURIComponent(patientId)}/home`}
+        className={`${primaryButtonClass} w-full max-w-[820px]`}
+      >
         إبدأ استخدام Medilink
       </Link>
     </section>
   );
 }
 
-function WizardActions({ onNext, onPrevious }) {
+function WizardActions({
+  onNext,
+  onPrevious,
+  isSubmitting = false,
+  nextLabel = "التالي",
+}) {
   return (
     <div className="mt-10 grid grid-cols-2 gap-[18px] max-md:grid-cols-1">
       <button type="button" className={`${secondaryButtonClass} max-md:order-2`} onClick={onPrevious}>
         السابق
       </button>
-      <button type="button" className={primaryButtonClass} onClick={onNext}>
-        التالي
+      <button
+        type="button"
+        disabled={isSubmitting}
+        className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+        onClick={onNext}
+      >
+        {isSubmitting ? "جاري الحفظ..." : nextLabel}
       </button>
     </div>
   );
 }
 
 export default function PatientOnboardingPage() {
+  const { patientId } = useParams();
   const [screenIndex, setScreenIndex] = useState(0);
   const [info, setInfo] = useState({ height: 75, weight: 165, smoker: "لا", bloodType: "A+" });
   const [checks, setChecks] = useState({
@@ -561,12 +672,41 @@ export default function PatientOnboardingPage() {
     medications: checklistScreens.medications.defaults,
   });
   const [files, setFiles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStepIndex = Math.max(0, Math.min(screenIndex - 1, steps.length - 1));
   const isWizard = screenIndex > 0 && screenIndex < 6;
 
   const goNext = () => setScreenIndex((current) => Math.min(current + 1, 6));
   const goPrevious = () => setScreenIndex((current) => Math.max(current - 1, 1));
+
+  const submitPatientInformation = async () => {
+    const withoutNone = (screen) =>
+      (checks[screen] || []).filter(
+        (item) => item !== checklistScreens[screen].none,
+      );
+
+    setIsSubmitting(true);
+
+    try {
+      await completePatientProfile({
+        bloodType: info.bloodType,
+        height: info.height,
+        weight: info.weight,
+        smoker: info.smoker,
+        chronicMedications: withoutNone("medications"),
+        allergies: withoutNone("allergies"),
+        chronicConditions: withoutNone("chronic"),
+        favoriteDoctors: [],
+        medicalFiles: files,
+      });
+      setScreenIndex(6);
+    } catch (error) {
+      toast.error(error.message || "تعذر حفظ بيانات الملف الطبي");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div id="top" className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
@@ -579,6 +719,7 @@ export default function PatientOnboardingPage() {
         {screenIndex === 1 && <InfoScreen data={info} setData={setInfo} onNext={goNext} />}
         {screenIndex === 2 && (
           <ChecklistScreen
+            key="chronic"
             screen="chronic"
             values={checks}
             setValues={setChecks}
@@ -588,6 +729,7 @@ export default function PatientOnboardingPage() {
         )}
         {screenIndex === 3 && (
           <ChecklistScreen
+            key="allergies"
             screen="allergies"
             values={checks}
             setValues={setChecks}
@@ -597,6 +739,7 @@ export default function PatientOnboardingPage() {
         )}
         {screenIndex === 4 && (
           <ChecklistScreen
+            key="medications"
             screen="medications"
             values={checks}
             setValues={setChecks}
@@ -604,8 +747,16 @@ export default function PatientOnboardingPage() {
             onPrevious={goPrevious}
           />
         )}
-        {screenIndex === 5 && <FilesScreen files={files} setFiles={setFiles} onNext={goNext} onPrevious={goPrevious} />}
-        {screenIndex === 6 && <SuccessScreen />}
+        {screenIndex === 5 && (
+          <FilesScreen
+            files={files}
+            setFiles={setFiles}
+            onNext={submitPatientInformation}
+            onPrevious={goPrevious}
+            isSubmitting={isSubmitting}
+          />
+        )}
+        {screenIndex === 6 && <SuccessScreen patientId={patientId} />}
       </main>
 
       <PatientFooter />

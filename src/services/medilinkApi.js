@@ -609,6 +609,16 @@ export function normalizePatient(item = {}) {
     gender: user.gender || item.gender || "",
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
+    height: item.height ?? user.height ?? "",
+    weight: item.weight ?? user.weight ?? "",
+    bloodType: item.bloodType || user.bloodType || "",
+    smoker: item.smoker ?? user.smoker ?? "",
+    chronicConditions:
+      item.chronicConditions || user.chronicConditions || [],
+    allergies: item.allergies || user.allergies || [],
+    chronicMedications:
+      item.chronicMedications || user.chronicMedications || [],
+    medicalFiles: item.medicalFiles || user.medicalFiles || [],
     role: "patient",
     active: status === "active",
     status,
@@ -1438,6 +1448,34 @@ export async function createAppointment(values) {
   return normalizeAppointment(
     findEntity(response, ["appointment", "booking", "reservation"]),
   );
+}
+
+export async function completePatientProfile(values) {
+  const formData = new FormData();
+  const arrayFields = {
+    chronicMedications: values.chronicMedications || [],
+    allergies: values.allergies || [],
+    chronicConditions: values.chronicConditions || [],
+    favoriteDoctors: values.favoriteDoctors || [],
+  };
+
+  formData.append("bloodType", values.bloodType || "");
+  formData.append("height", String(values.height || ""));
+  formData.append("weight", String(values.weight || ""));
+  formData.append("smoker", String(values.smoker || ""));
+
+  Object.entries(arrayFields).forEach(([key, items]) => {
+    formData.append(key, JSON.stringify(items));
+  });
+
+  (values.medicalFiles || []).forEach((file) => {
+    formData.append("medicalFiles", file);
+  });
+
+  return apiRequest("/patient/complete-profile", {
+    method: "PATCH",
+    body: formData,
+  });
 }
 
 export async function createPaidDemoAppointment(values) {

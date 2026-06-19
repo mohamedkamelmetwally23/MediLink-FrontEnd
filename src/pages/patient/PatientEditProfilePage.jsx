@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
 import { validateStrongPassword } from "../../utils/passwordValidation";
@@ -52,6 +52,7 @@ function savePatientToSession(patient) {
 
 export function PatientEditProfilePage() {
   const navigate = useNavigate();
+  const { patientId: routePatientId } = useParams();
   const [authUser] = useState(() => getCurrentAuthUser());
   const profile = getProfile(authUser);
   const initialBirthDate = splitBirthDate(profile.birthDate);
@@ -64,7 +65,7 @@ export function PatientEditProfilePage() {
   });
   const [image, setImage] = useState(profile.profileImage || profile.image || profile.avatar || avatar);
   const [saving, setSaving] = useState(false);
-  const patientId = getPatientId(authUser);
+  const patientId = routePatientId || getPatientId(authUser);
 
   useEffect(() => {
     let mounted = true;
@@ -112,7 +113,7 @@ export function PatientEditProfilePage() {
       });
       savePatientToSession(patient);
       toast.success("تم حفظ التعديلات بنجاح");
-      navigate("/patient/profile");
+      navigate(`/patient/${encodeURIComponent(patientId)}/profile`);
     } catch (error) {
       toast.error(error.message || "تعذر حفظ التعديلات");
     } finally {
@@ -147,7 +148,7 @@ export function PatientEditProfilePage() {
 
           <div className="mt-6"><EditField label="رقم الهاتف" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value.replace(/\D/g, "") }))} inputMode="tel" /></div>
 
-          <button type="button" onClick={() => navigate("/patient/profile/change-password")} className={`mt-8 h-13 w-full rounded-xl font-bold text-white ${gradient}`}>تغيير كلمة المرور</button>
+          <button type="button" onClick={() => navigate(`/patient/${encodeURIComponent(patientId)}/profile/change-password`)} className={`mt-8 h-13 w-full rounded-xl font-bold text-white ${gradient}`}>تغيير كلمة المرور</button>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <button type="button" onClick={() => navigate(-1)} className="h-13 rounded-xl border-2 border-[#20B7D5] font-bold text-[#20B7D5]">إلغاء</button>
             <button type="button" disabled={!canSave || saving} onClick={save} className={`h-13 rounded-xl font-bold text-white disabled:bg-[#BDBDBD] ${canSave ? gradient : ""}`}>{saving ? "جاري الحفظ..." : "حفظ التعديلات"}</button>
