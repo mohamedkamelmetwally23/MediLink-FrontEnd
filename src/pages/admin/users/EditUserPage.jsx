@@ -6,8 +6,16 @@ import ReceptionistForm from "./forms/ReceptionistForm";
 
 export default function EditUserPage() {
   const { userId } = useParams();
-  const { getUser, updateUser } = useUsersStore();
+  const { getUser, loading, updateUser } = useUsersStore();
   const user = getUser(userId);
+
+  if (loading) {
+    return (
+      <section className="grid min-h-screen place-items-center p-6 text-center">
+        <h1 className="text-2xl font-bold">جاري التحميل...</h1>
+      </section>
+    );
+  }
 
   if (!user) {
     return (

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, Eye, EyeOff, X } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { Children, isValidElement, useEffect, useRef, useState } from "react";
 
 export function Field({ label, error, children, className = "" }) {
@@ -45,21 +45,14 @@ export function TextInput({ error, className = "", ...props }) {
 
 export function DateInput({ error, className = "", ...props }) {
   return (
-    <div className="relative">
-      <input
-        {...props}
-        type="date"
-        dir="ltr"
-        className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 pr-12 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-          error ? "border-red-500" : "border-transparent focus:border-cyan-400"
-        } ${className}`}
-      />
-      <CalendarDays
-        aria-hidden="true"
-        size={20}
-        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300"
-      />
-    </div>
+    <input
+      {...props}
+      type="date"
+      dir="ltr"
+      className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
+        error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+      } ${className}`}
+    />
   );
 }
 

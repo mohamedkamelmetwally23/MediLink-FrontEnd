@@ -20,6 +20,7 @@ import {
 } from "./useSpecialtiesStore";
 
 const pageSize = 10;
+const minSpecialtyPrice = 100;
 const maxSpecialtyPrice = 1000;
 
 function getDoctorAppointmentsCount(doctor) {
@@ -28,6 +29,29 @@ function getDoctorAppointmentsCount(doctor) {
 
 function normalizePrice(price) {
   return String(price).replace(/[^\d]/g, "");
+}
+
+function getSpecialtyFormErrors({ name, price, specialties, currentName = "" }) {
+  const normalizedName = normalizeSpecialtyLabel(name);
+  const normalizedPrice = normalizePrice(price);
+  const errors = {};
+  const nameError = validateSpecialtyName(
+    normalizedName,
+    specialties.map(normalizeSpecialtyLabel),
+    currentName,
+  );
+
+  if (nameError) {
+    errors.name = nameError;
+  }
+
+  if (!normalizedPrice || Number(normalizedPrice) < minSpecialtyPrice) {
+    errors.price = "سعر الكشف أقل قيمة 100 جنيه";
+  } else if (Number(normalizedPrice) > maxSpecialtyPrice) {
+    errors.price = "سعر الكشف آخره 1000 جنيه";
+  }
+
+  return errors;
 }
 
 export default function SpecialtiesPage() {
@@ -129,22 +153,12 @@ export default function SpecialtiesPage() {
   const handleSubmitSpecialty = async ({ name, price }) => {
     const normalizedName = normalizeSpecialtyLabel(name);
     const normalizedPrice = normalizePrice(price);
-    const errors = {};
-    const nameError = validateSpecialtyName(
-      normalizedName,
-      specialties.map(normalizeSpecialtyLabel),
-      formState?.mode === "edit" ? formState.name : "",
-    );
-
-    if (nameError) {
-      errors.name = nameError;
-    }
-
-    if (!normalizedPrice || Number(normalizedPrice) <= 0) {
-      errors.price = "ادخل سعر كشف صحيح";
-    } else if (Number(normalizedPrice) > maxSpecialtyPrice) {
-      errors.price = "سعر الكشف آخره 1000 جنيه";
-    }
+    const errors = getSpecialtyFormErrors({
+      name,
+      price,
+      specialties,
+      currentName: formState?.mode === "edit" ? formState.name : "",
+    });
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -308,6 +322,7 @@ export default function SpecialtiesPage() {
           mode={formState.mode}
           initialName={formState.name}
           initialPrice={formState.price}
+          specialties={specialties}
           errors={formErrors}
           onCancel={closeForm}
           onSubmit={handleSubmitSpecialty}
@@ -573,12 +588,24 @@ function SpecialtyModal({
   mode,
   initialName,
   initialPrice,
+  specialties,
   errors,
   onCancel,
   onSubmit,
 }) {
   const [name, setName] = useState(initialName);
   const [price, setPrice] = useState(initialPrice);
+  const liveErrors = getSpecialtyFormErrors({
+    name,
+    price,
+    specialties,
+    currentName: mode === "edit" ? initialName : "",
+  });
+  const unchanged =
+    mode === "edit" &&
+    normalizeSpecialtyLabel(name) === normalizeSpecialtyLabel(initialName) &&
+    normalizePrice(price) === normalizePrice(initialPrice);
+  const submitDisabled = unchanged || Object.keys(liveErrors).length > 0;
   const nameError = errors.name;
   const priceError = errors.price;
   const generalError = errors.general;
@@ -654,7 +681,8 @@ function SpecialtyModal({
         <div className="mt-[18px] grid grid-cols-2 gap-[7px]" dir="ltr">
           <button
             type="submit"
-            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
+            disabled={submitDisabled}
+            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white transition disabled:cursor-not-allowed disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:opacity-60"
           >
             {mode === "edit" ? "حفظ التعديل" : "إضافة"}
           </button>

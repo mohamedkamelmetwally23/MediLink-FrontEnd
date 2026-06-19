@@ -23,6 +23,7 @@ const pageSize = 10;
 export default function ReceptionistsPage() {
   const {
     users,
+    loading,
     deleteUsers: removeUsers,
     toggleUserStatus,
   } = useUsersStore();
@@ -150,8 +151,10 @@ export default function ReceptionistsPage() {
                   }}
                 />
 
-                {filteredUsers.length === 0 ? (
-                  <EmptyState />
+                {loading ? (
+                  <TableState text="جاري التحميل..." />
+                ) : filteredUsers.length === 0 ? (
+                  <TableState text="لا يوجد مستخدمين حتى الآن" />
                 ) : (
                   pageUsers.map((user) => (
                     <ReceptionistRow
@@ -401,10 +404,10 @@ function StatusBadge({ status }) {
   );
 }
 
-function EmptyState() {
+function TableState({ text }) {
   return (
     <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
-      لا يوجد مستخدمين حتى الآن
+      {text}
     </div>
   );
 }

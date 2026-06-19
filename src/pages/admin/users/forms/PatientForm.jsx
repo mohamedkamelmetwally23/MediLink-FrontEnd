@@ -23,6 +23,8 @@ export default function PatientForm({
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasValidationErrors = Object.keys(validatePatient(values)).length > 0;
+  const submitDisabled = isSubmitting || hasValidationErrors;
 
   const setField = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
@@ -122,8 +124,8 @@ export default function PatientForm({
         <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2" dir="ltr">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
+            disabled={submitDisabled}
+            className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white transition disabled:cursor-not-allowed disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:opacity-60"
           >
             حفظ التعديلات
           </button>

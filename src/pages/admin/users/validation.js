@@ -83,12 +83,14 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
   }
 
   if (!options.ignoreBirthDate && (options.requireBirthDate || values.birthDate)) {
+    const minAge = options.minAge ?? 18;
+    const maxAge = options.maxAge ?? 75;
     const age = getAge(values.birthDate);
 
     if (!values.birthDate) {
       errors.birthDate = "اختر تاريخ الميلاد.";
-    } else if (!Number.isInteger(age) || age < 18 || age > 75) {
-      errors.birthDate = "يجب أن يكون العمر من 18 إلى 75 سنة.";
+    } else if (!Number.isInteger(age) || age < minAge || age > maxAge) {
+      errors.birthDate = `يجب أن يكون العمر من ${minAge} إلى ${maxAge} سنة.`;
     }
   }
 
@@ -127,6 +129,7 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
 
 export function validateDoctor(values, options) {
   const errors = validateBaseUser(values, options);
+  const age = values.birthDate ? getAge(values.birthDate) : Number.NaN;
 
   if (!values.specialty) {
     errors.specialty = "اختر التخصص.";
@@ -138,6 +141,8 @@ export function validateDoctor(values, options) {
     errors.experience = "سنوات الخبرة مطلوبة";
   } else if (!Number.isInteger(experience) || experience < 0 || experience > 60) {
     errors.experience = "ادخل رقم صحيح";
+  } else if (Number.isInteger(age) && experience > age) {
+    errors.experience = "سنوات الخبرة لا يمكن أن تكون أكبر من العمر.";
   }
 
   return errors;

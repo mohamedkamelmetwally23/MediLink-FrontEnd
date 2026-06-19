@@ -57,6 +57,16 @@ export default function DoctorForm({
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const validationOptions = {
+    requirePassword: mode === "create",
+    requireBirthDate: mode === "create",
+    ignoreBirthDate: mode === "edit",
+    minAge: 27,
+    requireStatus: mode === "create",
+  };
+  const hasValidationErrors =
+    Object.keys(validateDoctor(values, validationOptions)).length > 0;
+  const submitDisabled = isSubmitting || hasValidationErrors;
 
   const setField = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
@@ -65,12 +75,7 @@ export default function DoctorForm({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const nextErrors = validateDoctor(values, {
-      requirePassword: mode === "create",
-      requireBirthDate: mode === "create",
-      ignoreBirthDate: mode === "edit",
-      requireStatus: mode === "create",
-    });
+    const nextErrors = validateDoctor(values, validationOptions);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -153,7 +158,7 @@ export default function DoctorForm({
             <DateInput
               value={values.birthDate}
               min={getDateYearsAgo(76, 1)}
-              max={getDateYearsAgo(18)}
+              max={getDateYearsAgo(27)}
               error={errors.birthDate}
               onChange={(event) => setField("birthDate", event.target.value)}
             />
@@ -262,8 +267,8 @@ export default function DoctorForm({
         <div className="mt-2 grid gap-4 lg:col-span-2 lg:grid-cols-2" dir="ltr">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
+            disabled={submitDisabled}
+            className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white transition disabled:cursor-not-allowed disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:opacity-60"
           >
             {isSubmitting
               ? "جاري الحفظ..."

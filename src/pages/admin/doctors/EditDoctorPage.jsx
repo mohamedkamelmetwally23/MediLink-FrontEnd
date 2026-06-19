@@ -4,8 +4,16 @@ import { useUsersStore } from "../users/useUsersStore";
 
 export default function EditDoctorPage() {
   const { doctorId } = useParams();
-  const { getUser, updateUser } = useUsersStore();
+  const { getUser, loading, updateUser } = useUsersStore();
   const doctor = getUser(doctorId);
+
+  if (loading) {
+    return (
+      <section className="grid min-h-screen place-items-center p-6 text-center">
+        <h1 className="text-2xl font-bold">جاري التحميل...</h1>
+      </section>
+    );
+  }
 
   if (!doctor || doctor.role !== "doctor") {
     return (
