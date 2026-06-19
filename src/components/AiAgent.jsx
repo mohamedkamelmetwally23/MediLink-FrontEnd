@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   FiCalendar,
   FiCheckCircle,
   FiClock,
   FiCreditCard,
-  FiEye,
-  FiEyeOff,
   FiMic,
   FiSend,
   FiThumbsDown,
@@ -17,7 +14,6 @@ import {
 } from "react-icons/fi";
 import { FaStar } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { loginUser, saveAuthSession } from "../services/authApi";
 import {
   requestTriage,
   sendToChatProxy,
@@ -68,16 +64,6 @@ const initialMessages = [
     text: "مرحبا، أنا مساعدك الذكي. اكتب الأعراض أو اطلب حجز كشف، ولو الموعد فاضي هتقدر تدفع الديبوزت ويتأكد الحجز فورًا.",
   },
 ];
-
-const demoPatient = {
-  _id: "demo-patient",
-  id: "demo-patient",
-  firstName: "مريض",
-  lastName: "تجريبي",
-  name: "مريض تجريبي",
-  phone: "01000000000",
-  role: "patient",
-};
 
 const specialtyRules = [
   {
@@ -474,6 +460,21 @@ function getUserPhone(user) {
   return profile?.phone || profile?.phoneNumber || profile?.mobile || "";
 }
 
+function buildInitialMessages(user) {
+  if (!user) return initialMessages;
+
+  const patientName = getUserName(user);
+
+  return initialMessages.map((item) =>
+    item.id === "welcome"
+      ? {
+          ...item,
+          text: `مرحبًا ${patientName}، أنا مساعدك الذكي. اكتب الأعراض أو اطلب حجز كشف، وهتابع معاك بناءً على بيانات حسابك وحجوزاتك.`,
+        }
+      : item,
+  );
+}
+
 function filterPatientAppointments(appointments, user) {
   const patientId = String(getUserId(user));
   const phone = getUserPhone(user);
@@ -706,92 +707,9 @@ function Message({ message, onPickSlot, onPayDeposit, pendingPaymentId }) {
   );
 }
 
-function LoginCard({ isLoggingIn, loginData, setLoginData, onLogin, onDemoLogin }) {
-  const [showPassword, setShowPassword] = useState(false);
-
-  return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900/25 px-5 backdrop-blur-[1px]">
-      <form
-        onSubmit={onLogin}
-        className="w-full max-w-[300px] rounded-lg bg-white p-5 text-right shadow-2xl dark:bg-[#252525]"
-      >
-        <h3 className="text-center text-xl font-semibold text-gray-900 dark:text-[#F0F0F0]">
-          تسجيل دخول
-        </h3>
-        <p className="mt-1 text-center text-xs text-gray-500 dark:text-[#D2D2D2]">
-          سجل دخولك لاستخدام مساعدك الذكي
-        </p>
-
-        <label className="mt-4 block text-xs font-semibold text-gray-700 dark:text-[#F0F0F0]">
-          رقم الهاتف
-        </label>
-        <input
-          type="tel"
-          value={loginData.phoneNumber}
-          onChange={(event) =>
-            setLoginData((prev) => ({
-              ...prev,
-              phoneNumber: event.target.value,
-            }))
-          }
-          placeholder="01XXXXXXXXX"
-          className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-right text-xs outline-none focus:ring-1 focus:ring-[#05ADE8] dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]"
-        />
-
-        <label className="mt-3 block text-xs font-semibold text-gray-700 dark:text-[#F0F0F0]">
-          كلمة المرور
-        </label>
-        <div className="relative mt-1">
-          <input
-            type={showPassword ? "text" : "password"}
-            value={loginData.password}
-            onChange={(event) =>
-              setLoginData((prev) => ({ ...prev, password: event.target.value }))
-            }
-            placeholder="********"
-            className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 pl-10 text-right text-xs outline-none focus:ring-1 focus:ring-[#05ADE8] dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]"
-          />
-          <button
-            type="button"
-            aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-            aria-pressed={showPassword}
-            className="absolute left-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center text-gray-400 transition hover:text-[#05ADE8]"
-            onClick={() => setShowPassword((current) => !current)}
-          >
-            {showPassword ? <FiEye size={16} /> : <FiEyeOff size={16} />}
-          </button>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoggingIn}
-          className="mt-4 h-9 w-full rounded-md border-none bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isLoggingIn ? "جاري تسجيل الدخول..." : "تسجيل دخول"}
-        </button>
-
-        <button
-          type="button"
-          onClick={onDemoLogin}
-          className="mt-2 h-9 w-full rounded-md border border-[#05ADE8] bg-transparent text-xs font-semibold text-[#05ADE8] transition hover:bg-[#EAF8FC] dark:hover:bg-[#303030]"
-        >
-          دخول تجريبي
-        </button>
-
-        <p className="mt-3 text-center text-[11px] text-gray-500 dark:text-[#D2D2D2]">
-          ليس لديك حساب؟{" "}
-          <Link to="/register" className="font-semibold text-[#05ADE8]">
-            إنشاء حساب
-          </Link>
-        </p>
-      </form>
-    </div>
-  );
-}
-
 export default function AiAgent({ onClose }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getCurrentAuthUser()));
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(() => getCurrentAuthUser());
+  const isLoggedIn = Boolean(currentUser);
   const [isSending, setIsSending] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -799,12 +717,28 @@ export default function AiAgent({ onClose }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const [pendingPaymentId, setPendingPaymentId] = useState("");
-  const [loginData, setLoginData] = useState({ phoneNumber: "", password: "" });
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState(() =>
+    buildInitialMessages(getCurrentAuthUser()),
+  );
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => getCurrentAuthUser());
+
+  useEffect(() => {
+    const syncCurrentUser = () => {
+      const nextUser = getCurrentAuthUser();
+      setCurrentUser(nextUser);
+      setMessages(buildInitialMessages(nextUser));
+    };
+
+    window.addEventListener("storage", syncCurrentUser);
+    window.addEventListener("medilink-auth-change", syncCurrentUser);
+
+    return () => {
+      window.removeEventListener("storage", syncCurrentUser);
+      window.removeEventListener("medilink-auth-change", syncCurrentUser);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) return undefined;
@@ -836,45 +770,6 @@ export default function AiAgent({ onClose }) {
       window.clearTimeout(timer);
     };
   }, [isLoggedIn]);
-
-  const handleLogin = async (event) => {
-    event.preventDefault();
-
-    if (!loginData.phoneNumber.trim() || !loginData.password.trim()) {
-      toast.warning("أدخل رقم الهاتف وكلمة المرور");
-      return;
-    }
-
-    if (!/^01[0-9]{9}$/.test(loginData.phoneNumber.trim())) {
-      toast.warning("رقم الهاتف غير صحيح");
-      return;
-    }
-
-    setIsLoggingIn(true);
-    try {
-      const data = await loginUser({
-        phone: loginData.phoneNumber.trim(),
-        password: loginData.password,
-      });
-
-      saveAuthSession(data);
-      setCurrentUser(getCurrentAuthUser());
-      setIsLoggedIn(true);
-      toast.success("تم تسجيل الدخول");
-    } catch (error) {
-      toast.error(error.message || "تعذر تسجيل الدخول");
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleDemoLogin = () => {
-    localStorage.setItem("medilinkUser", JSON.stringify(demoPatient));
-    localStorage.setItem("medilinkRole", "patient");
-    setCurrentUser(demoPatient);
-    setIsLoggedIn(true);
-    toast.success("تم الدخول بحساب تجريبي");
-  };
 
   const handlePickSlot = (doctor, slot) => {
     const booking = {
@@ -1231,7 +1126,7 @@ export default function AiAgent({ onClose }) {
       </header>
 
       <main className="relative flex-1 overflow-y-auto bg-[#F5FBFD] px-4 py-4 dark:bg-[#1F1F1F]">
-        <div className={!isLoggedIn ? "opacity-40" : ""}>
+        <div className={!isLoggedIn ? "opacity-60" : ""}>
           <div className="space-y-4">
             {messages.map((chatMessage) => (
               <Message
@@ -1246,13 +1141,14 @@ export default function AiAgent({ onClose }) {
         </div>
 
         {!isLoggedIn && (
-          <LoginCard
-            isLoggingIn={isLoggingIn}
-            loginData={loginData}
-            setLoginData={setLoginData}
-            onLogin={handleLogin}
-            onDemoLogin={handleDemoLogin}
-          />
+          <div className="absolute inset-x-4 top-4 rounded-2xl border border-[#05ADE8]/25 bg-white/95 p-4 text-center text-sm shadow-lg dark:bg-[#252525]/95">
+            <p className="font-semibold text-gray-900 dark:text-[#F0F0F0]">
+              المساعد الذكي متاح داخل حساب المريض
+            </p>
+            <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-[#D2D2D2]">
+              سجل دخولك من صفحة الدخول، وبعدها هعرف بياناتك وحجوزاتك تلقائيًا.
+            </p>
+          </div>
         )}
       </main>
 

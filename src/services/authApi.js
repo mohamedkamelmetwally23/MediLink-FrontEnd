@@ -298,6 +298,7 @@ export function saveAuthSession(data) {
   }
 
   localStorage.setItem("medilinkRole", getAccountRole(data));
+  window.dispatchEvent(new Event("medilink-auth-change"));
 }
 
 export function clearAuthSession() {
@@ -311,4 +312,5 @@ export function clearAuthSession() {
     "medilink-admin-specialties",
     "medilink-admin-specialty-prices",
   ].forEach((key) => localStorage.removeItem(key));
+  window.dispatchEvent(new Event("medilink-auth-change"));
 }
