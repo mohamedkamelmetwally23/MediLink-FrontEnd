@@ -203,7 +203,9 @@ export default function UsersPage() {
               ) : error ? (
                 <TableState text={error} />
               ) : filteredUsers.length === 0 ? (
-                <TableState text="لا يوجد مرضى حتى الآن" />
+                <TableState
+                  text={search.trim() ? "لا يوجد نتائج" : "لا يوجد مرضى حتى الآن"}
+                />
               ) : (
                 pageUsers.map((user) => (
                   <UserRow

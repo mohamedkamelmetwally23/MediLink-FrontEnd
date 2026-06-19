@@ -66,7 +66,7 @@ export default function SpecialtyDoctorsPage() {
 
         {filteredDoctors.length === 0 ? (
           <div className="grid min-h-[520px] place-items-center text-[22px] font-medium text-black dark:text-white">
-            لا يوجد أطباء حتى الآن
+            {search.trim() ? "لا يوجد نتائج" : "لا يوجد أطباء حتى الآن"}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-x-[22px] gap-y-[48px] sm:grid-cols-2 xl:grid-cols-4">

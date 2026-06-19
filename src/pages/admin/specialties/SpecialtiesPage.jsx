@@ -290,7 +290,9 @@ export default function SpecialtiesPage() {
               />
 
               {filteredSpecialties.length === 0 ? (
-                <EmptyState />
+                <EmptyState
+                  text={search.trim() ? "لا يوجد نتائج" : "لا يوجد تخصصات حتى الآن"}
+                />
               ) : (
                 pageSpecialties.map((specialty) => (
                   <SpecialtyRow
@@ -502,10 +504,10 @@ function Checkbox({ checked, onClick }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ text = "لا يوجد تخصصات حتى الآن" }) {
   return (
     <div className="grid min-h-[620px] place-items-center text-[22px] font-medium text-black dark:text-white">
-      لا يوجد تخصصات حتى الآن
+      {text}
     </div>
   );
 }

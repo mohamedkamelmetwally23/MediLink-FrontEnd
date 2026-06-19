@@ -194,7 +194,9 @@ export default function DoctorsPage() {
               {loading ? (
                 <TableState text="جاري التحميل..." />
               ) : filteredDoctors.length === 0 ? (
-                <TableState text="لا يوجد أطباء حتى الآن" />
+                <TableState
+                  text={search.trim() ? "لا يوجد نتائج" : "لا يوجد أطباء حتى الآن"}
+                />
               ) : (
                 pageDoctors.map((doctor) => (
                   <DoctorRow

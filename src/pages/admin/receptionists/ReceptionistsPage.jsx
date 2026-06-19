@@ -174,7 +174,9 @@ export default function ReceptionistsPage() {
                 {loading ? (
                   <TableState text="جاري التحميل..." />
                 ) : filteredUsers.length === 0 ? (
-                  <TableState text="لا يوجد مستخدمين حتى الآن" />
+                  <TableState
+                    text={search.trim() ? "لا يوجد نتائج" : "لا يوجد مستخدمين حتى الآن"}
+                  />
                 ) : (
                   pageUsers.map((user) => (
                     <ReceptionistRow

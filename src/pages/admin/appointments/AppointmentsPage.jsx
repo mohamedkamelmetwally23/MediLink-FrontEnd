@@ -231,7 +231,9 @@ export default function AppointmentsPage() {
               ) : error ? (
                 <TableState text={error} />
               ) : filteredAppointments.length === 0 ? (
-                <TableState text="لا يوجد مواعيد في قاعدة البيانات حتى الآن" />
+                <TableState
+                  text={search.trim() ? "لا يوجد نتائج" : "لا يوجد مواعيد في قاعدة البيانات حتى الآن"}
+                />
               ) : (
                 pageAppointments.map((appointment) => (
                   <AppointmentRow
