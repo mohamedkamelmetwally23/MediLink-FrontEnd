@@ -20,7 +20,7 @@ export default function EditDoctorPage() {
     );
   }
 
-  const handleSubmit = (values) => updateUser(doctor.id, values);
+  const handleSubmit = (values) => updateUser(doctorId, values);
 
   return (
     <DoctorForm

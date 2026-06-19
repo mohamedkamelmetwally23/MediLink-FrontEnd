@@ -68,8 +68,21 @@ export default function DoctorForm({
     const nextErrors = validateDoctor(values, {
       requirePassword: mode === "create",
       requireBirthDate: mode === "create",
+      ignoreBirthDate: mode === "edit",
+      requireStatus: mode === "create",
     });
     setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      const messages = Object.values(nextErrors).flat().filter(Boolean);
+      setErrors({
+        ...nextErrors,
+        general: messages.length
+          ? messages.join(" ")
+          : "راجع البيانات المطلوبة قبل الحفظ.",
+      });
+      return;
+    }
 
     if (Object.keys(nextErrors).length === 0) {
       setIsSubmitting(true);
@@ -252,7 +265,11 @@ export default function DoctorForm({
             disabled={isSubmitting}
             className="h-[54px] rounded-xl bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white"
           >
-            {mode === "edit" ? "حفظ التعديلات" : "إنشاء الحساب"}
+            {isSubmitting
+              ? "جاري الحفظ..."
+              : mode === "edit"
+                ? "حفظ التعديلات"
+                : "إنشاء الحساب"}
           </button>
           <button
             type="button"

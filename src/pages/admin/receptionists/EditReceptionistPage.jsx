@@ -23,7 +23,7 @@ export default function EditReceptionistPage() {
     );
   }
 
-  const handleSubmit = (values) => updateUser(receptionist.id, values);
+  const handleSubmit = (values) => updateUser(receptionistId, values);
 
   return (
     <ReceptionistForm

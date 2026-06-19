@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -240,7 +239,6 @@ export default function AppointmentsPage() {
                     appointment={appointment}
                     selected={selectedIds.includes(appointment.id)}
                     onToggle={() => toggleAppointment(appointment.id)}
-                    onDelete={() => setPendingDelete([appointment.id])}
                   />
                 ))
               )}
@@ -352,7 +350,7 @@ function TableHeader({
   onPaymentChange,
 }) {
   return (
-    <div className="grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr_64px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+    <div className="grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
@@ -401,8 +399,6 @@ function TableHeader({
           </option>
         ))}
       </FilterSelect>
-      <span />
-      <span />
     </div>
   );
 }
@@ -421,10 +417,10 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function AppointmentRow({ appointment, selected, onToggle, onDelete }) {
+function AppointmentRow({ appointment, selected, onToggle }) {
   return (
     <div
-      className={`grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr_64px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+      className={`grid h-[56px] grid-cols-[64px_1.25fr_1.15fr_1.45fr_1fr_1fr] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
         selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
@@ -442,36 +438,8 @@ function AppointmentRow({ appointment, selected, onToggle, onDelete }) {
       <div className="flex justify-center">
         <StatusBadge value={appointment.payment} labels={paymentStatusLabels} />
       </div>
-      <div className="flex justify-center">
-        <button
-          type="button"
-          aria-label="حذف الموعد"
-          className="text-[#333] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={24} strokeWidth={1.8} />
-        </button>
-      </div>
-      <Link
-        to={getPatientProfilePath(appointment)}
-        aria-label={`عرض ملف ${appointment.patient}`}
-        className="grid h-full place-items-center text-[#333] dark:text-white"
-      >
-        <ChevronLeft size={23} strokeWidth={1.7} />
-      </Link>
     </div>
   );
-}
-
-function getPatientProfilePath(appointment) {
-  const params = new URLSearchParams({
-    name: appointment.patient,
-    phone: appointment.phone,
-    role: "patient",
-    status: "active",
-  });
-
-  return `/admin/users/profile?${params.toString()}`;
 }
 
 function Checkbox({ checked, onClick }) {

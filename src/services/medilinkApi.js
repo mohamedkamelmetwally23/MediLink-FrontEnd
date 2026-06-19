@@ -66,16 +66,19 @@ function findEntity(response, keys) {
 
 async function requestFirst(paths, options = {}) {
   let lastError;
+  const retryStatuses = options.retryStatuses || [400, 404, 405];
+  const requestOptions = { ...options };
+  delete requestOptions.retryStatuses;
 
   for (const path of paths) {
     try {
-      return await apiRequest(path, options);
+      return await apiRequest(path, requestOptions);
     } catch (error) {
       lastError = error;
 
       if (
         !(error instanceof ApiError) ||
-        ![400, 404, 405].includes(error.status)
+        !retryStatuses.includes(error.status)
       ) {
         throw error;
       }
@@ -153,19 +156,45 @@ function getDoctorUpdateIds(id, values = {}, currentDoctor = {}) {
   return Array.from(
     new Set(
       [
+        currentDoctor.profileId,
+        values.profileId,
+        currentDoctor.raw?._id,
+        values.raw?._id,
+        getId(currentDoctor.raw?.doctorProfile),
+        getId(values.raw?.doctorProfile),
         id,
-        values.userId,
-        currentDoctor.userId,
         getProfileUserId(currentDoctor.raw),
         getProfileUserId(values.raw),
         currentDoctor.raw?.user?._id,
         currentDoctor.raw?.user?.id,
         values.raw?.user?._id,
         values.raw?.user?.id,
-        currentDoctor.raw?._id,
-        currentDoctor.profileId,
-        values.raw?._id,
+        values.userId,
+        currentDoctor.userId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getReceptionistUpdateIds(id, values = {}, currentReceptionist = {}) {
+  return Array.from(
+    new Set(
+      [
+        currentReceptionist.profileId,
         values.profileId,
+        currentReceptionist.raw?._id,
+        values.raw?._id,
+        id,
+        currentReceptionist.userId,
+        values.userId,
+        getProfileUserId(currentReceptionist.raw),
+        getProfileUserId(values.raw),
+        currentReceptionist.raw?.user?._id,
+        currentReceptionist.raw?.user?.id,
+        values.raw?.user?._id,
+        values.raw?.user?.id,
       ]
         .filter(Boolean)
         .map(String),
@@ -537,7 +566,8 @@ export function normalizeReceptionist(item = {}) {
   );
 
   return {
-    id: getId(item),
+    id: getProfileUserId(item) || getId(user) || getId(item),
+    profileId: getId(item),
     userId: getProfileUserId(item) || getId(user),
     firstName:
       user.firstName || item.firstName || splitName(item.name).firstName,
@@ -631,7 +661,15 @@ async function withHydratedUsers(items) {
 
 export function normalizeAppointment(item = {}) {
   const patient = item.patient || item.patientId || item.user || {};
+  const patientUser =
+    patient && typeof patient === "object"
+      ? patient.user || patient.account || patient
+      : {};
   const doctor = item.doctor || item.doctorId || {};
+  const doctorUser =
+    doctor && typeof doctor === "object"
+      ? doctor.user || doctor.account || doctor
+      : {};
   const specialization =
     item.specialization || item.specialty || doctor.specialization || {};
   const date =
@@ -649,13 +687,18 @@ export function normalizeAppointment(item = {}) {
     id: getId(item),
     patientId: getId(patient),
     doctorId: getId(doctor),
-    patient: joinName(patient) || item.patientName || item.name || "",
-    doctor: joinName(doctor) || item.doctorName || "",
+    patient:
+      joinName(patientUser) ||
+      joinName(patient) ||
+      item.patientName ||
+      item.name ||
+      "",
+    doctor: joinName(doctorUser) || joinName(doctor) || item.doctorName || "",
     specialty:
       (typeof specialization === "object"
         ? specialization.name
         : specialization) || "",
-    phone: patient.phone || item.phone || "",
+    phone: patientUser.phone || patient.phone || item.phone || "",
     date: normalizeDate(date),
     time,
     status: normalizeAppointmentStatus(item.status || item.bookingStatus),
@@ -687,9 +730,9 @@ function doctorPayload(values, mode = "create") {
     firstName: values.firstName?.trim(),
     lastName: values.lastName?.trim(),
     gender: values.gender,
-    phone: values.phone?.trim(),
+    phone: mode === "create" ? values.phone?.trim() : undefined,
     birthDate: getBirthDatePayload(values, mode === "create"),
-    role: "doctor",
+    role: mode === "create" ? "doctor" : undefined,
     specialization:
       values.specializationId || values.specialtyId || values.specialty,
     experienceYears: normalizeNumber(
@@ -793,12 +836,14 @@ export async function updateDoctor(id, values, currentDoctor) {
   }
 
   const body = doctorPayload(values, "edit");
-  const doctorPaths = doctorIds.flatMap((doctorId) => [
-    `/doctors/${doctorId}`,
-    `/doctorprofiles/${doctorId}`,
-    `/doctorProfiles/${doctorId}`,
-    `/doctor-profiles/${doctorId}`,
-  ]);
+  const doctorPaths = [
+    ...doctorIds.map((doctorId) => `/doctors/${doctorId}`),
+    ...doctorIds.flatMap((doctorId) => [
+      `/doctorprofiles/${doctorId}`,
+      `/doctorProfiles/${doctorId}`,
+      `/doctor-profiles/${doctorId}`,
+    ]),
+  ];
 
   const response = await requestFirst(doctorPaths, {
     method: "PATCH",
@@ -990,12 +1035,27 @@ export async function createReceptionist(values) {
   );
 }
 
-export async function updateReceptionist(id, values) {
+export async function updateReceptionist(id, values, currentReceptionist) {
+  const receptionistIds = getReceptionistUpdateIds(
+    id,
+    values,
+    currentReceptionist,
+  );
+  const paths = [
+    ...receptionistIds.flatMap((receptionistId) => [
+      `/receptionist/${receptionistId}`,
+      `/reseptionist/${receptionistId}`,
+      `/receptionists/${receptionistId}`,
+      `/reseptionists/${receptionistId}`,
+    ]),
+  ];
+
   const response = await requestFirst(
-    [`/receptionist/${id}`, `/receptionists/${id}`],
+    paths,
     {
       method: "PATCH",
       body: receptionistPayload(values, "edit"),
+      retryStatuses: [404, 405],
     },
   );
   return normalizeReceptionist(
@@ -1045,7 +1105,7 @@ export async function updateUser(id, values, currentUser) {
   const role = values.role || currentUser?.role;
 
   if (role === "doctor") return updateDoctor(id, values, currentUser);
-  if (role === "receptionist") return updateReceptionist(id, values);
+  if (role === "receptionist") return updateReceptionist(id, values, currentUser);
   return updatePatient(id, values);
 }
 
@@ -1256,22 +1316,16 @@ export function isAppointmentSlotAvailable(values, appointments = []) {
 }
 
 export async function listAppointments() {
-  const demoAppointments = readDemoAppointments().map(normalizeAppointment);
+  const response = await apiRequest("/appointments");
+  const appointments = findArray(response, [
+    "allAppointments",
+    "appointments",
+    "appointment",
+    "bookings",
+    "reservations",
+  ]);
 
-  try {
-    const appointments = await listFromPaths(
-      ["/appointment", "/appointments"],
-      ["appointments", "appointment", "bookings", "reservations"],
-    );
-
-    return mergeAppointments(
-      appointments.map(normalizeAppointment),
-      demoAppointments,
-    );
-  } catch (error) {
-    if (demoAppointments.length > 0) return demoAppointments;
-    throw error;
-  }
+  return appointments.map(normalizeAppointment);
 }
 
 export async function listDoctorAppointments(doctorId) {
@@ -1336,7 +1390,7 @@ export async function deleteAppointment(id) {
     return { deleted: true };
   }
 
-  return requestFirst([`/appointment/${id}`, `/appointments/${id}`], {
+  return requestFirst([`/appointments/${id}`, `/appointment/${id}`], {
     method: "DELETE",
   });
 }

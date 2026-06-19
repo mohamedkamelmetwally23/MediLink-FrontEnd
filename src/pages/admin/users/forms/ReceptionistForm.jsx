@@ -65,7 +65,17 @@ export default function ReceptionistForm({
     const nextErrors = validateReceptionist(values, {
       requirePassword: mode === "create",
       requireBirthDate: mode === "create",
+      ignoreBirthDate: mode === "edit",
     });
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors({
+        ...nextErrors,
+        general: Object.values(nextErrors).filter(Boolean).join(" "),
+      });
+      return;
+    }
+
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length === 0) {

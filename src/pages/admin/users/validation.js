@@ -82,7 +82,7 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
     errors.role = "اختر الدور.";
   }
 
-  if (options.requireBirthDate || values.birthDate) {
+  if (!options.ignoreBirthDate && (options.requireBirthDate || values.birthDate)) {
     const age = getAge(values.birthDate);
 
     if (!values.birthDate) {
@@ -92,11 +92,11 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
     }
   }
 
-  if (!phonePattern.test(values.phone.trim())) {
+  if (!phonePattern.test(String(values.phone || "").trim())) {
     errors.phone = "رقم الهاتف يجب أن يكون رقم مصري صحيح مكون من 11 رقم.";
   }
 
-  if (!values.status) {
+  if (options.requireStatus !== false && !values.status) {
     errors.status = "اختر الحالة.";
   }
 
@@ -145,8 +145,9 @@ export function validateDoctor(values, options) {
 
 export function validateReceptionist(values, options) {
   const errors = validateBaseUser(values, options);
+  const educationText = String(values.education || "").trim();
 
-  if (values.education.trim().length < 3) {
+  if (educationText.length < 3) {
     errors.education = "اكتب المؤهل الدراسي بشكل صحيح.";
   }
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
+  getWorkingDayId,
   loadClinicInfo,
+  updateClinicSchedule,
   updateClinicInfo,
   useClinicInfo,
 } from "../../../services/clinicInfoStore";
@@ -9,27 +11,8 @@ import { timeOptions } from "../users/usersData";
 
 const tabs = [
   { id: "info", label: "معلومات العيادة" },
-  { id: "payment", label: "إعدادات الدفع" },
   { id: "hours", label: "أيام وساعات العمل" },
 ];
-
-const initialPayment = {
-  offerPercentage: "",
-  consultationPrice: "",
-  followUpPrice: "",
-  refundOnCancel: false,
-  bookingGraceHours: "",
-  lateCancelDiscount: "",
-  paymentMethods: {
-    cash: false,
-    card: false,
-    instapay: false,
-    wallet: false,
-  },
-  hasDiscounts: false,
-  discountPercentage: "",
-  discountedVisitPrice: "",
-};
 
 const initialWorkingDays = [
   { id: "sat", name: "السبت", active: false, from: "", to: "" },
@@ -46,6 +29,34 @@ const initialAppointmentSettings = {
   dailyLimit: "",
 };
 
+function buildWorkingDaysFromSchedule(scheduleDays = []) {
+  const daysById = new Map(
+    scheduleDays
+      .map((day) => [getWorkingDayId(day.day), day])
+      .filter(([id]) => id),
+  );
+
+  return initialWorkingDays.map((day) => {
+    const scheduleDay = daysById.get(day.id);
+
+    if (!scheduleDay) return day;
+
+    return {
+      ...day,
+      active: Boolean(scheduleDay.isActive),
+      from: scheduleDay.startTime || "",
+      to: scheduleDay.endTime || "",
+    };
+  });
+}
+
+function buildAppointmentSettingsFromSchedule(schedule = {}) {
+  return {
+    duration: schedule.appointmentDuration ?? "",
+    dailyLimit: schedule.maxAppointmentsPerDay ?? "",
+  };
+}
+
 const inputClass =
   "h-11 w-full rounded-md border border-transparent bg-[#f1f1f1] px-4 text-sm text-[#333] outline-none transition placeholder:text-gray-400 focus:border-[#16B9E7] dark:bg-[#505050] dark:text-white";
 
@@ -59,7 +70,6 @@ export default function ClinicManagementPage() {
   const [loadedClinicInfo, setLoadedClinicInfo] = useState(savedClinicInfo);
   const [clinicLoading, setClinicLoading] = useState(true);
   const [clinicSaving, setClinicSaving] = useState(false);
-  const [payment, setPayment] = useState(initialPayment);
   const [workingDays, setWorkingDays] = useState(initialWorkingDays);
   const [appointmentSettings, setAppointmentSettings] = useState(
     initialAppointmentSettings,
@@ -73,6 +83,10 @@ export default function ClinicManagementPage() {
         if (!mounted) return;
         setClinicInfo(info);
         setLoadedClinicInfo(info);
+        setWorkingDays(buildWorkingDaysFromSchedule(info.schedule?.workingDays));
+        setAppointmentSettings(
+          buildAppointmentSettingsFromSchedule(info.schedule),
+        );
       })
       .catch((error) => {
         if (mounted) toast.error(error.message || "تعذر تحميل بيانات العيادة");
@@ -102,15 +116,48 @@ export default function ClinicManagementPage() {
       return;
     }
 
+    if (activeTab === "hours") {
+      setClinicSaving(true);
+      try {
+        const updatedSchedule = await updateClinicSchedule(
+          appointmentSettings,
+          workingDays,
+        );
+        setWorkingDays(
+          buildWorkingDaysFromSchedule(updatedSchedule.workingDays),
+        );
+        setAppointmentSettings(
+          buildAppointmentSettingsFromSchedule(updatedSchedule),
+        );
+        setClinicInfo((current) => ({
+          ...current,
+          schedule: updatedSchedule,
+        }));
+        setLoadedClinicInfo((current) => ({
+          ...current,
+          schedule: updatedSchedule,
+        }));
+        toast.success("تم حفظ أيام وساعات العمل بنجاح");
+      } catch (error) {
+        toast.error(error.message || "تعذر حفظ أيام وساعات العمل");
+      } finally {
+        setClinicSaving(false);
+      }
+      return;
+    }
+
     toast.success("تم حفظ التغييرات بنجاح");
   };
 
   const cancelChanges = () => {
     if (activeTab === "info") setClinicInfo(loadedClinicInfo);
-    if (activeTab === "payment") setPayment(initialPayment);
     if (activeTab === "hours") {
-      setWorkingDays(initialWorkingDays);
-      setAppointmentSettings(initialAppointmentSettings);
+      setWorkingDays(
+        buildWorkingDaysFromSchedule(loadedClinicInfo.schedule?.workingDays),
+      );
+      setAppointmentSettings(
+        buildAppointmentSettingsFromSchedule(loadedClinicInfo.schedule),
+      );
     }
   };
 
@@ -119,7 +166,7 @@ export default function ClinicManagementPage() {
       <ClinicHeader />
 
       <div className="bg-white px-4 dark:bg-[#3a3a3a] sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-[1070px] grid-cols-3 border-b border-gray-300 text-center text-base font-bold text-gray-400 dark:border-white/15">
+        <div className="mx-auto grid max-w-[1070px] grid-cols-2 border-b border-gray-300 text-center text-base font-bold text-gray-400 dark:border-white/15">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -152,15 +199,6 @@ export default function ClinicManagementPage() {
           />
         )}
 
-        {activeTab === "payment" && (
-          <PaymentForm
-            values={payment}
-            onChange={setPayment}
-            onSave={saveChanges}
-            onCancel={cancelChanges}
-          />
-        )}
-
         {activeTab === "hours" && (
           <WorkingHoursForm
             days={workingDays}
@@ -169,6 +207,7 @@ export default function ClinicManagementPage() {
             onAppointmentSettingsChange={setAppointmentSettings}
             onSave={saveChanges}
             onCancel={cancelChanges}
+            saving={clinicSaving}
           />
         )}
       </div>
@@ -182,7 +221,7 @@ function ClinicHeader() {
       <div className="text-right">
         <h1 className="text-2xl font-bold lg:text-3xl">إعدادات العيادة</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">
-          تحكم في معلومات العيادة وساعات العمل وإعدادات المواعيد والدفع.
+          تحكم في معلومات العيادة وساعات العمل وإعدادات المواعيد.
         </p>
       </div>
     </header>
@@ -254,212 +293,6 @@ function ClinicInfoForm({
   );
 }
 
-function PaymentForm({ values, onChange, onSave, onCancel }) {
-  const setField = (field, value) => {
-    onChange((current) => ({ ...current, [field]: value }));
-  };
-
-  const setMethod = (method, checked) => {
-    onChange((current) => ({
-      ...current,
-      paymentMethods: {
-        ...current.paymentMethods,
-        [method]: checked,
-      },
-    }));
-  };
-
-  return (
-    <FormCard className="max-w-[690px] gap-7 rounded-xl p-8 shadow-[0_3px_24px_rgba(0,0,0,0.12)]">
-      <PaymentUnitField
-        label="نسبة العروض"
-        unit="%"
-        value={values.offerPercentage}
-        fullWidth
-        onChange={(event) => setField("offerPercentage", event.target.value)}
-      />
-
-      <div className="grid items-start gap-7 md:grid-cols-3" dir="rtl">
-        <PaymentChoiceGroup
-          label="استرداد المبلغ عند الإلغاء"
-          firstLabel="نعم"
-          firstChecked={values.refundOnCancel}
-          onFirstChange={() => setField("refundOnCancel", true)}
-          secondLabel="لا"
-          secondChecked={!values.refundOnCancel}
-          onSecondChange={() => setField("refundOnCancel", false)}
-        />
-        <PaymentUnitField
-          label="مهلة إلغاء الحجز"
-          unit="ساعة"
-          value={values.bookingGraceHours}
-          onChange={(event) =>
-            setField("bookingGraceHours", event.target.value)
-          }
-        />
-        <PaymentUnitField
-          label="نسبة الخصم عند الإلغاء المتأخر"
-          unit="%"
-          value={values.lateCancelDiscount}
-          onChange={(event) =>
-            setField("lateCancelDiscount", event.target.value)
-          }
-        />
-      </div>
-
-      <div className="grid w-full max-w-[350px] gap-4">
-        <h2 className="text-right text-base font-semibold text-[#111] dark:text-white">
-          طرق الدفع
-        </h2>
-        <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-          <PaymentCheckbox
-            label="بطاقة بنكية"
-            checked={values.paymentMethods.card}
-            onChange={(event) => setMethod("card", event.target.checked)}
-          />
-          <PaymentCheckbox
-            label="محفظة إلكترونية"
-            checked={values.paymentMethods.wallet}
-            onChange={(event) => setMethod("wallet", event.target.checked)}
-          />
-          <PaymentCheckbox
-            label="انستا باي"
-            checked={values.paymentMethods.instapay}
-            onChange={(event) => setMethod("instapay", event.target.checked)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t-2 border-gray-200 pt-7 dark:border-white/10">
-        <div className="grid items-start gap-7 md:grid-cols-3" dir="rtl">
-          <PaymentChoiceGroup
-            label="هل يوجد خصومات"
-            firstLabel="نعم"
-            firstChecked={values.hasDiscounts}
-            onFirstChange={() => setField("hasDiscounts", true)}
-            secondLabel="لا"
-            secondChecked={!values.hasDiscounts}
-            onSecondChange={() => setField("hasDiscounts", false)}
-          />
-          <PaymentUnitField
-            label="نسبة الخصم"
-            unit="%"
-            value={values.discountPercentage}
-            disabled={!values.hasDiscounts}
-            onChange={(event) =>
-              setField("discountPercentage", event.target.value)
-            }
-          />
-        </div>
-      </div>
-
-      <ActionButtons onSave={onSave} onCancel={onCancel} />
-    </FormCard>
-  );
-}
-
-function PaymentFieldLabel({ children, className = "text-right" }) {
-  return (
-    <span
-      className={`mb-2 block whitespace-nowrap text-base font-semibold text-[#111] dark:text-white ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function PaymentUnitField({
-  label,
-  unit,
-  disabled = false,
-  fullWidth = false,
-  ...props
-}) {
-  return (
-    <label
-      className={fullWidth ? "block text-right" : "block text-center"}
-      dir="rtl"
-    >
-      <PaymentFieldLabel className={fullWidth ? "text-right" : "text-center"}>
-        {label}
-      </PaymentFieldLabel>
-      <div className={`relative ${fullWidth ? "w-full" : "mx-auto w-[104px]"}`}>
-        <input
-          {...props}
-          disabled={disabled}
-          inputMode="numeric"
-          className="h-12 w-full rounded-xl border border-transparent bg-[#eeeeee] px-4 pl-11 text-right text-base text-[#4b4b4b] outline-none transition focus:border-[#16B9E7] disabled:opacity-60 dark:bg-[#505050] dark:text-white"
-        />
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-[#111] dark:text-white">
-          {unit}
-        </span>
-      </div>
-    </label>
-  );
-}
-
-function PaymentChoiceGroup({
-  label,
-  firstLabel,
-  firstChecked,
-  onFirstChange,
-  secondLabel,
-  secondChecked,
-  onSecondChange,
-}) {
-  return (
-    <div className="text-center" dir="rtl">
-      <PaymentFieldLabel className="text-right">{label}</PaymentFieldLabel>
-      <div className="flex h-12 items-center justify-center gap-5">
-        <PaymentRadio
-          label={firstLabel}
-          checked={firstChecked}
-          onChange={onFirstChange}
-        />
-        <PaymentRadio
-          label={secondLabel}
-          checked={secondChecked}
-          onChange={onSecondChange}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PaymentRadio({ label, checked, onChange }) {
-  return (
-    <label
-      className="flex items-center gap-3 text-base font-semibold text-[#333] dark:text-white"
-      dir="rtl"
-    >
-      <span>{label}</span>
-      <input
-        type="radio"
-        checked={checked}
-        onChange={onChange}
-        className="h-[18px] w-[18px] accent-[#47c2d6]"
-      />
-    </label>
-  );
-}
-
-function PaymentCheckbox({ label, checked, onChange }) {
-  return (
-    <label
-      className="flex items-center justify-start gap-3 text-base font-semibold text-[#333] dark:text-white"
-      dir="rtl"
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="h-5 w-5 rounded border-gray-300 accent-[#47c2d6]"
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
 function WorkingHoursForm({
   days,
   onDaysChange,
@@ -467,6 +300,7 @@ function WorkingHoursForm({
   onAppointmentSettingsChange,
   onSave,
   onCancel,
+  saving = false,
 }) {
   const updateDay = (id, field, value) => {
     onDaysChange((current) =>
@@ -571,7 +405,12 @@ function WorkingHoursForm({
           />
         </div>
 
-        <ActionButtons onSave={onSave} onCancel={onCancel} />
+        <ActionButtons
+          onSave={onSave}
+          onCancel={onCancel}
+          disabled={saving}
+          saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"}
+        />
       </FormCard>
     </div>
   );

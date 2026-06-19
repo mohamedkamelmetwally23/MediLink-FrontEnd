@@ -9,6 +9,35 @@ export const defaultClinicInfo = {
   description: "",
   phone: "015 5677 3899",
   email: "info@medilink.com",
+  schedule: {
+    appointmentDuration: "",
+    maxAppointmentsPerDay: "",
+    workingDays: [],
+  },
+};
+
+const backendWorkingDayNames = {
+  sat: "السبت",
+  sun: "الاحد",
+  mon: "الاثنين",
+  tue: "الثلاثاء",
+  wed: "الاربعاء",
+  thu: "الخميس",
+  fri: "الجمعة",
+};
+
+const workingDayAliases = {
+  السبت: "sat",
+  الاحد: "sun",
+  الأحد: "sun",
+  الاثنين: "mon",
+  الإثنين: "mon",
+  الثلاثاء: "tue",
+  الاربعاء: "wed",
+  الأربعاء: "wed",
+  الخميس: "thu",
+  الجمعة: "fri",
+  الجمعه: "fri",
 };
 
 function readClinicInfo() {
@@ -40,6 +69,7 @@ export function saveClinicInfo(info) {
 
 function normalizeClinicInfo(response) {
   const data = response?.data?.clinic || response?.data?.information || response?.data || response?.clinic || response?.information || response || {};
+  const schedule = data.schedule || response?.data?.schedule || response?.schedule || {};
 
   return {
     name: data.name || "",
@@ -47,6 +77,29 @@ function normalizeClinicInfo(response) {
     description: data.description || "",
     phone: data.phone || "",
     email: data.email || "",
+    schedule: {
+      appointmentDuration: schedule.appointmentDuration ?? "",
+      maxAppointmentsPerDay: schedule.maxAppointmentsPerDay ?? "",
+      workingDays: Array.isArray(schedule.workingDays)
+        ? schedule.workingDays
+        : [],
+    },
+  };
+}
+
+function normalizeSchedule(response) {
+  const data =
+    response?.data?.clinic?.schedule ||
+    response?.data?.schedule ||
+    response?.schedule ||
+    response?.data ||
+    response ||
+    {};
+
+  return {
+    appointmentDuration: data.appointmentDuration ?? "",
+    maxAppointmentsPerDay: data.maxAppointmentsPerDay ?? "",
+    workingDays: Array.isArray(data.workingDays) ? data.workingDays : [],
   };
 }
 
@@ -91,6 +144,43 @@ export async function updateClinicInfo(info) {
   };
   saveClinicInfo(updatedInfo);
   return updatedInfo;
+}
+
+export function getWorkingDayId(dayName) {
+  return workingDayAliases[String(dayName || "").trim()] || "";
+}
+
+export function getBackendWorkingDayName(dayId) {
+  return backendWorkingDayNames[dayId] || String(dayId || "");
+}
+
+export async function updateClinicSchedule(appointmentSettings, workingDays) {
+  const payload = {
+    appointmentDuration: Number(appointmentSettings.duration || 0),
+    maxAppointmentsPerDay:
+      appointmentSettings.dailyLimit === ""
+        ? undefined
+        : Number(appointmentSettings.dailyLimit),
+    workingDays: workingDays.map((day) => ({
+      day: getBackendWorkingDayName(day.id),
+      isActive: Boolean(day.active),
+      startTime: day.active ? day.from : "",
+      endTime: day.active ? day.to : "",
+    })),
+  };
+
+  const response = await apiRequest("/clinic/schedule", {
+    method: "PATCH",
+    body: payload,
+  });
+  const currentInfo = readClinicInfo();
+  const nextInfo = {
+    ...currentInfo,
+    schedule: normalizeSchedule(response),
+  };
+
+  saveClinicInfo(nextInfo);
+  return nextInfo.schedule;
 }
 
 export function useClinicInfo() {
