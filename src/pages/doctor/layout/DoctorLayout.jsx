@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, LogOut, Menu, Stethoscope, UsersRound, X } from "lucide-react";
+import asideLogo from "../../../assets/aside.png";
 import doctorAvatar from "../../../assets/landingPage/doctor1.png";
 import currentPatientAvatar from "../../../assets/landingPage/admin.png";
 import patientAvatarOne from "../../../assets/landingPage/12 1.png";
@@ -120,10 +121,11 @@ function DoctorBadge({ onClose }) {
       <div className="relative h-[227px] overflow-visible bg-gradient-to-b from-[#0caee0] to-[#63d0ca] text-center">
         <Link
           to="/doctor"
-          className="block pt-[43px] text-[24px] font-bold leading-7 text-white"
+          className="mx-auto flex w-fit pt-[43px]"
+          aria-label="Medilink"
           onClick={onClose}
         >
-          Medilink
+          <img src={asideLogo} alt="Medilink" className="h-[42px] w-auto object-contain" />
         </Link>
 
         <div className="absolute bottom-0 h-[46px] w-full rounded-t-[48%] bg-white dark:bg-[#3a3a3a]" />

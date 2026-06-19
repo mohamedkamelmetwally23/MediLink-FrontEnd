@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import ThemeLogo from "./ThemeLogo";
 
 const links = [
   { href: "#home", label: "الرئيسية" },
@@ -49,8 +50,8 @@ export default function Navbar() {
           </ul>
         </div>
 
-        <Link to="/" className="truncate text-xl font-bold text-sky-600 sm:text-2xl">
-          MediLink
+        <Link to="/" className="block shrink-0" aria-label="MediLink">
+          <ThemeLogo className="h-auto w-[132px] object-contain sm:w-[160px]" />
         </Link>
       </div>
 

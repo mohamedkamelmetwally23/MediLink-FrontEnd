@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaStar } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import logo from "../../assets/landingPage/logo.png";
+import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/patient departement/Avatar.png";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
 import specialtyTooth from "../../assets/landingPage/lets-icons_tooth-light.png";
@@ -162,7 +162,7 @@ export function PatientHomeHeader() {
   return (
     <header className="sticky top-0 z-30 mx-auto grid min-h-[76px] w-[calc(100%_-_24px)] max-w-[1280px] grid-cols-[auto_1fr_auto] items-center gap-4 rounded-b-2xl bg-white/95 px-4 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:bg-[#343434]/95 sm:w-[calc(100%_-_48px)] sm:px-6 lg:min-h-[88px] lg:px-8">
       <Link to={patientHomePath} className="justify-self-start" aria-label="MediLink">
-        <img src={logo} alt="MediLink" className="w-28 object-contain sm:w-36" />
+        <ThemeLogo className="w-28 object-contain sm:w-36" />
       </Link>
 
       <nav className="hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg">
@@ -536,7 +536,7 @@ export function PatientHomeFooter() {
     <footer id="contact" className="bg-white shadow-[0_-8px_22px_rgba(0,0,0,0.04)] dark:bg-[#343434]">
       <div className={`${sectionClass} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-5`}>
         <section>
-          <img src={logo} alt="MediLink" className="w-40" />
+          <ThemeLogo className="w-40 object-contain" />
           <p className="mt-5 max-w-[280px] text-sm leading-6 text-[#444444] dark:text-[#D7D7D7]">نظام متكامل لإدارة العيادات والمراكز الطبية وتقديم أفضل تجربة للمرضى والأطباء</p>
           <div className="mt-6 flex gap-5 text-xl text-[#26B8D6]"><FaLinkedinIn /><FaInstagram /><FaXTwitter /><FaFacebookF /></div>
         </section>
