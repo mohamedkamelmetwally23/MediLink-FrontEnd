@@ -3,6 +3,7 @@ export default function ConfirmStatusChangeModal({
   loading,
   error,
   note = "",
+  showNote = true,
   onNoteChange,
   onCancel,
   onConfirm,
@@ -28,7 +29,7 @@ export default function ConfirmStatusChangeModal({
 
         {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
 
-        {isActive && (
+        {isActive && showNote && (
           <label className="mt-5 block text-right">
             <span className="mb-2 block text-[14px] font-semibold text-[#333] dark:text-white">
               ملاحظه

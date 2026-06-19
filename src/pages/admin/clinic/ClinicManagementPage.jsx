@@ -58,6 +58,43 @@ function buildAppointmentSettingsFromSchedule(schedule = {}) {
   };
 }
 
+function getTimeMinutes(time) {
+  if (!time) return null;
+
+  const [hours = "0", minutes = "0"] = String(time).split(":");
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function getWorkingHoursErrors(days, appointmentSettings) {
+  const errors = [];
+  const activeDays = days.filter((day) => day.active);
+  const duration = Number(appointmentSettings.duration);
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    errors.push("مدة الموعد مطلوبة");
+  }
+
+  if (activeDays.length === 0) {
+    errors.push("اختار يوم عمل واحد على الأقل");
+  }
+
+  activeDays.forEach((day) => {
+    const from = getTimeMinutes(day.from);
+    const to = getTimeMinutes(day.to);
+
+    if (from === null || to === null) {
+      errors.push(`حدد وقت البداية والنهاية ليوم ${day.name}`);
+      return;
+    }
+
+    if (to <= from) {
+      errors.push(`وقت النهاية لازم يكون بعد وقت البداية في يوم ${day.name}`);
+    }
+  });
+
+  return errors;
+}
+
 const inputClass =
   "h-11 w-full rounded-md border border-transparent bg-[#f1f1f1] px-4 text-sm text-[#333] outline-none transition placeholder:text-gray-400 focus:border-[#16B9E7] dark:bg-[#505050] dark:text-white";
 
@@ -118,6 +155,16 @@ export default function ClinicManagementPage() {
     }
 
     if (activeTab === "hours") {
+      const scheduleErrors = getWorkingHoursErrors(
+        workingDays,
+        appointmentSettings,
+      );
+
+      if (scheduleErrors.length > 0) {
+        toast.error(scheduleErrors[0]);
+        return;
+      }
+
       setClinicSaving(true);
       try {
         const updatedSchedule = await updateClinicSchedule(
@@ -303,6 +350,9 @@ function WorkingHoursForm({
   onCancel,
   saving = false,
 }) {
+  const errors = getWorkingHoursErrors(days, appointmentSettings);
+  const canSave = !saving && errors.length === 0;
+
   const updateDay = (id, field, value) => {
     onDaysChange((current) =>
       current.map((day) =>
@@ -401,12 +451,17 @@ function WorkingHoursForm({
               setAppointmentField("duration", event.target.value)
             }
           />
+          {errors.length > 0 && (
+            <p className="text-right text-sm font-semibold text-red-500">
+              {errors[0]}
+            </p>
+          )}
         </div>
 
         <ActionButtons
           onSave={onSave}
           onCancel={onCancel}
-          disabled={saving}
+          disabled={!canSave}
           saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"}
         />
       </FormCard>

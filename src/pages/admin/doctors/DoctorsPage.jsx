@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
@@ -29,7 +28,6 @@ export default function DoctorsPage() {
   const {
     users,
     loading,
-    deleteUsers: removeUsers,
     toggleUserStatus,
   } = useUsersStore();
   const { specialties } = useSpecialtiesStore();
@@ -37,11 +35,11 @@ export default function DoctorsPage() {
   const [search, setSearch] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pendingDelete, setPendingDelete] = useState(null);
   const [pendingStatusUser, setPendingStatusUser] = useState(null);
   const [pendingStatusNote, setPendingStatusNote] = useState("");
   const [statusError, setStatusError] = useState("");
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredDoctors = useMemo(() => {
@@ -70,6 +68,12 @@ export default function DoctorsPage() {
   );
   const visibleIds = pageDoctors.map((doctor) => doctor.id);
   const selectedCount = selectedIds.length;
+  const selectedDoctors = filteredDoctors.filter((doctor) =>
+    selectedIds.includes(doctor.id),
+  );
+  const allSelectedBlocked =
+    selectedDoctors.length > 0 &&
+    selectedDoctors.every((doctor) => doctor.status === "inactive");
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
@@ -91,12 +95,6 @@ export default function DoctorsPage() {
     });
   };
 
-  const deleteDoctors = (ids) => {
-    removeUsers(ids);
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
-  };
-
   const confirmStatusChange = async (note = pendingStatusNote) => {
     if (!pendingStatusUser) return;
 
@@ -111,6 +109,30 @@ export default function DoctorsPage() {
       setStatusError(error.message || "تعذر تحديث الحالة، حاول مرة أخرى.");
     } finally {
       setIsStatusUpdating(false);
+    }
+  };
+
+  const toggleSelectedDoctorsStatus = async () => {
+    const targetIds = selectedDoctors
+      .filter((doctor) =>
+        allSelectedBlocked
+          ? doctor.status === "inactive"
+          : doctor.status !== "inactive",
+      )
+      .map((doctor) => doctor.id);
+
+    if (targetIds.length === 0) {
+      setSelectedIds([]);
+      return;
+    }
+
+    setBulkStatusLoading(true);
+
+    try {
+      await Promise.all(targetIds.map((id) => toggleUserStatus(id)));
+      setSelectedIds([]);
+    } finally {
+      setBulkStatusLoading(false);
     }
   };
 
@@ -144,7 +166,9 @@ export default function DoctorsPage() {
           <SelectionBar
             count={selectedCount}
             onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
+            onToggleStatus={toggleSelectedDoctorsStatus}
+            loading={bulkStatusLoading}
+            unblock={allSelectedBlocked}
           />
         )}
 
@@ -178,7 +202,6 @@ export default function DoctorsPage() {
                     doctor={doctor}
                     selected={selectedIds.includes(doctor.id)}
                     onToggle={() => toggleDoctor(doctor.id)}
-                    onDelete={() => setPendingDelete([doctor.id])}
                     onToggleStatus={() => {
                       setStatusError("");
                       setPendingStatusNote(
@@ -201,13 +224,6 @@ export default function DoctorsPage() {
           )}
         </section>
       </main>
-
-      {pendingDelete && (
-        <ConfirmDeleteModal
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deleteDoctors(pendingDelete)}
-        />
-      )}
 
       {pendingStatusUser && (
         <ConfirmStatusChangeModal
@@ -269,7 +285,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
+function SelectionBar({ count, onClear, onToggleStatus, loading, unblock }) {
   return (
     <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <p className="text-[17px] font-semibold text-[#333] dark:text-white">
@@ -287,11 +303,21 @@ function SelectionBar({ count, onClear, onDelete }) {
         </button>
         <button
           type="button"
-          className="flex h-[40px] items-center gap-[16px] rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626]"
-          onClick={onDelete}
+          disabled={loading}
+          className={`flex h-[40px] items-center rounded-[11px] border px-[18px] text-[16px] font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+            unblock
+              ? "border-[#129a55] text-[#129a55] hover:bg-[#e8fff4] dark:hover:bg-emerald-500/10"
+              : "border-[#ff2626] text-[#ff2626] hover:bg-[#fff0f0] dark:hover:bg-red-500/10"
+          }`}
+          onClick={onToggleStatus}
         >
-          <span>حذف المحدد</span>
-          <Trash2 size={22} strokeWidth={1.8} />
+          {loading
+            ? unblock
+              ? "جاري إلغاء الحظر..."
+              : "جاري الحظر..."
+            : unblock
+              ? "إلغاء الحظر"
+              : "حظر المحدد"}
         </button>
       </div>
     </div>
@@ -532,33 +558,3 @@ function getPaginationPages(currentPage, totalPages) {
   });
 }
 
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
-  return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
-      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
-        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
-          !
-        </div>
-        <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
-        </h2>
-        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
-          <button
-            type="button"
-            className="h-[43px] rounded-[8px] border border-[#0fb8e8] text-[13px] font-semibold text-[#12aee0]"
-            onClick={onConfirm}
-          >
-            نعم
-          </button>
-          <button
-            type="button"
-            className="h-[43px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white"
-            onClick={onCancel}
-          >
-            لا
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

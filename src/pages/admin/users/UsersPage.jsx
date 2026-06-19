@@ -95,6 +95,10 @@ export default function UsersPage() {
   );
   const visibleIds = pageUsers.map((user) => user.id);
   const selectedCount = selectedIds.length;
+  const selectedUsers = users.filter((user) => selectedIds.includes(user.id));
+  const allSelectedBlocked =
+    selectedUsers.length > 0 &&
+    selectedUsers.every((user) => getUserActiveStatus(user) === "inactive");
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
@@ -132,12 +136,16 @@ export default function UsersPage() {
     }
   };
 
-  const blockSelectedUsers = async () => {
-    const activeSelectedIds = users
-      .filter((user) => selectedIds.includes(user.id) && getUserActiveStatus(user) === "active")
+  const toggleSelectedUsersStatus = async () => {
+    const targetSelectedIds = selectedUsers
+      .filter((user) =>
+        allSelectedBlocked
+          ? getUserActiveStatus(user) === "inactive"
+          : getUserActiveStatus(user) === "active",
+      )
       .map((user) => user.id);
 
-    if (activeSelectedIds.length === 0) {
+    if (targetSelectedIds.length === 0) {
       setSelectedIds([]);
       return;
     }
@@ -145,7 +153,7 @@ export default function UsersPage() {
     setBulkBlockLoading(true);
 
     try {
-      await Promise.all(activeSelectedIds.map((id) => toggleUserStatus(id)));
+      await Promise.all(targetSelectedIds.map((id) => toggleUserStatus(id)));
       setSelectedIds([]);
     } finally {
       setBulkBlockLoading(false);
@@ -171,8 +179,9 @@ export default function UsersPage() {
           <SelectionBar
             count={selectedCount}
             onClear={() => setSelectedIds([])}
-            onBlock={blockSelectedUsers}
+            onToggleStatus={toggleSelectedUsersStatus}
             blocking={bulkBlockLoading}
+            unblock={allSelectedBlocked}
           />
         )}
 
@@ -282,7 +291,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onBlock, blocking }) {
+function SelectionBar({ count, onClear, onToggleStatus, blocking, unblock }) {
   return (
     <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <p className="text-[17px] font-semibold text-[#333] dark:text-white">
@@ -301,10 +310,20 @@ function SelectionBar({ count, onClear, onBlock, blocking }) {
         <button
           type="button"
           disabled={blocking}
-          className="flex h-[40px] items-center rounded-[11px] border border-[#ff2626] px-[18px] text-[16px] font-semibold text-[#ff2626] transition hover:bg-[#fff0f0] disabled:cursor-wait disabled:opacity-60 dark:hover:bg-red-500/10"
-          onClick={onBlock}
+          className={`flex h-[40px] items-center rounded-[11px] border px-[18px] text-[16px] font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+            unblock
+              ? "border-[#129a55] text-[#129a55] hover:bg-[#e8fff4] dark:hover:bg-emerald-500/10"
+              : "border-[#ff2626] text-[#ff2626] hover:bg-[#fff0f0] dark:hover:bg-red-500/10"
+          }`}
+          onClick={onToggleStatus}
         >
-          {blocking ? "جاري الحظر..." : "حظر المحدد"}
+          {blocking
+            ? unblock
+              ? "جاري إلغاء الحظر..."
+              : "جاري الحظر..."
+            : unblock
+              ? "إلغاء الحظر"
+              : "حظر المحدد"}
         </button>
       </div>
     </div>
