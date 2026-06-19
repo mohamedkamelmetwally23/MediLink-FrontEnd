@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
@@ -60,16 +60,17 @@ function buildPatient(user, apiPatient) {
     status: source.status === "inactive" ? "غير مفعل" : "مفعل",
     height: source.height || 166,
     weight: source.weight || 70,
-    bloodType: source.bloodType || "O+",
+    bloodType: source.bloodType || "غير متوفر",
     smoker: source.smoker || "نعم",
-    diseases: source.chronicDiseases || source.diseases || ["السكري (النوع الثاني)", "ارتفاع ضغط الدم"],
-    allergies: source.allergies || ["أكزيما", "حساسية اللاكتوز"],
-    medicines: source.medications || source.medicines || ["ميتفورمين", "كورتيزون", "لوراتادين"],
+    diseases: source.chronicConditions || [],
+    allergies: source.allergies || [],
+    medicines: source.chronicMedications || [],
   };
 }
 
 export default function PatientProfilePage() {
   const navigate = useNavigate();
+  const { patientId: routePatientId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [authUser] = useState(() => getCurrentAuthUser());
   const { doctors } = useDoctors();
@@ -82,7 +83,7 @@ export default function PatientProfilePage() {
 
   useEffect(() => {
     let mounted = true;
-    const patientId = currentPatientId(authUser);
+    const patientId = routePatientId || currentPatientId(authUser);
 
     Promise.all([
       patientId ? getPatient(patientId).catch(() => null) : Promise.resolve(null),
@@ -100,7 +101,7 @@ export default function PatientProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [authUser]);
+  }, [authUser, routePatientId]);
 
   const changeTab = (tabId) => {
     setSearch("");
@@ -156,7 +157,7 @@ export default function PatientProfilePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <button type="button" onClick={() => navigate("/patient/profile/edit")} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
+            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/profile/edit`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
             <button type="button" onClick={() => toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")} className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600">حذف الحساب</button>
           </div>
         </section>
@@ -234,7 +235,11 @@ function TagGroup({ title, values }) {
     <section>
       <h2 className="mb-3 font-bold">{title}</h2>
       <div className="flex flex-wrap gap-3">
-        {values.map((value) => <span key={value} className="rounded-xl bg-[#EAF9FB] px-5 py-2 text-[#20B7D5] dark:bg-[#31504E] dark:text-[#B9F0EC]">{value}</span>)}
+        {values.length > 0 ? (
+          values.map((value) => <span key={value} className="rounded-xl bg-[#EAF9FB] px-5 py-2 text-[#20B7D5] dark:bg-[#31504E] dark:text-[#B9F0EC]">{value}</span>)
+        ) : (
+          <span className="text-sm text-[#999] dark:text-[#BBB]">لا توجد بيانات</span>
+        )}
       </div>
     </section>
   );

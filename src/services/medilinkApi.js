@@ -579,6 +579,16 @@ export function normalizePatient(item = {}) {
     gender: user.gender || item.gender || "",
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
+    height: item.height ?? user.height ?? "",
+    weight: item.weight ?? user.weight ?? "",
+    bloodType: item.bloodType || user.bloodType || "",
+    smoker: item.smoker ?? user.smoker ?? "",
+    chronicConditions:
+      item.chronicConditions || user.chronicConditions || [],
+    allergies: item.allergies || user.allergies || [],
+    chronicMedications:
+      item.chronicMedications || user.chronicMedications || [],
+    medicalFiles: item.medicalFiles || user.medicalFiles || [],
     role: "patient",
     active: status === "active",
     status,

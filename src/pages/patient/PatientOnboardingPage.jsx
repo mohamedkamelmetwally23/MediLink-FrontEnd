@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Check,
@@ -612,7 +612,7 @@ function FilesScreen({
   );
 }
 
-function SuccessScreen() {
+function SuccessScreen({ patientId }) {
   return (
     <section className="flex min-h-[650px] w-full max-w-[1320px] flex-col items-center justify-center text-center">
       <div className="relative h-[450px] w-[470px] max-w-[90vw] max-md:h-[320px]" aria-hidden="true">
@@ -629,7 +629,10 @@ function SuccessScreen() {
       <p className="mb-10 mt-2 text-xl font-semibold text-[#333333] dark:text-[#F0F0F0] max-md:text-[17px]">
         يمكنك الآن حجز المواعيد، متابعة سجلك الطبي، والحصول على توصيات طبية أكثر دقة.
       </p>
-      <Link to="/patient/home" className={`${primaryButtonClass} w-full max-w-[820px]`}>
+      <Link
+        to={`/patient/${encodeURIComponent(patientId)}/home`}
+        className={`${primaryButtonClass} w-full max-w-[820px]`}
+      >
         إبدأ استخدام Medilink
       </Link>
     </section>
@@ -660,6 +663,7 @@ function WizardActions({
 }
 
 export default function PatientOnboardingPage() {
+  const { patientId } = useParams();
   const [screenIndex, setScreenIndex] = useState(0);
   const [info, setInfo] = useState({ height: 75, weight: 165, smoker: "لا", bloodType: "A+" });
   const [checks, setChecks] = useState({
@@ -752,7 +756,7 @@ export default function PatientOnboardingPage() {
             isSubmitting={isSubmitting}
           />
         )}
-        {screenIndex === 6 && <SuccessScreen />}
+        {screenIndex === 6 && <SuccessScreen patientId={patientId} />}
       </main>
 
       <PatientFooter />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Bot,
   CalendarCheck,
@@ -41,6 +41,7 @@ import searchDoctorIcon from "../../assets/landingPage/13(1).png";
 import specialtyIcon from "../../assets/landingPage/13 (2).png";
 import appointmentIcon from "../../assets/landingPage/13 (3).png";
 import { clearAuthSession } from "../../services/authApi";
+import { getCurrentAuthUser } from "../../services/medilinkApi";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
@@ -118,13 +119,25 @@ const faqs = [
 
 export function PatientHomeHeader() {
   const navigate = useNavigate();
+  const { patientId } = useParams();
+  const authUser = getCurrentAuthUser();
+  const currentPatientId =
+    patientId ||
+    authUser?.patientId ||
+    authUser?.patient?._id ||
+    authUser?.patient?.id ||
+    authUser?.profile?._id ||
+    authUser?._id ||
+    authUser?.id ||
+    "";
+  const patientHomePath = `/patient/${encodeURIComponent(currentPatientId)}/home`;
   const profileMenuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountDetailsOpen, setAccountDetailsOpen] = useState(false);
 
   const mobileLinks = [
-    { href: "/patient/home", label: "الرئيسية", route: true },
+    { href: patientHomePath, label: "الرئيسية", route: true },
     { href: "/patient/doctors", label: "المواعيد", route: true },
     { href: "#assistant", label: "مساعد AI" },
     { href: "#contact", label: "تواصل معنا" },
@@ -148,12 +161,12 @@ export function PatientHomeHeader() {
 
   return (
     <header className="sticky top-0 z-30 mx-auto grid min-h-[76px] w-[calc(100%_-_24px)] max-w-[1280px] grid-cols-[auto_1fr_auto] items-center gap-4 rounded-b-2xl bg-white/95 px-4 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:bg-[#343434]/95 sm:w-[calc(100%_-_48px)] sm:px-6 lg:min-h-[88px] lg:px-8">
-      <Link to="/patient/home" className="justify-self-start" aria-label="MediLink">
+      <Link to={patientHomePath} className="justify-self-start" aria-label="MediLink">
         <img src={logo} alt="MediLink" className="w-28 object-contain sm:w-36" />
       </Link>
 
       <nav className="hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg">
-        <Link to="/patient/home" className="transition hover:text-[#05ADE8]">الرئيسية</Link>
+        <Link to={patientHomePath} className="transition hover:text-[#05ADE8]">الرئيسية</Link>
         <Link to="/patient/doctors" className="transition hover:text-[#05ADE8]">المواعيد</Link>
         <a href="#assistant" className="transition hover:text-[#05ADE8]">مساعد AI</a>
         <a href="#contact" className="transition hover:text-[#05ADE8]">تواصل معنا</a>
@@ -224,7 +237,7 @@ export function PatientHomeHeader() {
                   ].map((item) => (
                     <Link
                       key={item.label}
-                      to={`/patient/profile?tab=${item.tab}`}
+                      to={`/patient/${encodeURIComponent(currentPatientId)}/profile?tab=${item.tab}`}
                       className="block rounded-md px-2 py-2 transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
                       onClick={() => setProfileOpen(false)}
                     >
@@ -242,7 +255,7 @@ export function PatientHomeHeader() {
               className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-[#333333] transition hover:bg-[#F7F7F7] dark:text-[#F0F0F0] dark:hover:bg-white/5"
               onClick={() => {
                 setProfileOpen(false);
-                navigate("/patient/profile/edit");
+                navigate(`/patient/${encodeURIComponent(currentPatientId)}/profile/edit`);
               }}
             >
               <Settings size={23} strokeWidth={1.8} />
@@ -297,13 +310,13 @@ export function PatientHomeHeader() {
   );
 }
 
-function HeroSection() {
+function HeroSection({ patientName }) {
   return (
     <section id="home" className={`${sectionClass} pt-10 sm:pt-14 lg:pt-16`}>
       <div className="grid items-center gap-8 md:grid-cols-2 lg:gap-14">
         <div className="order-2 text-center md:order-1 md:text-right">
           <h1 className="text-3xl font-bold text-[#333333] dark:text-[#F0F0F0] sm:text-4xl lg:text-[48px]">
-            مرحباً، خالد <span aria-hidden="true">👋</span>
+            مرحباً، {patientName} <span aria-hidden="true">👋</span>
           </h1>
           <p className="mt-3 text-base text-[#737373] dark:text-[#CFCFCF] sm:text-lg">نتمنى لك يوماً صحياً سعيداً</p>
 
@@ -547,11 +560,18 @@ export function PatientHomeFooter() {
 }
 
 export default function PatientHomePage() {
+  const authUser = getCurrentAuthUser();
+  const patient = authUser?.patient || authUser?.profile || authUser || {};
+  const patientName =
+    [patient.firstName, patient.lastName].filter(Boolean).join(" ").trim() ||
+    patient.name ||
+    "مريض ميديلينك";
+
   return (
     <div className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
       <PatientHomeHeader />
       <main>
-        <HeroSection />
+        <HeroSection patientName={patientName} />
         <StatsSection />
         <SpecialtiesSection />
         <DoctorsSection />
