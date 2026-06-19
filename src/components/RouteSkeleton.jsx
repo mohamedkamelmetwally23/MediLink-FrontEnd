@@ -103,7 +103,11 @@ function LandingRouteSkeleton() {
 }
 
 export default function RouteSkeleton({ pathname }) {
-  if (pathname.startsWith("/admin") || pathname.startsWith("/doctor")) {
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/doctor") ||
+    pathname.startsWith("/receptionist")
+  ) {
     return <AdminSkeleton />;
   }
 

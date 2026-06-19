@@ -32,6 +32,15 @@ import DoctorAppointmentsPage from "./pages/doctor/AppointmentsPage";
 import DoctorPatientsPage from "./pages/doctor/PatientsPage";
 import DoctorPatientProfilePage from "./pages/doctor/PatientProfilePage";
 import DoctorActivityPage from "./pages/doctor/ActivityPage";
+import ReceptionistLayout from "./pages/receptionist/layout/ReceptionistLayout";
+import ReceptionistDashboard from "./pages/receptionist/Dashboard";
+import ReceptionistAppointmentsPage from "./pages/receptionist/AppointmentsPage";
+import ReceptionistDoctorsPage from "./pages/receptionist/DoctorsPage";
+import ReceptionistDoctorProfilePage from "./pages/receptionist/DoctorProfilePage";
+import ReceptionistPatientsPage from "./pages/receptionist/PatientsPage";
+import ReceptionistPatientProfilePage from "./pages/receptionist/PatientProfilePage";
+import ReceptionistSchedulePage from "./pages/receptionist/SchedulePage";
+import ReceptionistBookingPage from "./pages/receptionist/BookingPage";
 import RouteSkeleton from "./components/RouteSkeleton";
 import PatientOnboardingPage from "./pages/patient/PatientOnboardingPage";
 import PatientHomePage from "./pages/patient/PatientHomePage";
@@ -105,6 +114,17 @@ function App() {
           <Route path="appointments" element={<DoctorAppointmentsPage />} />
           <Route path="patients" element={<DoctorPatientsPage />} />
           <Route path="patients/:patientId/profile" element={<DoctorPatientProfileRoute />} />
+        </Route>
+        <Route path="/receptionist" element={<ReceptionistLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<ReceptionistDashboard />} />
+          <Route path="patients" element={<ReceptionistPatientsPage />} />
+          <Route path="patients/:patientId/profile" element={<ReceptionistPatientProfilePage />} />
+          <Route path="doctors" element={<ReceptionistDoctorsPage />} />
+          <Route path="doctors/:doctorId/profile" element={<ReceptionistDoctorProfilePage />} />
+          <Route path="appointments" element={<ReceptionistAppointmentsPage />} />
+          <Route path="schedule" element={<ReceptionistSchedulePage />} />
+          <Route path="book" element={<ReceptionistBookingPage />} />
         </Route>
         </Routes>
 

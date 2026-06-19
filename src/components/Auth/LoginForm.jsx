@@ -73,6 +73,8 @@ export default function LoginForm() {
           ? "/admin/dashboard"
           : role === "doctor"
             ? "/doctor/dashboard"
+            : role === "receptionist"
+              ? "/receptionist/dashboard"
             : role === "patient" || role === "user"
               ? `/patient/${encodeURIComponent(patientId)}/patientinformation`
               : "/",

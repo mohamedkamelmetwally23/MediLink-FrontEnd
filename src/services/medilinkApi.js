@@ -809,15 +809,24 @@ function patientPayload(values) {
 }
 
 export async function listDoctors() {
-  const doctors = await listFromPaths(
+  const response = await requestFirst(
     [
       "/doctors?limit=500",
       "/doctorprofiles?limit=500",
       "/doctorProfiles?limit=500",
       "/doctor-profiles?limit=500",
     ],
-    ["doctors", "doctor", "doctorprofiles", "doctorProfiles", "profiles"],
+    {
+      retryStatuses: [400, 403, 404, 405],
+    },
   );
+  const doctors = findArray(response, [
+    "doctors",
+    "doctor",
+    "doctorprofiles",
+    "doctorProfiles",
+    "profiles",
+  ]);
   const hydratedDoctors = await withHydratedUsers(doctors);
   return hydratedDoctors.map(normalizeDoctor);
 }
@@ -1487,7 +1496,21 @@ export function isAppointmentSlotAvailable(values, appointments = []) {
 }
 
 export async function listAppointments() {
-  const response = await apiRequest("/appointments");
+  const response = await requestFirst(
+    [
+      "/appointment?limit=500",
+      "/appointment",
+      "/appointment/getAllAppointments",
+      "/appointments?limit=500",
+      "/appointments",
+      "/appointments/getAllAppointments",
+      "/booking?limit=500",
+      "/bookings?limit=500",
+    ],
+    {
+      retryStatuses: [400, 403, 404, 405],
+    },
+  );
   const appointments = findArray(response, [
     "allAppointments",
     "appointments",
@@ -1530,6 +1553,7 @@ export async function listDoctorAppointments(doctorId) {
       if (
         error instanceof ApiError &&
         error.status !== 404 &&
+        error.status !== 403 &&
         error.status !== 400 &&
         doctorDemoAppointments.length > 0
       ) {
@@ -1538,7 +1562,7 @@ export async function listDoctorAppointments(doctorId) {
 
       if (
         !(error instanceof ApiError) ||
-        (error.status !== 404 && error.status !== 400)
+        (error.status !== 404 && error.status !== 403 && error.status !== 400)
       ) {
         throw error;
       }
