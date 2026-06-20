@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
@@ -13,7 +13,13 @@ import { getPatient } from "../../services/medilinkApi";
 
 
 export default function LoginForm() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const returnTo =
+    typeof location.state?.returnTo === "string" &&
+    location.state.returnTo.startsWith("/")
+      ? location.state.returnTo
+      : "";
   const [formData, setFormData] = useState({
     phoneNumber: "",
     password: "",
@@ -87,6 +93,10 @@ export default function LoginForm() {
         }
       }
 
+      const patientDestination = patientProfileCompleted
+        ? returnTo || `/patient/${encodeURIComponent(patientId)}/home`
+        : `/patient/${encodeURIComponent(patientId)}/patientinformation`;
+
       navigate(
         role === "admin"
           ? "/admin/dashboard"
@@ -95,9 +105,7 @@ export default function LoginForm() {
             : role === "receptionist"
               ? "/receptionist/dashboard"
             : role === "patient" || role === "user"
-              ? patientProfileCompleted
-                ? `/patient/${encodeURIComponent(patientId)}/home`
-                : `/patient/${encodeURIComponent(patientId)}/patientinformation`
+              ? patientDestination
               : "/",
       );
     } catch (error) {

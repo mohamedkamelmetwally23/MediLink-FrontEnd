@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { Home, LogOut, Menu, Stethoscope, UsersRound, X } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
 import doctorAvatar from "../../../assets/landingPage/doctor1.png";
+import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
   getCurrentDoctorId,
@@ -195,6 +196,7 @@ export default function DoctorLayout() {
 
 function Sidebar({ isOpen, onClose, doctor, waitingList }) {
   const navigate = useNavigate();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const handleLogout = () => {
     clearAuthSession();
@@ -203,11 +205,12 @@ function Sidebar({ isOpen, onClose, doctor, waitingList }) {
   };
 
   return (
-    <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
-        isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      }`}
-    >
+    <>
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 w-[min(300px,88vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[300px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
+          isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        }`}
+      >
       <button
         type="button"
         aria-label="إغلاق القائمة"
@@ -219,10 +222,16 @@ function Sidebar({ isOpen, onClose, doctor, waitingList }) {
 
       <div className="h-full flex flex-col overflow-y-auto">
         <DoctorBadge doctor={doctor} onClose={onClose} />
-        <MainNav onClose={onClose} onLogout={handleLogout} />
+        <MainNav onClose={onClose} onLogout={() => setLogoutConfirmOpen(true)} />
         <WaitingList waitingList={waitingList} onClose={onClose} />
       </div>
-    </aside>
+      </aside>
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
+    </>
   );
 }
 

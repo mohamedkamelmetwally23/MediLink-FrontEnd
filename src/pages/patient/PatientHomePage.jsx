@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaStar } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import LogoutConfirmModal from "../../components/LogoutConfirmModal";
 import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
@@ -141,6 +142,7 @@ export function PatientHomeHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountDetailsOpen, setAccountDetailsOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const mobileLinks = [
     { href: patientHomePath, label: "الرئيسية", route: true },
@@ -295,7 +297,10 @@ export function PatientHomeHeader() {
             <button
               type="button"
               className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-[#D92727] transition hover:bg-red-50 dark:hover:bg-red-950/20"
-              onClick={handleLogout}
+              onClick={() => {
+                setProfileOpen(false);
+                setLogoutConfirmOpen(true);
+              }}
             >
               <LogOut size={23} strokeWidth={1.8} />
               <span className="text-lg font-medium">تسجيل الخروج</span>
@@ -334,6 +339,11 @@ export function PatientHomeHeader() {
           )}
         </nav>
       </div>
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
     </header>
   );
 }

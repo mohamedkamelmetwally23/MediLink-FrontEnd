@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
 import doctor from "../../../assets/landingPage/admin.png";
+import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import { getCurrentAuthUser } from "../../../services/medilinkApi";
 import { useUsersStore } from "../users/useUsersStore";
@@ -101,6 +102,7 @@ export default function AdminLayout() {
 function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const { getUser } = useUsersStore();
   const forcedActiveTo = getProfileActiveRoute(location, getUser);
   const displayName = getAuthUserDisplayName(getCurrentAuthUser(), "مدير النظام");
@@ -112,11 +114,12 @@ function Sidebar({ isOpen, onClose }) {
   };
 
   return (
-    <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
-        isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      }`}
-    >
+    <>
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 w-[min(292px,85vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[292px] lg:translate-x-0 lg:shadow-none ${
+          isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        }`}
+      >
       <button
         type="button"
         aria-label="إغلاق القائمة"
@@ -174,7 +177,7 @@ function Sidebar({ isOpen, onClose }) {
 
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setLogoutConfirmOpen(true)}
           className="flex h-[47px] w-full items-center justify-start gap-[34px] rounded-xl px-0 text-[#ff7b7b]"
         >
           <LogOut size={27} strokeWidth={1.8} />
@@ -182,7 +185,13 @@ function Sidebar({ isOpen, onClose }) {
         </button>
       </nav>
       </div>
-    </aside>
+      </aside>
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
+    </>
   );
 }
 

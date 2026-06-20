@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { CalendarCheck2, CircleDollarSign, Stethoscope, UsersRound } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { getDoctor } from "../../services/medilinkApi";
@@ -32,18 +32,25 @@ function DoctorProfileSkeleton() {
 
 export default function PatientDoctorProfilePage() {
   const { doctorId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [doctor, setDoctor] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const showPatientHeader = hasPatientSession();
+  const initialDoctor = location.state?.doctor || null;
+  const [doctor, setDoctor] = useState(initialDoctor);
+  const [loading, setLoading] = useState(!initialDoctor);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
+    setLoading(!initialDoctor);
+    setError("");
+
     getDoctor(doctorId)
       .then((result) => {
         if (mounted) setDoctor(result);
       })
       .catch((requestError) => {
+        if (mounted && initialDoctor) return;
         if (mounted) setError(requestError.message || "تعذر تحميل بيانات الطبيب");
       })
       .finally(() => {
@@ -52,11 +59,11 @@ export default function PatientDoctorProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [doctorId]);
+  }, [doctorId, initialDoctor]);
 
   return (
     <div className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
-      <PatientHomeHeader />
+      {showPatientHeader && <PatientHomeHeader />}
       {loading ? (
         <DoctorProfileSkeleton />
       ) : error || !doctor ? (
@@ -67,14 +74,24 @@ export default function PatientDoctorProfilePage() {
           </button>
         </main>
       ) : (
-        <DoctorProfile doctor={doctor} onBook={() => navigate(`/patient/doctors/${doctor.id}/book`, { state: { doctor } })} />
+        <DoctorProfile doctor={doctor} canBook={showPatientHeader} onBook={() => navigate(`/patient/doctors/${doctor.id}/book`, { state: { doctor } })} />
       )}
       <PatientHomeFooter />
     </div>
   );
 }
 
-function DoctorProfile({ doctor, onBook }) {
+function hasPatientSession() {
+  const token =
+    localStorage.getItem("medilinkToken") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken");
+  const role = localStorage.getItem("medilinkRole");
+
+  return Boolean(token && (role === "patient" || role === "user"));
+}
+
+function DoctorProfile({ doctor, canBook, onBook }) {
   const rating = getDoctorRating(doctor);
   const price = doctor.consultationFee || doctor.raw?.price || 100;
   const stats = [
@@ -108,9 +125,11 @@ function DoctorProfile({ doctor, onBook }) {
             <p>متاح للحجز<br /><strong>هذا الأسبوع</strong></p>
           </div>
 
+          {canBook && (
           <button type="button" onClick={onBook} className={`mt-8 w-full max-w-xl rounded-xl py-3.5 text-lg font-bold text-white shadow-lg ${gradient}`}>
             احجز موعدك الآن
           </button>
+          )}
         </div>
 
         <div className="relative order-1 mx-auto flex h-[300px] w-full max-w-[430px] items-end justify-center md:order-2 md:h-[430px]">

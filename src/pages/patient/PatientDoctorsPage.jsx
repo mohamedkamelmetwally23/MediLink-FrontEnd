@@ -96,7 +96,7 @@ function DoctorCard({ doctor, index }) {
           type="button"
           disabled={!available}
           className={`mt-3 min-h-11 rounded-lg font-semibold text-white ${available ? gradient : "bg-[#BDBDBD]"} disabled:cursor-not-allowed`}
-          onClick={() => navigate(`/patient/doctors/${doctor.id}`)}
+          onClick={() => navigate(`/patient/doctors/${doctor.id}`, { state: { doctor } })}
         >
           احجز موعدك الآن
         </button>

@@ -22,20 +22,12 @@ export default function Doctors() {
   const { doctors, loading, error, reload } = useDoctors();
 
   const openDoctorProfile = (doctor) => {
-    const role = localStorage.getItem("medilinkRole");
-    const token =
-      localStorage.getItem("medilinkToken") ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("accessToken");
-    const doctorPath = `/patient/doctors/${doctor.id}`;
+    const doctorId = doctor.id || doctor.profileId || doctor.userId;
 
-    if (token && (role === "patient" || role === "user")) {
-      navigate(doctorPath);
-      return;
-    }
+    if (!doctorId) return;
 
-    navigate("/login", {
-      state: { returnTo: doctorPath },
+    navigate(`/patient/doctors/${doctorId}`, {
+      state: { doctor },
     });
   };
 

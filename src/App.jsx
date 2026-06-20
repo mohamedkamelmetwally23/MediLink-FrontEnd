@@ -57,7 +57,21 @@ import {
 function App() {
   const { dark } = useTheme();
   const location = useLocation();
-  const showPatientAssistant = location.pathname.startsWith("/patient");
+  const [, setAuthVersion] = useState(0);
+  const showPatientAssistant =
+    location.pathname.startsWith("/patient") && hasPatientSession();
+
+  useEffect(() => {
+    const handleAuthChange = () => setAuthVersion((version) => version + 1);
+
+    window.addEventListener("medilink-auth-change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("medilink-auth-change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, []);
 
   return (
     <div
@@ -147,6 +161,16 @@ function App() {
       </div>
     </div>
   );
+}
+
+function hasPatientSession() {
+  const token =
+    localStorage.getItem("medilinkToken") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken");
+  const role = localStorage.getItem("medilinkRole");
+
+  return Boolean(token && (role === "patient" || role === "user"));
 }
 
 function DoctorPatientProfileRoute() {

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
 import receptionistAvatar from "../../../assets/landingPage/admin.png";
+import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import { getCurrentAuthUser } from "../../../services/medilinkApi";
 
@@ -82,6 +83,7 @@ export default function ReceptionistLayout() {
 
 function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const user = getCurrentAuthUser();
   const displayName = getAuthUserDisplayName(user);
 
@@ -97,11 +99,12 @@ function Sidebar({ isOpen, onClose }) {
   };
 
   return (
-    <aside
-      className={`fixed inset-y-0 right-0 z-50 w-[min(286px,88vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[286px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
-        isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      }`}
-    >
+    <>
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 w-[min(286px,88vw)] shrink-0 overflow-hidden bg-white shadow-2xl transition-transform duration-300 dark:bg-[#3a3a3a] lg:static lg:z-auto lg:w-[286px] lg:translate-x-0 lg:shadow-[0_12px_35px_rgba(0,0,0,0.08)] ${
+          isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        }`}
+      >
       <button
         type="button"
         aria-label="إغلاق القائمة"
@@ -169,7 +172,7 @@ function Sidebar({ isOpen, onClose }) {
 
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setLogoutConfirmOpen(true)}
             className="flex h-[42px] w-full items-center justify-start gap-[20px] rounded-xl px-0 text-[#ff7373]"
           >
             <LogOut size={23} strokeWidth={1.8} />
@@ -177,7 +180,13 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </nav>
       </div>
-    </aside>
+      </aside>
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
+    </>
   );
 }
 
