@@ -2,14 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import avatar from "../../assets/patient departement/Avatar.png";
+import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import { validateStrongPassword } from "../../utils/passwordValidation";
 import { clearAuthSession } from "../../services/authApi";
 import {
   changePatientPassword,
   getCurrentAuthUser,
+  getCurrentUser,
   getPatient,
   updateCurrentPatient,
+  updateCurrentUserPhoto,
 } from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
@@ -33,7 +35,7 @@ function splitBirthDate(value) {
   };
 }
 
-function savePatientToSession(patient) {
+function savePatientToSession(patient, photo = "") {
   const current = getCurrentAuthUser() || {};
   const next = {
     ...current,
@@ -46,8 +48,10 @@ function savePatientToSession(patient) {
     birthDate: patient.birthDate,
     gender: patient.gender,
     patientId: patient.id,
+    photo: photo || current.photo || "",
   };
   localStorage.setItem("medilinkUser", JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent("medilink-user-updated", { detail: next }));
 }
 
 export function PatientEditProfilePage() {
@@ -63,14 +67,18 @@ export function PatientEditProfilePage() {
     gender: profile.gender || "male",
     ...initialBirthDate,
   });
-  const [image, setImage] = useState(profile.profileImage || profile.image || profile.avatar || avatar);
+  const [image, setImage] = useState(profile.photo || profile.profileImage || profile.image || profile.avatar || avatar);
+  const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const patientId = routePatientId || getPatientId(authUser);
 
   useEffect(() => {
     let mounted = true;
     if (!patientId) return undefined;
-    getPatient(patientId).then((patient) => {
+    Promise.all([
+      getPatient(patientId),
+      getCurrentUser().catch(() => null),
+    ]).then(([patient, currentUser]) => {
       if (!mounted) return;
       const birth = splitBirthDate(patient.birthDate);
       setForm({
@@ -80,7 +88,9 @@ export function PatientEditProfilePage() {
         gender: patient.gender || "male",
         ...birth,
       });
-      if (patient.image) setImage(patient.image);
+      if (currentUser?.photo || patient.image) {
+        setImage(currentUser?.photo || patient.image);
+      }
     }).catch(() => {});
     return () => {
       mounted = false;
@@ -96,6 +106,7 @@ export function PatientEditProfilePage() {
   const handleImage = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setPhotoFile(file);
     setImage(URL.createObjectURL(file));
   };
 
@@ -111,7 +122,18 @@ export function PatientEditProfilePage() {
           Number(form.day),
         ).toISOString(),
       });
-      savePatientToSession(patient);
+      let photo = "";
+
+      if (photoFile) {
+        const currentUser = await updateCurrentUserPhoto(photoFile);
+        photo = currentUser?.photo || "";
+        if (photo) setImage(photo);
+      } else {
+        const currentUser = await getCurrentUser().catch(() => null);
+        photo = currentUser?.photo || "";
+      }
+
+      savePatientToSession(patient, photo);
       toast.success("تم حفظ التعديلات بنجاح");
       navigate(`/patient/${encodeURIComponent(patientId)}/profile`);
     } catch (error) {

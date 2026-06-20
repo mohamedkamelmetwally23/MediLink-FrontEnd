@@ -239,6 +239,35 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function normalizeStringList(value) {
+  const normalizeItem = (item) => {
+    if (Array.isArray(item)) return item.flatMap(normalizeItem);
+    if (item === undefined || item === null) return [];
+
+    if (typeof item === "string") {
+      const text = item.trim();
+      if (!text) return [];
+
+      if (
+        (text.startsWith("[") && text.endsWith("]")) ||
+        (text.startsWith('"') && text.endsWith('"'))
+      ) {
+        try {
+          return normalizeItem(JSON.parse(text));
+        } catch {
+          return [text.replace(/^["'[\]\s]+|["'[\]\s]+$/g, "")];
+        }
+      }
+
+      return [text];
+    }
+
+    return [String(item)];
+  };
+
+  return [...new Set(normalizeItem(value).filter(Boolean))];
+}
+
 function joinName(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -610,15 +639,17 @@ export function normalizePatient(item = {}) {
     gender: user.gender || item.gender || "",
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
-    height: item.height ?? user.height ?? "",
+    height: item.tall ?? user.tall ?? item.height ?? user.height ?? "",
     weight: item.weight ?? user.weight ?? "",
     bloodType: item.bloodType || user.bloodType || "",
-    smoker: item.smoker ?? user.smoker ?? "",
-    chronicConditions:
+    smoker: item.smoking ?? user.smoking ?? item.smoker ?? user.smoker ?? "",
+    chronicConditions: normalizeStringList(
       item.chronicConditions || user.chronicConditions || [],
-    allergies: item.allergies || user.allergies || [],
-    chronicMedications:
+    ),
+    allergies: normalizeStringList(item.allergies || user.allergies || []),
+    chronicMedications: normalizeStringList(
       item.chronicMedications || user.chronicMedications || [],
+    ),
     medicalFiles: item.medicalFiles || user.medicalFiles || [],
     role: "patient",
     active: status === "active",
@@ -1128,6 +1159,23 @@ export async function getPatient(id) {
   return normalizePatient(hydratedPatient);
 }
 
+export async function getMyPatientProfile() {
+  const response = await apiRequest("/patient/my-profile");
+  const patient = findEntity(response, [
+    "patient",
+    "patientProfile",
+    "profile",
+    "user",
+  ]);
+
+  return normalizePatient(patient);
+}
+
+export async function getCurrentUser() {
+  const response = await apiRequest("/users/me");
+  return findEntity(response, ["user", "profile"]);
+}
+
 export async function updatePatient(id, values) {
   const response = await requestFirst(
     [`/patient/${id}`, `/patients/${id}`, `/patientprofiles/${id}`],
@@ -1152,6 +1200,18 @@ export async function updateCurrentPatient(values) {
   });
 
   return normalizePatient(findEntity(response, ["patient", "user", "profile"]));
+}
+
+export async function updateCurrentUserPhoto(photo) {
+  const formData = new FormData();
+  formData.append("photo", photo);
+
+  await apiRequest("/users/updateMe", {
+    method: "PATCH",
+    body: formData,
+  });
+
+  return getCurrentUser();
 }
 
 export async function changePatientPassword(values) {
@@ -1636,24 +1696,34 @@ export async function createAppointment(values) {
 }
 
 export async function completePatientProfile(values) {
-  const formData = new FormData();
-  const arrayFields = {
+  const payload = {
+    bloodType: values.bloodType || "",
+    tall: Number(values.height),
+    weight: Number(values.weight),
+    smoking: values.smoking === true,
     chronicMedications: values.chronicMedications || [],
     allergies: values.allergies || [],
     chronicConditions: values.chronicConditions || [],
     favoriteDoctors: values.favoriteDoctors || [],
   };
+  const medicalFiles = values.medicalFiles || [];
 
-  formData.append("bloodType", values.bloodType || "");
-  formData.append("height", String(values.height || ""));
-  formData.append("weight", String(values.weight || ""));
-  formData.append("smoker", String(values.smoker || ""));
-
-  Object.entries(arrayFields).forEach(([key, items]) => {
-    formData.append(key, JSON.stringify(items));
+  const profileResponse = await apiRequest("/patient/complete-profile", {
+    method: "PATCH",
+    body: payload,
   });
 
-  (values.medicalFiles || []).forEach((file) => {
+  if (medicalFiles.length > 0) {
+    await uploadPatientMedicalFiles(medicalFiles);
+  }
+
+  return profileResponse;
+}
+
+export async function uploadPatientMedicalFiles(files) {
+  const formData = new FormData();
+
+  Array.from(files || []).forEach((file) => {
     formData.append("medicalFiles", file);
   });
 

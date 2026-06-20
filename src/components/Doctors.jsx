@@ -1,16 +1,16 @@
 import { FaStar } from "react-icons/fa";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../hooks/useDoctors";
 
 function DoctorsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="flex gap-6 overflow-hidden pb-5">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="rounded-xl bg-white p-4 shadow-md dark:bg-[#252525]">
-          <div className="skeleton mx-auto h-28 w-28 rounded-full" />
-          <div className="skeleton mx-auto mt-4 h-5 w-24 rounded-md" />
-          <div className="skeleton mx-auto mt-2 h-4 w-32 rounded-md" />
-          <div className="skeleton mx-auto mt-3 h-4 w-24 rounded-md" />
+        <div key={index} className="min-h-[280px] w-[255px] shrink-0 rounded-xl bg-white p-4 shadow-md dark:bg-[#3B3B3B]">
+          <div className="skeleton mx-auto h-40 w-full rounded-lg" />
+          <div className="skeleton mx-auto mt-4 h-5 w-28 rounded-md" />
+          <div className="skeleton mx-auto mt-2 h-4 w-36 rounded-md" />
+          <div className="skeleton mx-auto mt-4 h-4 w-28 rounded-md" />
         </div>
       ))}
     </div>
@@ -18,8 +18,26 @@ function DoctorsSkeleton() {
 }
 
 export default function Doctors() {
+  const navigate = useNavigate();
   const { doctors, loading, error, reload } = useDoctors();
-  const visibleDoctors = doctors.slice(0, 6);
+
+  const openDoctorProfile = (doctor) => {
+    const role = localStorage.getItem("medilinkRole");
+    const token =
+      localStorage.getItem("medilinkToken") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("accessToken");
+    const doctorPath = `/patient/doctors/${doctor.id}`;
+
+    if (token && (role === "patient" || role === "user")) {
+      navigate(doctorPath);
+      return;
+    }
+
+    navigate("/login", {
+      state: { returnTo: doctorPath },
+    });
+  };
 
   return (
     <section id="doctors" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6 lg:px-8">
@@ -37,11 +55,14 @@ export default function Doctors() {
             إعادة المحاولة
           </button>
         </div>
-      ) : visibleDoctors.length === 0 ? (
+      ) : doctors.length === 0 ? (
         <p className="text-center leading-7 text-[#6D6D6D] dark:text-[#D2D2D2]">لا يوجد أطباء متاحون حالياً.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {visibleDoctors.map((doctor, index) => {
+        <div
+          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-6 pt-2 [scrollbar-color:#64CAC6_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#64CAC6] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#D8F4F3]/30"
+          dir="rtl"
+        >
+          {doctors.map((doctor, index) => {
             const rating = getDoctorRating(doctor);
 
             return (
@@ -49,15 +70,15 @@ export default function Doctors() {
                 type="button"
                 key={doctor.id || index}
                 style={{ "--reveal-delay": `${index * 80}ms` }}
-                onClick={() => toast.info(`سيتم فتح ملف ${getDoctorName(doctor)} قريباً`)}
-                className="reveal-item flex min-h-[250px] flex-col items-center rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] p-4 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#3C3C4399] dark:to-[#3C3C434D]"
+                onClick={() => openDoctorProfile(doctor)}
+                className="reveal-item flex min-h-[280px] w-[255px] shrink-0 snap-start flex-col items-center overflow-hidden rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] px-5 pb-5 pt-3 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#494949] dark:to-[#383838]"
               >
-                <img src={getDoctorImage(doctor, index)} alt={getDoctorName(doctor)} className="h-32 object-contain" />
-                <p className="mt-3 font-semibold dark:text-[#D1D1D1]">{getDoctorName(doctor)}</p>
+                <img src={getDoctorImage(doctor, index)} alt={getDoctorName(doctor)} className="h-40 w-full object-contain object-bottom" />
+                <p className="mt-2 text-lg font-bold dark:text-[#F0F0F0]">{getDoctorName(doctor)}</p>
                 <p className="min-h-9 text-xs leading-5 text-[#6D6D6D] dark:text-[#BDBDBD]">{doctor.specialty || "طب عام"}</p>
-                <div className="mt-auto flex items-center gap-2 text-xs text-[#555555] dark:text-[#E0E0E0]">
+                <div className="mt-auto flex items-center gap-3 text-sm text-[#555555] dark:text-[#E0E0E0]">
                   <span>{rating.toFixed(1)}</span>
-                  <span className="flex gap-1 text-yellow-400">
+                  <span className="flex gap-1.5 text-yellow-400">
                     {Array.from({ length: 5 }).map((_, starIndex) => (
                       <FaStar key={starIndex} className={starIndex < Math.round(rating) ? "" : "opacity-25"} />
                     ))}

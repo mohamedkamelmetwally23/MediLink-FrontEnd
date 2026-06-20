@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
-import avatar from "../../assets/patient departement/Avatar.png";
-import xrayOne from "../../assets/doctor departement/image 12.png";
-import reportImage from "../../assets/doctor departement/image 12 (1).png";
-import xrayTwo from "../../assets/doctor departement/image 12 (2).png";
+import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import {
   getCurrentAuthUser,
-  getPatient,
+  getCurrentUser,
+  getMyPatientProfile,
   listAppointments,
+  uploadPatientMedicalFiles,
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
@@ -37,17 +36,50 @@ const prescriptions = [
   { date: "24 ديسمبر 2025", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
 ];
 
-const initialFiles = [
-  { id: "sample-1", name: "20042026.PNG", src: xrayOne },
-  { id: "sample-2", name: "20042026.PNG", src: xrayTwo },
-  { id: "sample-3", name: "20042026.PNG", src: reportImage },
-  { id: "sample-4", name: "20042026.PNG", src: xrayTwo },
-  { id: "sample-5", name: "20042026.PNG", src: reportImage },
-  { id: "sample-6", name: "20042026.PNG", src: xrayOne },
-];
-
 function currentPatientId(user) {
   return user?.patientId || user?.patient?._id || user?.patient?.id || user?.profile?._id || user?._id || user?.id || "";
+}
+
+function getMedicalFileId(file, index = 0) {
+  return String(
+    file?._id ||
+      file?.fileId ||
+      file?.id ||
+      file?.url ||
+      `medical-file-${index}`,
+  );
+}
+
+function getMedicalFileName(file, index = 0, savedNames = {}) {
+  return (
+    file?.name ||
+    file?.fileName ||
+    file?.filename ||
+    file?.originalName ||
+    file?.originalname ||
+    savedNames[getMedicalFileId(file, index)] ||
+    `ملف طبي ${index + 1}`
+  );
+}
+
+function readMedicalFileNames(patientId) {
+  if (!patientId) return {};
+
+  try {
+    return JSON.parse(
+      localStorage.getItem(`medilink-medical-file-names-${patientId}`) || "{}",
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveMedicalFileNames(patientId, names) {
+  if (!patientId) return;
+  localStorage.setItem(
+    `medilink-medical-file-names-${patientId}`,
+    JSON.stringify(names),
+  );
 }
 
 function buildPatient(user, apiPatient) {
@@ -56,12 +88,22 @@ function buildPatient(user, apiPatient) {
     id: source.id || source._id || currentPatientId(user),
     name: source.name || [source.firstName, source.lastName].filter(Boolean).join(" ") || "خالد طارق",
     phone: source.phone || source.phoneNumber || source.mobile || "0107338300",
-    image: source.profileImage || source.image || source.avatar || avatar,
+    image:
+      source.photo ||
+      source.profileImage ||
+      source.image ||
+      source.avatar ||
+      avatar,
     status: source.status === "inactive" ? "غير مفعل" : "مفعل",
-    height: source.height || 166,
+    height: source.tall ?? source.height ?? "غير متوفر",
     weight: source.weight || 70,
     bloodType: source.bloodType || "غير متوفر",
-    smoker: source.smoker || "نعم",
+    smoker:
+      source.smoking === true || source.smoker === true
+        ? "نعم"
+        : source.smoking === false || source.smoker === false
+          ? "لا"
+          : source.smoking || source.smoker || "غير متوفر",
     diseases: source.chronicConditions || [],
     allergies: source.allergies || [],
     medicines: source.chronicMedications || [],
@@ -79,18 +121,36 @@ export default function PatientProfilePage() {
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "extra";
   const [search, setSearch] = useState("");
   const [appointments, setAppointments] = useState([]);
-  const [files, setFiles] = useState(initialFiles);
+  const [files, setFiles] = useState([]);
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     const patientId = routePatientId || currentPatientId(authUser);
 
     Promise.all([
-      patientId ? getPatient(patientId).catch(() => null) : Promise.resolve(null),
+      getMyPatientProfile().catch(() => null),
+      getCurrentUser().catch(() => null),
       listAppointments().catch(() => []),
-    ]).then(([patientResult, appointmentResult]) => {
+    ]).then(([patientResult, currentUser, appointmentResult]) => {
       if (!mounted) return;
-      setPatient(buildPatient(authUser, patientResult));
+      setPatient(
+        buildPatient(authUser, {
+          ...patientResult,
+          photo: currentUser?.photo || "",
+        }),
+      );
+      setFiles(
+        patientResult?.medicalFiles?.map((file, index) => ({
+          id: getMedicalFileId(file, index),
+          name: getMedicalFileName(
+            file,
+            index,
+            readMedicalFileNames(patientId),
+          ),
+          src: file.url || file.src || "",
+        })) || [],
+      );
       setAppointments(
         appointmentResult.filter((appointment) =>
           !patientId || !appointment.patientId || String(appointment.patientId) === String(patientId),
@@ -137,13 +197,44 @@ export default function PatientProfilePage() {
           <div className="mt-6">
             {activeTab !== "extra" && (
               <div className="mb-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
-                {activeTab === "files" ? <UploadButton setFiles={setFiles} /> : <span />}
+                {activeTab === "files" ? (
+                  <UploadButton
+                    onUploaded={async (selectedFiles) => {
+                      const profile = await getMyPatientProfile();
+                      const currentIds = new Set(files.map((file) => file.id));
+                      const newFiles = profile.medicalFiles.filter(
+                        (file, index) =>
+                          !currentIds.has(getMedicalFileId(file, index)),
+                      );
+                      const savedNames = readMedicalFileNames(routePatientId);
+
+                      newFiles.forEach((file, index) => {
+                        const selectedFile = selectedFiles[index];
+                        if (selectedFile) {
+                          savedNames[getMedicalFileId(file, index)] =
+                            selectedFile.name;
+                        }
+                      });
+                      saveMedicalFileNames(routePatientId, savedNames);
+
+                      setFiles(
+                        profile.medicalFiles.map((file, index) => ({
+                          id: getMedicalFileId(file, index),
+                          name: getMedicalFileName(file, index, savedNames),
+                          src: file.url || file.src || "",
+                        })),
+                      );
+                    }}
+                  />
+                ) : <span />}
                 <SearchBox value={search} onChange={setSearch} />
               </div>
             )}
 
             {activeTab === "extra" && <ExtraInfo patient={patient} />}
-            {activeTab === "files" && <MedicalFiles files={files} search={search} />}
+            {activeTab === "files" && (
+              <MedicalFiles files={files} search={search} onPreview={setPreviewFile} />
+            )}
             {activeTab === "records" && <MedicalRecords search={search} />}
             {activeTab === "prescriptions" && <Prescriptions search={search} />}
             {activeTab === "appointments" && (
@@ -157,11 +248,32 @@ export default function PatientProfilePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/profile/edit`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
+            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/patientinformation?edit=true`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
             <button type="button" onClick={() => toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")} className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600">حذف الحساب</button>
           </div>
         </section>
       </main>
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4"
+          onClick={() => setPreviewFile(null)}
+        >
+          <button
+            type="button"
+            aria-label="إغلاق المعاينة"
+            className="absolute left-5 top-5 grid size-11 place-items-center rounded-full bg-white/15 text-white"
+            onClick={() => setPreviewFile(null)}
+          >
+            <X size={25} />
+          </button>
+          <img
+            src={previewFile.src}
+            alt={previewFile.name}
+            className="max-h-[88vh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
       <PatientHomeFooter />
     </div>
   );
@@ -245,32 +357,46 @@ function TagGroup({ title, values }) {
   );
 }
 
-function UploadButton({ setFiles }) {
+function UploadButton({ onUploaded }) {
   const inputRef = useRef(null);
-  const addFiles = (selected) => {
-    const next = Array.from(selected).map((file) => ({
-      id: `${file.name}-${file.size}-${file.lastModified}`,
-      name: file.name,
-      src: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
-    }));
-    setFiles((current) => [...current, ...next]);
+  const [uploading, setUploading] = useState(false);
+
+  const addFiles = async (selected) => {
+    const files = Array.from(selected);
+    if (!files.length) return;
+
+    setUploading(true);
+    try {
+      await uploadPatientMedicalFiles(files);
+      await onUploaded?.(files);
+      toast.success("تمت إضافة الملف الطبي بنجاح");
+    } catch (error) {
+      toast.error(error.message || "تعذر رفع الملف الطبي");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   };
   return (
     <>
       <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [])} />
-      <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white"><Plus size={20} />أضف ملف جديد</button>
+      <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white disabled:opacity-60"><Plus size={20} />{uploading ? "جاري الرفع..." : "أضف ملف جديد"}</button>
     </>
   );
 }
 
-function MedicalFiles({ files, search }) {
+function MedicalFiles({ files, search, onPreview }) {
   const filtered = files.filter((file) => includesSearchText(file.name, search));
   return filtered.length ? (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {filtered.map((file) => (
         <article key={file.id} className="flex min-h-44 items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242]">
           <strong className="break-all text-left">{file.name}</strong>
-          {file.src ? <img src={file.src} alt={file.name} className="h-36 w-28 rounded-xl object-cover" /> : <FileText size={54} className="text-[#20B7D5]" />}
+          {file.src ? (
+            <button type="button" onClick={() => onPreview(file)}>
+              <img src={file.src} alt={file.name} className="h-36 w-28 cursor-zoom-in rounded-xl object-cover" />
+            </button>
+          ) : <FileText size={54} className="text-[#20B7D5]" />}
         </article>
       ))}
     </div>
