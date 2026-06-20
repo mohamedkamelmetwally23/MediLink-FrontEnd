@@ -34,6 +34,7 @@ import searchDoctorIcon from "../../assets/landingPage/13(1).png";
 import specialtyIcon from "../../assets/landingPage/13 (2).png";
 import appointmentIcon from "../../assets/landingPage/13 (3).png";
 import { clearAuthSession } from "../../services/authApi";
+import { useClinicInfo } from "../../services/clinicInfoStore";
 import {
   getCurrentAuthUser,
   getCurrentUser,
@@ -536,7 +537,7 @@ function SpecialtiesSection() {
   const { specialties } = useSpecializations();
 
   return (
-    <section className={`${sectionClass} py-16`}>
+    <section id="specialties" className={`${sectionClass} scroll-mt-28 py-16`}>
       <h2 className="text-center text-3xl font-semibold text-[#333333] dark:text-[#F0F0F0]">التخصصات</h2>
       <div className="mt-8 flex snap-x gap-4 overflow-x-auto pb-5 [scrollbar-color:#60C8CB_transparent] [scrollbar-width:thin]">
         {specialties.map((item) => (
@@ -716,33 +717,66 @@ function FaqSection() {
 }
 
 export function PatientHomeFooter() {
-  const columns = [
-    { title: "روابط سريعة", links: ["الرئيسية", "من نحن", "خدماتنا", "التخصصات", "الأطباء"] },
-    { title: "خدماتنا", links: ["حجز موعد", "الاستشارات", "الملفات الطبية", "المتابعة والتنبيهات"] },
-    { title: "التخصصات", links: ["الباطنة", "الأطفال", "الجلدية", "الفم والأسنان", "المخ والأعصاب"] },
-  ];
+  const location = useLocation();
+  const clinicInfo = useClinicInfo();
+  const { specialties } = useSpecializations();
+  const authUser = getCurrentAuthUser();
+  const currentPatientId =
+    authUser?.patientId ||
+    authUser?.patient?._id ||
+    authUser?.patient?.id ||
+    authUser?.profile?._id ||
+    authUser?._id ||
+    authUser?.id ||
+    "";
+  const patientHomePath = `/patient/${encodeURIComponent(currentPatientId)}/home`;
+  const specialtiesSectionHref =
+    location.pathname === patientHomePath
+      ? "#specialties"
+      : `${patientHomePath}#specialties`;
 
   return (
     <footer id="contact" className="bg-white shadow-[0_-8px_22px_rgba(0,0,0,0.04)] dark:bg-[#343434]">
-      <div className={`${sectionClass} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-5`}>
+      <div className={`${sectionClass} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-3`}>
         <section>
           <ThemeLogo className="w-40 object-contain" />
           <p className="mt-5 max-w-[280px] text-sm leading-6 text-[#444444] dark:text-[#D7D7D7]">نظام متكامل لإدارة العيادات والمراكز الطبية وتقديم أفضل تجربة للمرضى والأطباء</p>
           <div className="mt-6 flex gap-5 text-xl text-[#26B8D6]"><FaLinkedinIn /><FaInstagram /><FaXTwitter /><FaFacebookF /></div>
         </section>
 
-        {columns.map((column) => (
-          <section key={column.title}>
-            <h3 className="mb-4 font-bold text-[#333333] dark:text-[#F0F0F0]">{column.title}</h3>
-            {column.links.map((link) => <a key={link} href="#home" className="mb-3 block text-sm text-[#444444] transition hover:text-[#05ADE8] dark:text-[#D7D7D7]">{link}</a>)}
-          </section>
-        ))}
+        <section>
+          <h3 className="mb-4 font-bold text-[#333333] dark:text-[#F0F0F0]">التخصصات</h3>
+          {specialties.slice(0, 5).map((specialty) => (
+            <Link
+              key={specialty.id || specialty.name}
+              to={`/patient/doctors?specialty=${encodeURIComponent(specialty.name)}`}
+              className="mb-3 block text-sm text-[#444444] transition hover:text-[#05ADE8] dark:text-[#D7D7D7]"
+            >
+              {specialty.name}
+            </Link>
+          ))}
+          <a
+            href={specialtiesSectionHref}
+            className="block text-sm font-semibold text-[#05ADE8] transition hover:underline hover:underline-offset-4"
+          >
+            عرض المزيد
+          </a>
+        </section>
 
         <section>
           <h3 className="mb-4 font-bold text-[#333333] dark:text-[#F0F0F0]">تواصل معنا</h3>
-          <p className="mb-4 flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]"><Phone size={17} fill="currentColor" />015 5677 3899</p>
-          <p className="mb-4 flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]"><Mail size={17} fill="currentColor" />info@medilink.com</p>
-          <p className="flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]"><MapPin size={18} fill="currentColor" />القاهرة، مصر</p>
+          <p className="mb-4 flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]">
+            <Phone size={17} fill="currentColor" />
+            <span>{clinicInfo.phone}</span>
+          </p>
+          <p className="mb-4 flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]">
+            <Mail size={17} fill="currentColor" />
+            <span className="break-all">{clinicInfo.email}</span>
+          </p>
+          <p className="flex items-center gap-3 text-sm text-[#444444] dark:text-[#D7D7D7]">
+            <MapPin size={18} fill="currentColor" />
+            <span>{clinicInfo.address}</span>
+          </p>
         </section>
       </div>
     </footer>
@@ -762,17 +796,30 @@ export default function PatientHomePage() {
     "مريض ميديلينك";
 
   useEffect(() => {
-    if (!location.state?.focusDoctors) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById("doctors")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+    if (location.hash === "#specialties") {
+      const frame = window.requestAnimationFrame(() => {
+        document.getElementById("specialties")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
-    });
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [location.state]);
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    if (location.state?.focusDoctors) {
+      const frame = window.requestAnimationFrame(() => {
+        document.getElementById("doctors")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    return undefined;
+  }, [location.hash, location.state]);
 
   return (
     <div className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
