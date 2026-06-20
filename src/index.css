@@ -25,12 +25,24 @@ body {
 button:not(:disabled),
 a[href],
 select:not(:disabled),
-[role="button"] {
+summary,
+label:has(input:not(:disabled)),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled),
+input[type="date"]:not(:disabled),
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+[tabindex]:not([tabindex="-1"]),
+[aria-controls],
+[aria-expanded] {
   cursor: pointer;
 }
 
 button:disabled,
-select:disabled {
+select:disabled,
+input:disabled {
   cursor: not-allowed;
 }
 
@@ -142,6 +154,12 @@ select:disabled {
 .doctor-date-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 0;
+}
+
+input[type="date"]:not(:disabled)::-webkit-calendar-picker-indicator,
+input[type="date"]:not(:disabled)::-webkit-inner-spin-button,
+input[type="date"]:not(:disabled)::-webkit-clear-button {
+  cursor: pointer;
 }
 
 .is-recording .doctor-wave-track {
