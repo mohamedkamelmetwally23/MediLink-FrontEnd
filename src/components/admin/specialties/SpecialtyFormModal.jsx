@@ -35,6 +35,7 @@ export default function SpecialtyFormModal({
           </span>
           <input
             value={name}
+            maxLength={50}
             onChange={(event) => setName(event.target.value)}
             className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
               error ? "border-red-500" : "border-transparent focus:border-cyan-400"

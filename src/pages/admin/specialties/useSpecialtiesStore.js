@@ -16,6 +16,9 @@ function normalizeSpecialtyPrice(price) {
   return String(price ?? "").replace(/[^\d]/g, "");
 }
 
+const specialtyNameMaxLength = 50;
+const specialtyNamePattern = /^[\u0600-\u06FF\s/&\u060C-]+$/;
+
 function toSpecialtyItem(value) {
   if (typeof value === "string") {
     return {
@@ -191,6 +194,14 @@ export function validateSpecialtyName(name, specialties, currentName = "") {
 
   if (normalizedName.length < 2) {
     return "اسم التخصص يجب أن يكون حرفين على الأقل";
+  }
+
+  if (normalizedName.length > specialtyNameMaxLength) {
+    return `\u0627\u0633\u0645 \u0627\u0644\u062a\u062e\u0635\u0635 \u0644\u0627 \u064a\u0632\u064a\u062f \u0639\u0646 ${specialtyNameMaxLength} \u062d\u0631\u0641`;
+  }
+
+  if (!specialtyNamePattern.test(normalizedName)) {
+    return "\u0627\u0633\u0645 \u0627\u0644\u062a\u062e\u0635\u0635 \u064a\u062c\u0628 \u0623\u0646 \u064a\u0643\u0648\u0646 \u0628\u0627\u0644\u0644\u063a\u0629 \u0627\u0644\u0639\u0631\u0628\u064a\u0629";
   }
 
   const duplicate = specialties.some(

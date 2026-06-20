@@ -27,6 +27,10 @@ function getDoctorAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
 }
 
+function canDeleteSpecialty(specialty) {
+  return !specialty || specialty.doctorsCount === 0;
+}
+
 function normalizePrice(price) {
   return String(price).replace(/[^\d]/g, "");
 }
@@ -124,9 +128,8 @@ export default function SpecialtiesPage() {
   const selectedSpecialties = specialtiesStats.filter((specialty) =>
     selectedNames.includes(specialty.name),
   );
-  const hasSelectedSpecialtyWithDoctors = selectedSpecialties.some(
-    (specialty) => specialty.doctorsCount > 0,
-  );
+  const selectedDeletableCount = selectedSpecialties.filter(canDeleteSpecialty).length;
+  const selectedBlockedCount = selectedSpecialties.length - selectedDeletableCount;
   const allVisibleSelected =
     visibleNames.length > 0 &&
     visibleNames.every((name) => selectedNames.includes(name));
@@ -218,7 +221,7 @@ export default function SpecialtiesPage() {
   const removeSpecialties = async (names) => {
     const deletableNames = names.filter((name) => {
       const specialty = specialtiesStats.find((item) => item.name === name);
-      return !specialty || specialty.doctorsCount === 0;
+      return canDeleteSpecialty(specialty);
     });
 
     if (deletableNames.length === 0) {
@@ -234,8 +237,9 @@ export default function SpecialtiesPage() {
         deletableNames.forEach((name) => delete nextPrices[name]);
         return nextPrices;
       });
+      const requestedNames = new Set(names);
       setSelectedNames((current) =>
-        current.filter((name) => !deletableNames.includes(name)),
+        current.filter((name) => !requestedNames.has(name)),
       );
       setPendingDelete(null);
     } catch (error) {
@@ -276,7 +280,8 @@ export default function SpecialtiesPage() {
         {selectedCount > 0 && (
           <SelectionBar
             count={selectedCount}
-            disableDelete={hasSelectedSpecialtyWithDoctors}
+            deletableCount={selectedDeletableCount}
+            blockedCount={selectedBlockedCount}
             onClear={() => setSelectedNames([])}
             onDelete={() => setPendingDelete(selectedNames)}
           />
@@ -336,6 +341,18 @@ export default function SpecialtiesPage() {
 
       {pendingDelete && (
         <ConfirmDeleteModal
+          count={
+            pendingDelete.filter((name) => {
+              const specialty = specialtiesStats.find((item) => item.name === name);
+              return canDeleteSpecialty(specialty);
+            }).length
+          }
+          skippedCount={
+            pendingDelete.filter((name) => {
+              const specialty = specialtiesStats.find((item) => item.name === name);
+              return !canDeleteSpecialty(specialty);
+            }).length
+          }
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => removeSpecialties(pendingDelete)}
         />
@@ -385,7 +402,9 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, disableDelete, onClear, onDelete }) {
+function SelectionBar({ count, deletableCount, blockedCount, onClear, onDelete }) {
+  const disableDelete = deletableCount === 0;
+
   return (
     <div className="mb-[16px] flex h-[70px] items-center justify-between rounded-[9px] border border-[#d8eef5] bg-[#f5fcff] px-[32px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <p className="text-[17px] font-semibold text-[#333] dark:text-white">
@@ -404,6 +423,13 @@ function SelectionBar({ count, disableDelete, onClear, onDelete }) {
         <button
           type="button"
           disabled={disableDelete}
+          title={
+            disableDelete
+              ? "لا يوجد تخصص محدد يمكن حذفه"
+              : blockedCount > 0
+                ? `سيتم حذف ${deletableCount} فقط`
+                : ""
+          }
           className={`flex h-[40px] items-center gap-[16px] rounded-[11px] border px-[18px] text-[16px] font-semibold transition ${
             disableDelete
               ? "cursor-not-allowed border-[#9a9a9a] text-[#9a9a9a] opacity-60"
@@ -640,6 +666,7 @@ function SpecialtyModal({
           </span>
           <input
             value={name}
+            maxLength={50}
             onChange={(event) => setName(event.target.value)}
             className={`h-[52px] w-full rounded-[10px] border bg-[#eeeeee] px-[16px] text-right text-[16px] text-[#333] outline-none transition placeholder:text-[#9a9a9a] dark:bg-[#505050] dark:text-white ${
               nameError
@@ -704,7 +731,7 @@ function SpecialtyModal({
   );
 }
 
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
+function ConfirmDeleteModal({ count, skippedCount, onCancel, onConfirm }) {
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
       <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
@@ -712,8 +739,15 @@ function ConfirmDeleteModal({ onCancel, onConfirm }) {
           !
         </div>
         <h2 className="mt-[23px] text-[21px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
+          {count > 1
+            ? `هل أنت متأكد من حذف ${count} تخصصات؟`
+            : "هل أنت متأكد من حذف هذا العنصر؟"}
         </h2>
+        {skippedCount > 0 && (
+          <p className="mt-2 text-sm font-semibold text-[#777] dark:text-gray-300">
+            سيتم تجاهل {skippedCount} تخصص مرتبط بأطباء.
+          </p>
+        )}
         <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
           <button
             type="button"

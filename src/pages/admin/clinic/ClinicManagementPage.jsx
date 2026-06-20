@@ -30,6 +30,12 @@ const initialAppointmentSettings = {
   dailyLimit: "",
 };
 
+const clinicInfoLimits = {
+  name: 30,
+  description: 500,
+  address: 100,
+};
+
 function buildWorkingDaysFromSchedule(scheduleDays = []) {
   const daysById = new Map(
     scheduleDays
@@ -140,6 +146,25 @@ export default function ClinicManagementPage() {
 
   const saveChanges = async () => {
     if (activeTab === "info") {
+      const clinicName = String(clinicInfo.name || "").trim();
+      const clinicAddress = String(clinicInfo.address || "").trim();
+      const clinicDescription = String(clinicInfo.description || "").trim();
+
+      if (clinicName.length > clinicInfoLimits.name) {
+        toast.error(`اسم العيادة لا يزيد عن ${clinicInfoLimits.name} حرف`);
+        return;
+      }
+
+      if (clinicDescription.length > clinicInfoLimits.description) {
+        toast.error(`وصف العيادة لا يزيد عن ${clinicInfoLimits.description} حرف`);
+        return;
+      }
+
+      if (clinicAddress.length > clinicInfoLimits.address) {
+        toast.error(`العنوان لا يزيد عن ${clinicInfoLimits.address} حرف`);
+        return;
+      }
+
       setClinicSaving(true);
       try {
         const updatedInfo = await updateClinicInfo(clinicInfo);
@@ -299,6 +324,7 @@ function ClinicInfoForm({
       <TextField
         label="اسم العيادة"
         value={values.name}
+        maxLength={clinicInfoLimits.name}
         onChange={(event) => setField("name", event.target.value)}
       />
 
@@ -306,6 +332,7 @@ function ClinicInfoForm({
         <FormLabel>العنوان</FormLabel>
         <input
           value={values.address}
+          maxLength={clinicInfoLimits.address}
           onChange={(event) => setField("address", event.target.value)}
           className={inputClass}
         />
@@ -314,6 +341,7 @@ function ClinicInfoForm({
       <TextField
         label="وصف العيادة"
         value={values.description}
+        maxLength={clinicInfoLimits.description}
         onChange={(event) => setField("description", event.target.value)}
       />
 

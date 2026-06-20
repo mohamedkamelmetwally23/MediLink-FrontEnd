@@ -2,6 +2,7 @@ import { validateStrongPassword } from "../../../utils/passwordValidation";
 
 const arabicNamePattern = /^[\u0600-\u06FF\s.]{2,}$/;
 const phonePattern = /^01[0125][0-9]{8}$/;
+const nameMaxLength = 30;
 
 function getWorkTimeMinutes(time) {
   const twentyFourHourMatch = /^(\d{1,2}):(\d{2})$/.exec(time);
@@ -63,6 +64,16 @@ function getAge(birthDate) {
   return age;
 }
 
+function validateNameLengths(values, errors) {
+  if (!errors.firstName && values.firstName.trim().length > nameMaxLength) {
+    errors.firstName = `الاسم الأول لا يزيد عن ${nameMaxLength} حرف.`;
+  }
+
+  if (!errors.lastName && values.lastName.trim().length > nameMaxLength) {
+    errors.lastName = `الاسم الأخير لا يزيد عن ${nameMaxLength} حرف.`;
+  }
+}
+
 export function validateBaseUser(values, options = { requirePassword: true }) {
   const errors = {};
 
@@ -73,6 +84,8 @@ export function validateBaseUser(values, options = { requirePassword: true }) {
   if (!arabicNamePattern.test(values.lastName.trim())) {
     errors.lastName = "الاسم الأخير يجب أن يكون عربيا ولا يقل عن حرفين.";
   }
+
+  validateNameLengths(values, errors);
 
   if (!values.gender) {
     errors.gender = "اختر الجنس.";
@@ -169,6 +182,8 @@ export function validatePatient(values) {
   if (!arabicNamePattern.test(values.lastName.trim())) {
     errors.lastName = "الاسم الأخير يجب أن يكون عربيا ولا يقل عن حرفين.";
   }
+
+  validateNameLengths(values, errors);
 
   if (!phonePattern.test(values.phone.trim())) {
     errors.phone = "رقم الهاتف يجب أن يكون رقم مصري صحيح مكون من 11 رقم.";

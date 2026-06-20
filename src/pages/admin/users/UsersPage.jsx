@@ -120,14 +120,14 @@ export default function UsersPage() {
     });
   };
 
-  const confirmToggleStatus = async (note = "") => {
+  const confirmToggleStatus = async () => {
     if (!pendingStatusUser) return;
 
     setStatusRequestLoading(true);
     setStatusRequestError("");
 
     try {
-      await toggleUserStatus(pendingStatusUser.id, { note });
+      await toggleUserStatus(pendingStatusUser.id);
       setPendingStatusUser(null);
     } catch (requestError) {
       setStatusRequestError(requestError.message || "تعذر تحديث حالة المريض");
@@ -543,7 +543,6 @@ function getPaginationPages(currentPage, totalPages) {
 
 function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
   const isActive = getUserActiveStatus(user) === "active";
-  const [note, setNote] = useState(user.statusNote || "");
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-black/25 p-4">
@@ -566,26 +565,12 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
             {error}
           </p>
         )}
-        {isActive && (
-          <label className="mt-4 block text-right">
-            <span className="mb-2 block text-[13px] font-bold text-[#333] dark:text-white">
-              ملاحظه
-            </span>
-            <textarea
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              disabled={loading}
-              className="min-h-[74px] w-full resize-none rounded-[8px] border border-[#666] bg-transparent px-3 py-2 text-right text-[13px] text-[#333] outline-none transition focus:border-[#30bfd6] disabled:opacity-60 dark:text-white"
-              placeholder="اكتب سبب الحظر هنا..."
-            />
-          </label>
-        )}
         <div className="mt-[18px] grid grid-cols-2 gap-[6px]" dir="ltr">
           <button
             type="button"
             disabled={loading}
             className="h-[36px] rounded-[6px] border border-[#ff2626] bg-transparent text-[13px] font-semibold text-[#ff2626] transition hover:bg-[#ff2626]/10 disabled:opacity-60"
-            onClick={() => onConfirm(note)}
+            onClick={onConfirm}
           >
             {loading ? "جاري الحفظ..." : "نعم"}
           </button>

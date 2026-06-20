@@ -24,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import { getCurrentAuthUser, listAppointments } from "../../services/medilinkApi";
+import { normalizeSpecialtyLabel } from "./users/usersData";
 import { useUsersStore } from "./users/useUsersStore";
 
 const statsConfig = [
@@ -322,15 +323,21 @@ function formatDoctorTick(name) {
   return value.length > 16 ? `${value.slice(0, 14)}…` : value;
 }
 
+function isValidSpecialtyName(name) {
+  return /^[\u0600-\u06FF\s/&\u060C-]{2,50}$/.test(String(name || "").trim());
+}
+
 function buildSpecializationChart(users) {
   const specialtyCounts = new Map();
 
   users
-    .filter((user) => user.role === "doctor" && user.specialty)
+    .filter((user) => user.role === "doctor" && isValidSpecialtyName(user.specialty))
     .forEach((doctor) => {
+      const specialty = normalizeSpecialtyLabel(doctor.specialty);
+
       specialtyCounts.set(
-        doctor.specialty,
-        (specialtyCounts.get(doctor.specialty) || 0) + 1,
+        specialty,
+        (specialtyCounts.get(specialty) || 0) + 1,
       );
     });
 

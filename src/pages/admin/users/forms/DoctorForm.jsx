@@ -124,6 +124,7 @@ export default function DoctorForm({
           <TextInput
             value={values.firstName}
             error={errors.firstName}
+            maxLength={30}
             onChange={(event) => setField("firstName", event.target.value)}
           />
         </Field>
@@ -132,6 +133,7 @@ export default function DoctorForm({
           <TextInput
             value={values.lastName}
             error={errors.lastName}
+            maxLength={30}
             onChange={(event) => setField("lastName", event.target.value)}
           />
         </Field>
