@@ -9,6 +9,7 @@ import {
   loginUser,
   saveAuthSession,
 } from "../../services/authApi";
+import { getPatient } from "../../services/medilinkApi";
 
 
 export default function LoginForm() {
@@ -68,13 +69,33 @@ export default function LoginForm() {
       toast.success("تم تسجيل الدخول بنجاح");
       const role = getAccountRole(data);
       const patientId = getPatientAccountId(data);
+      let patientProfileCompleted = false;
+
+      if ((role === "patient" || role === "user") && patientId) {
+        const completionKey = `medilink-patient-profile-completed-${patientId}`;
+
+        try {
+          const patient = await getPatient(patientId);
+          patientProfileCompleted = Boolean(patient?.bloodType);
+
+          if (patientProfileCompleted) {
+            localStorage.setItem(completionKey, "true");
+          }
+        } catch {
+          patientProfileCompleted =
+            localStorage.getItem(completionKey) === "true";
+        }
+      }
+
       navigate(
         role === "admin"
           ? "/admin/dashboard"
           : role === "doctor"
             ? "/doctor/dashboard"
             : role === "patient" || role === "user"
-              ? `/patient/${encodeURIComponent(patientId)}/patientinformation`
+              ? patientProfileCompleted
+                ? `/patient/${encodeURIComponent(patientId)}/home`
+                : `/patient/${encodeURIComponent(patientId)}/patientinformation`
               : "/",
       );
     } catch (error) {

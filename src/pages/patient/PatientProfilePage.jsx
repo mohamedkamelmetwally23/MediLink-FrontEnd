@@ -58,10 +58,15 @@ function buildPatient(user, apiPatient) {
     phone: source.phone || source.phoneNumber || source.mobile || "0107338300",
     image: source.profileImage || source.image || source.avatar || avatar,
     status: source.status === "inactive" ? "غير مفعل" : "مفعل",
-    height: source.height || 166,
+    height: source.tall ?? source.height ?? "غير متوفر",
     weight: source.weight || 70,
     bloodType: source.bloodType || "غير متوفر",
-    smoker: source.smoker || "نعم",
+    smoker:
+      source.smoking === true || source.smoker === true
+        ? "نعم"
+        : source.smoking === false || source.smoker === false
+          ? "لا"
+          : source.smoking || source.smoker || "غير متوفر",
     diseases: source.chronicConditions || [],
     allergies: source.allergies || [],
     medicines: source.chronicMedications || [],

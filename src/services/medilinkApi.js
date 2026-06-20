@@ -609,10 +609,10 @@ export function normalizePatient(item = {}) {
     gender: user.gender || item.gender || "",
     birthDate: user.birthDate || item.birthDate || "",
     phone: user.phone || item.phone || "",
-    height: item.height ?? user.height ?? "",
+    height: item.tall ?? user.tall ?? item.height ?? user.height ?? "",
     weight: item.weight ?? user.weight ?? "",
     bloodType: item.bloodType || user.bloodType || "",
-    smoker: item.smoker ?? user.smoker ?? "",
+    smoker: item.smoking ?? user.smoking ?? item.smoker ?? user.smoker ?? "",
     chronicConditions:
       item.chronicConditions || user.chronicConditions || [],
     allergies: item.allergies || user.allergies || [],
@@ -1464,24 +1464,42 @@ export async function createAppointment(values) {
 }
 
 export async function completePatientProfile(values) {
-  const formData = new FormData();
-  const arrayFields = {
+  const payload = {
+    bloodType: values.bloodType || "",
+    tall: Number(values.height),
+    weight: Number(values.weight),
+    smoking: values.smoking === true,
     chronicMedications: values.chronicMedications || [],
     allergies: values.allergies || [],
     chronicConditions: values.chronicConditions || [],
     favoriteDoctors: values.favoriteDoctors || [],
   };
+  const medicalFiles = values.medicalFiles || [];
 
-  formData.append("bloodType", values.bloodType || "");
-  formData.append("height", String(values.height || ""));
-  formData.append("weight", String(values.weight || ""));
-  formData.append("smoker", String(values.smoker || ""));
+  if (medicalFiles.length === 0) {
+    return apiRequest("/patient/complete-profile", {
+      method: "PATCH",
+      body: payload,
+    });
+  }
 
-  Object.entries(arrayFields).forEach(([key, items]) => {
+  const formData = new FormData();
+  formData.append("bloodType", payload.bloodType);
+  formData.append("tall", String(payload.tall));
+  formData.append("weight", String(payload.weight));
+  formData.append("smoking", String(payload.smoking));
+
+  [
+    "chronicMedications",
+    "allergies",
+    "chronicConditions",
+    "favoriteDoctors",
+  ].forEach((key) => {
+    const items = payload[key];
     formData.append(key, JSON.stringify(items));
   });
 
-  (values.medicalFiles || []).forEach((file) => {
+  medicalFiles.forEach((file) => {
     formData.append("medicalFiles", file);
   });
 

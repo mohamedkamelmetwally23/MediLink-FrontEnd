@@ -693,13 +693,17 @@ export default function PatientOnboardingPage() {
         bloodType: info.bloodType,
         height: info.height,
         weight: info.weight,
-        smoker: info.smoker,
+        smoking: info.smoker === "نعم",
         chronicMedications: withoutNone("medications"),
         allergies: withoutNone("allergies"),
         chronicConditions: withoutNone("chronic"),
         favoriteDoctors: [],
         medicalFiles: files,
       });
+      localStorage.setItem(
+        `medilink-patient-profile-completed-${patientId}`,
+        "true",
+      );
       setScreenIndex(6);
     } catch (error) {
       toast.error(error.message || "تعذر حفظ بيانات الملف الطبي");
