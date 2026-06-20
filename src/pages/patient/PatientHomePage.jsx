@@ -23,7 +23,7 @@ import {
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaStar } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import ThemeLogo from "../../components/ThemeLogo";
-import avatar from "../../assets/patient departement/Avatar.png";
+import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
 import specialtyTooth from "../../assets/landingPage/lets-icons_tooth-light.png";
 import specialtyStomach from "../../assets/landingPage/healthicons_stomach-outline.png";

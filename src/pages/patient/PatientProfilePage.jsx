@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
-import avatar from "../../assets/patient departement/Avatar.png";
+import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import {
   getCurrentAuthUser,
   getCurrentUser,
