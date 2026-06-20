@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  Bot,
   CalendarCheck,
   ChevronDown,
   ChevronUp,
@@ -26,13 +25,6 @@ import LogoutConfirmModal from "../../components/LogoutConfirmModal";
 import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
-import specialtyTooth from "../../assets/landingPage/lets-icons_tooth-light.png";
-import specialtyStomach from "../../assets/landingPage/healthicons_stomach-outline.png";
-import specialtyChild from "../../assets/landingPage/hugeicons_kid.png";
-import specialtySkin from "../../assets/landingPage/streamline-ultimate_hair-skin.png";
-import specialtyNose from "../../assets/landingPage/healthicons_nose-outline.png";
-import specialtyBrain from "../../assets/landingPage/Vector.png";
-import specialtyEye from "../../assets/landingPage/vaadin_eye.png";
 import doctor1 from "../../assets/landingPage/12 1.png";
 import featureDoctor from "../../assets/landingPage/8.png";
 import featureBooking from "../../assets/landingPage/9.png";
@@ -47,20 +39,11 @@ import {
   getCurrentUser,
 } from "../../services/medilinkApi";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
+import { useSpecializations } from "../../hooks/useSpecializations";
 import { includesSearchText } from "../../utils/searchText";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const sectionClass = "mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-10";
-
-const specialties = [
-  { label: "الفم والأسنان", image: specialtyTooth },
-  { label: "الباطنة", image: specialtyStomach },
-  { label: "الأطفال", image: specialtyChild },
-  { label: "الجلدية والتجميل", image: specialtySkin },
-  { label: "أنف وأذن", image: specialtyNose },
-  { label: "مخ وأعصاب", image: specialtyBrain },
-  { label: "العيون", image: specialtyEye },
-];
 
 const whyFeatures = [
   {
@@ -544,23 +527,22 @@ function StatsSection() {
             </article>
           );
         })}
-        <button type="button" className="absolute -top-5 right-0 grid size-12 place-items-center rounded-full bg-[#28B8D5] text-white shadow-lg sm:-right-2" aria-label="فتح المساعد">
-          <Bot size={25} />
-        </button>
       </div>
     </section>
   );
 }
 
 function SpecialtiesSection() {
+  const { specialties } = useSpecializations();
+
   return (
     <section className={`${sectionClass} py-16`}>
       <h2 className="text-center text-3xl font-semibold text-[#333333] dark:text-[#F0F0F0]">التخصصات</h2>
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+      <div className="mt-8 flex snap-x gap-4 overflow-x-auto pb-5 [scrollbar-color:#60C8CB_transparent] [scrollbar-width:thin]">
         {specialties.map((item) => (
-          <button key={item.label} type="button" className="flex min-h-32 flex-col items-center justify-center rounded-lg bg-white p-4 text-center shadow-[0_4px_18px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 dark:bg-[#383838] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+          <button key={item.id || item.name} type="button" className="flex min-h-32 min-w-[180px] snap-start flex-col items-center justify-center rounded-lg bg-white p-4 text-center shadow-[0_4px_18px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 dark:bg-[#383838] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:min-w-[190px]">
             <img src={item.image} alt="" className="mb-3 size-12 object-contain" />
-            <span className="text-sm font-semibold text-[#333333] dark:text-[#F0F0F0]">{item.label}</span>
+            <span className="text-sm font-semibold text-[#333333] dark:text-[#F0F0F0]">{item.name}</span>
           </button>
         ))}
       </div>
