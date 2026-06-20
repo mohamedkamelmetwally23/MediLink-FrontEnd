@@ -22,6 +22,10 @@ import {
 const pageSize = 10;
 const minSpecialtyPrice = 100;
 const maxSpecialtyPrice = 1000;
+const formErrorTextClass = "text-[#ff4f4f]";
+const formErrorBorderClass = "border-[#ff5c5c]";
+const formInputBaseClass =
+  "h-[52px] w-full rounded-[10px] border bg-[#eeeeee] px-[16px] text-right text-[16px] text-[#333] outline-none transition placeholder:text-[#9a9a9a] dark:bg-[#505050] dark:text-white";
 
 function getDoctorAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
@@ -636,10 +640,13 @@ function SpecialtyModal({
     mode === "edit" &&
     normalizeSpecialtyLabel(name) === normalizeSpecialtyLabel(initialName) &&
     normalizePrice(price) === normalizePrice(initialPrice);
-  const submitDisabled = unchanged || Object.keys(liveErrors).length > 0;
-  const nameError = errors.name;
-  const priceError = errors.price;
+  const emptyCreateForm =
+    mode === "create" && !name.trim() && !normalizePrice(price);
+  const submitDisabled = unchanged || emptyCreateForm;
+  const nameError = errors.name || (name ? liveErrors.name : "");
+  const priceError = errors.price || (price ? liveErrors.price : "");
   const generalError = errors.general;
+  const displayError = generalError || nameError || priceError;
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -658,8 +665,8 @@ function SpecialtyModal({
 
         <label className="block text-right">
           <span
-            className={`mb-[8px] block text-[16px] font-medium ${
-              nameError ? "text-[#c92626]" : "text-[#111] dark:text-white"
+            className={`mb-1.5 block text-[14px] font-medium ${
+              nameError ? formErrorTextClass : "text-[#111] dark:text-white"
             }`}
           >
             اسم التخصص
@@ -668,9 +675,9 @@ function SpecialtyModal({
             value={name}
             maxLength={50}
             onChange={(event) => setName(event.target.value)}
-            className={`h-[52px] w-full rounded-[10px] border bg-[#eeeeee] px-[16px] text-right text-[16px] text-[#333] outline-none transition placeholder:text-[#9a9a9a] dark:bg-[#505050] dark:text-white ${
+            className={`${formInputBaseClass} ${
               nameError
-                ? "border-[#ff2020]"
+                ? formErrorBorderClass
                 : "border-transparent focus:border-[#0fb8e8]"
             }`}
             placeholder="اكتب اسم التخصص"
@@ -679,8 +686,8 @@ function SpecialtyModal({
 
         <label className="mt-[18px] block text-right">
           <span
-            className={`mb-[8px] block text-[16px] font-medium ${
-              priceError ? "text-[#c92626]" : "text-[#111] dark:text-white"
+            className={`mb-1.5 block text-[14px] font-medium ${
+              priceError ? formErrorTextClass : "text-[#111] dark:text-white"
             }`}
           >
             سعر الكشف
@@ -688,7 +695,7 @@ function SpecialtyModal({
           <div
             className={`flex h-[52px] items-center rounded-[10px] border bg-[#eeeeee] px-[16px] text-[16px] text-[#333] dark:bg-[#505050] dark:text-white ${
               priceError
-                ? "border-[#ff2020]"
+                ? formErrorBorderClass
                 : "border-transparent focus-within:border-[#0fb8e8]"
             }`}
             dir="ltr"
@@ -704,9 +711,9 @@ function SpecialtyModal({
           </div>
         </label>
 
-        {(nameError || priceError || generalError) && (
-          <p className="mt-[14px] text-center text-[17px] font-medium text-[#c92626]">
-            {nameError || priceError || generalError}
+        {displayError && (
+          <p className={`mt-[12px] text-center text-[12px] font-medium leading-[1.35] ${formErrorTextClass}`}>
+            {displayError}
           </p>
         )}
 

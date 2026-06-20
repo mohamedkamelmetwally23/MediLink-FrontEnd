@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+const errorTextClass = "text-[#ff4f4f]";
+const errorBorderClass = "border-[#ff5c5c]";
+
 export default function SpecialtyFormModal({
   mode,
   initialName = "",
@@ -26,25 +29,25 @@ export default function SpecialtyFormModal({
 
         <label className="block text-right">
           <span
-            className={`mb-2 block font-semibold ${
-              error ? "text-red-500" : "text-[#111] dark:text-white"
+            className={`mb-1.5 block text-[14px] font-medium ${
+              error ? errorTextClass : "text-[#111] dark:text-white"
             }`}
           >
             اسم التخصص
-            <span className="mr-1 text-red-500">*</span>
+            <span className={`mr-1 ${errorTextClass}`}>*</span>
           </span>
           <input
             value={name}
             maxLength={50}
             onChange={(event) => setName(event.target.value)}
-            className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-              error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+            className={`h-[52px] w-full rounded-[10px] border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
+              error ? errorBorderClass : "border-transparent focus:border-cyan-400"
             }`}
             placeholder="اكتب الاسم هنا"
           />
         </label>
 
-        {error && <p className="mt-4 text-center font-semibold text-red-500">{error}</p>}
+        {error && <p className={`mt-3 text-center text-[12px] font-medium leading-[1.35] ${errorTextClass}`}>{error}</p>}
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
           <button

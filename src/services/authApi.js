@@ -1,6 +1,8 @@
 import { API_BASE_URL as API_ROOT } from "./apiClient";
 
 const API_BASE_URL = `${API_ROOT}/users`;
+export const inactiveAccountMessage =
+  "هذا الحساب غير مفعل. برجاء التواصل مع الإدارة لتفعيل الحساب.";
 
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
@@ -24,6 +26,16 @@ function toArabicErrorMessage(message, fallback) {
   if (/[\u0600-\u06FF]/.test(text)) return text;
 
   const normalized = text.toLowerCase();
+
+  if (
+    normalized.includes("inactive") ||
+    normalized.includes("not active") ||
+    normalized.includes("disabled") ||
+    normalized.includes("blocked") ||
+    normalized.includes("deactivated")
+  ) {
+    return inactiveAccountMessage;
+  }
 
   if (
     (normalized.includes("phone") ||
@@ -172,6 +184,83 @@ function isRoleLikeValue(value) {
   ].includes(normalizeRoleValue(value));
 }
 
+function normalizeActiveState(value, { statusField = false } = {}) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+
+  const normalized = normalizeRoleValue(value);
+
+  if (["active", "enabled", "approved", "verified", "true", "1", "مفعل", "نشط"].includes(normalized)) {
+    return true;
+  }
+
+  if (
+    [
+      "inactive",
+      "disabled",
+      "blocked",
+      "deactivated",
+      "suspended",
+      "pending",
+      "unverified",
+      "not_verified",
+      "not_active",
+      "notactive",
+      "false",
+      "0",
+      "غير_مفعل",
+      "غير_نشط",
+    ].includes(normalized)
+  ) {
+    return false;
+  }
+
+  if (
+    statusField &&
+    normalized &&
+    !["success", "ok", "done"].includes(normalized) &&
+    !isRoleLikeValue(normalized)
+  ) {
+    return false;
+  }
+
+  return null;
+}
+
+function readActiveStateFrom(value) {
+  if (!value || typeof value !== "object") return null;
+
+  const flagValues = [
+    value.active,
+    value.isActive,
+    value.is_active,
+    value.enabled,
+    value.isEnabled,
+    value.accountActive,
+    value.isAccountActive,
+  ];
+
+  for (const item of flagValues) {
+    const state = normalizeActiveState(item);
+    if (state !== null) return state;
+  }
+
+  const statusValues = [
+    value.accountStatus,
+    value.userStatus,
+    value.status,
+    value.state,
+  ];
+
+  for (const item of statusValues) {
+    const state = normalizeActiveState(item, { statusField: true });
+    if (state !== null) return state;
+  }
+
+  return null;
+}
+
 function readRoleFrom(value) {
   if (!value || typeof value !== "object") return "";
 
@@ -283,6 +372,41 @@ function getAuthUser(data) {
     data?.data?.profile ||
     (readRoleFrom(data) || readAdminFlag(data) ? data : null)
   );
+}
+
+export function isActiveAccount(data) {
+  const accountCandidates = [
+    getAuthUser(data),
+    data?.user,
+    data?.data?.user,
+    data?.data?.data?.user,
+    data?.account,
+    data?.data?.account,
+    data?.profile,
+    data?.data?.profile,
+    data?.patient,
+    data?.data?.patient,
+    data?.doctor,
+    data?.data?.doctor,
+    data?.receptionist,
+    data?.data?.receptionist,
+    data,
+    data?.data,
+    data?.data?.data,
+  ].filter(Boolean);
+
+  for (const candidate of accountCandidates) {
+    const state = readActiveStateFrom(candidate);
+    if (state !== null) return state;
+  }
+
+  return true;
+}
+
+export function assertActiveAccount(data) {
+  if (!isActiveAccount(data)) {
+    throw new Error(inactiveAccountMessage);
+  }
 }
 
 export function saveAuthSession(data) {

@@ -1,16 +1,22 @@
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { Children, isValidElement, useEffect, useRef, useState } from "react";
 
+const errorTextClass = "text-[#ff4f4f]";
+const errorBorderClass = "border-[#ff5c5c]";
+const normalBorderClass = "border-transparent focus:border-[#22bfe0]";
+const inputBaseClass =
+  "h-[52px] w-full rounded-[10px] border bg-[#eee] px-4 text-[#333] outline-none transition placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#505050] dark:text-white";
+
 export function Field({ label, error, children, className = "" }) {
   return (
     <label className={`block text-right ${className}`}>
       <span
-        className={`mb-2 block font-semibold ${
-          error ? "text-red-500" : "text-[#111] dark:text-white"
+        className={`mb-1.5 block text-[14px] font-medium ${
+          error ? errorTextClass : "text-[#111] dark:text-white"
         }`}
       >
         {label}
-        <span className="mr-1 text-red-500">*</span>
+        <span className={`mr-1 ${errorTextClass}`}>*</span>
       </span>
       {children}
       {error && <ErrorMessage error={error} />}
@@ -21,7 +27,7 @@ export function Field({ label, error, children, className = "" }) {
 function ErrorMessage({ error }) {
   if (Array.isArray(error)) {
     return (
-      <ul className="mt-2 list-disc space-y-1 pr-5 text-sm font-semibold text-red-500">
+      <ul className={`mt-2 list-inside list-disc space-y-0.5 text-right text-[11px] font-medium leading-[1.35] ${errorTextClass}`}>
         {error.map((message) => (
           <li key={message}>{message}</li>
         ))}
@@ -29,15 +35,19 @@ function ErrorMessage({ error }) {
     );
   }
 
-  return <span className="mt-2 block text-sm text-red-500">{error}</span>;
+  return (
+    <span className={`mt-1.5 block text-right text-[11px] font-medium leading-[1.35] ${errorTextClass}`}>
+      {error}
+    </span>
+  );
 }
 
 export function TextInput({ error, className = "", ...props }) {
   return (
     <input
       {...props}
-      className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#505050] dark:text-white ${
-        error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+      className={`${inputBaseClass} ${
+        error ? errorBorderClass : normalBorderClass
       } ${className}`}
     />
   );
@@ -49,8 +59,8 @@ export function DateInput({ error, className = "", ...props }) {
       {...props}
       type="date"
       dir="ltr"
-      className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-        error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+      className={`${inputBaseClass} ${
+        error ? errorBorderClass : normalBorderClass
       } ${className}`}
     />
   );
@@ -96,8 +106,8 @@ function DropdownSelect({
         type="button"
         dir="ltr"
         disabled={disabled}
-        className={`flex w-full items-center gap-3 rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition disabled:cursor-not-allowed disabled:opacity-80 dark:bg-[#505050] dark:text-white ${
-          error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+        className={`flex w-full items-center gap-3 rounded-[10px] border bg-[#eee] px-4 text-[#333] outline-none transition disabled:cursor-not-allowed disabled:opacity-80 dark:bg-[#505050] dark:text-white ${
+          error ? errorBorderClass : normalBorderClass
         } ${buttonClassName}`}
         onClick={() => {
           if (!disabled) {
@@ -179,8 +189,8 @@ export function PasswordInput({ error, ...props }) {
       <input
         {...props}
         type={visible ? "text" : "password"}
-        className={`h-[52px] w-full rounded-xl border bg-[#eee] px-4 pl-12 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-          error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+        className={`h-[52px] w-full rounded-[10px] border bg-[#eee] px-4 pl-12 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
+          error ? errorBorderClass : normalBorderClass
         }`}
       />
       <button
@@ -225,8 +235,8 @@ export function WorkDaysPicker({ value, onChange, options, error }) {
         role="button"
         tabIndex={0}
         dir="ltr"
-        className={`flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl border bg-[#eee] px-4 py-2 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-          error ? "border-red-500" : "border-transparent focus-within:border-cyan-400"
+        className={`flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-[10px] border bg-[#eee] px-4 py-2 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
+          error ? errorBorderClass : "border-transparent focus-within:border-[#22bfe0]"
         }`}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
@@ -278,7 +288,7 @@ export function WorkDaysPicker({ value, onChange, options, error }) {
         </div>
       )}
 
-      {error && <span className="mt-2 block text-sm text-red-500">{error}</span>}
+      {error && <ErrorMessage error={error} />}
     </div>
   );
 }
@@ -349,8 +359,8 @@ export function WorkHoursRange({
       <button
         type="button"
         dir="ltr"
-        className={`flex h-[52px] w-full items-center gap-3 rounded-xl border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
-          error ? "border-red-500" : "border-transparent focus:border-cyan-400"
+        className={`flex h-[52px] w-full items-center gap-3 rounded-[10px] border bg-[#eee] px-4 text-[#333] outline-none transition dark:bg-[#505050] dark:text-white ${
+          error ? errorBorderClass : normalBorderClass
         }`}
         onClick={() => setOpen((current) => !current)}
       >
@@ -380,7 +390,7 @@ export function WorkHoursRange({
         </div>
       )}
 
-      {error && <span className="mt-2 block text-sm text-red-500">{error}</span>}
+      {error && <ErrorMessage error={error} />}
     </div>
   );
 }

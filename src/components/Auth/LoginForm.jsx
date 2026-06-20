@@ -4,12 +4,13 @@ import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
 import {
+  assertActiveAccount,
   getAccountRole,
   getPatientAccountId,
   loginUser,
   saveAuthSession,
 } from "../../services/authApi";
-import { getPatient } from "../../services/medilinkApi";
+import { getMyPatientProfile, getPatient } from "../../services/medilinkApi";
 
 
 export default function LoginForm() {
@@ -71,6 +72,7 @@ export default function LoginForm() {
         password: formData.password,
       });
 
+      assertActiveAccount(data);
       saveAuthSession(data);
       toast.success("تم تسجيل الدخول بنجاح");
       const role = getAccountRole(data);
@@ -81,7 +83,9 @@ export default function LoginForm() {
         const completionKey = `medilink-patient-profile-completed-${patientId}`;
 
         try {
-          const patient = await getPatient(patientId);
+          const patient = await getMyPatientProfile().catch(() =>
+            getPatient(patientId),
+          );
           patientProfileCompleted = Boolean(patient?.bloodType);
 
           if (patientProfileCompleted) {

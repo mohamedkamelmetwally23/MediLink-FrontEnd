@@ -23,8 +23,7 @@ export default function PatientForm({
   const [values, setValues] = useState({ ...initialValues, ...initialData });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasValidationErrors = Object.keys(validatePatient(values)).length > 0;
-  const submitDisabled = isSubmitting || hasValidationErrors;
+  const submitDisabled = isSubmitting;
 
   const setField = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));

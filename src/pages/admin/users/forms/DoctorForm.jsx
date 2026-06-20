@@ -44,6 +44,23 @@ function getDateYearsAgo(years, daysToAdd = 0) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function hasCreateInput(values) {
+  return [
+    values.firstName,
+    values.lastName,
+    values.birthDate,
+    values.phone,
+    values.specialty,
+    values.experience,
+    values.workStart,
+    values.workEnd,
+    values.password,
+    values.confirmPassword,
+  ].some((value) => String(value || "").trim()) ||
+    values.gender !== initialValues.gender ||
+    JSON.stringify(values.workDays || []) !== JSON.stringify(initialValues.workDays);
+}
+
 export default function DoctorForm({
   mode = "create",
   initialData,
@@ -64,9 +81,7 @@ export default function DoctorForm({
     minAge: 27,
     requireStatus: mode === "create",
   };
-  const hasValidationErrors =
-    Object.keys(validateDoctor(values, validationOptions)).length > 0;
-  const submitDisabled = isSubmitting || hasValidationErrors;
+  const submitDisabled = isSubmitting || (mode === "create" && !hasCreateInput(values));
 
   const setField = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
