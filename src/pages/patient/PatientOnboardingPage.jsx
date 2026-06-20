@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Check,
@@ -17,7 +17,10 @@ import { FaXTwitter } from "react-icons/fa6";
 import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/landingPage/doctor1.png";
 import patientVector from "../../assets/patient departement/Vector.png";
-import { completePatientProfile } from "../../services/medilinkApi";
+import {
+  completePatientProfile,
+  getMyPatientProfile,
+} from "../../services/medilinkApi";
 
 const gradient = "bg-linear-to-b from-[#13B5DF] to-[#64CAC6]";
 
@@ -430,6 +433,26 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
           {config.add}
         </button>
 
+        {customItems.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {customItems.map((item) => (
+              <span
+                key={item}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#EAF9FC] px-3 py-2 text-sm font-semibold text-[#168DA5] dark:bg-[#35BBD3]/15 dark:text-[#7DDEEF]"
+              >
+                {item}
+                <button
+                  type="button"
+                  aria-label={`حذف ${item}`}
+                  onClick={() => removeCustomItem(item)}
+                >
+                  <X size={15} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         {showCustomInput && !noneSelected && (
           <div className="mt-2">
             <div className="flex gap-2">
@@ -462,25 +485,6 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
               </button>
             </div>
 
-            {customItems.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {customItems.map((item) => (
-                  <span
-                    key={item}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#EAF9FC] px-3 py-2 text-sm font-semibold text-[#168DA5] dark:bg-[#35BBD3]/15 dark:text-[#7DDEEF]"
-                  >
-                    {item}
-                    <button
-                      type="button"
-                      aria-label={`حذف ${item}`}
-                      onClick={() => removeCustomItem(item)}
-                    >
-                      <X size={15} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -493,6 +497,7 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
 function FilesScreen({
   files,
   setFiles,
+  existingFiles,
   onNext,
   onPrevious,
   isSubmitting,
@@ -555,7 +560,7 @@ function FilesScreen({
       >
         <input ref={fileInputRef} className="hidden" type="file" multiple accept=".png,.jpg,.jpeg,.pdf" onChange={(event) => addFiles(event.target.files ?? [])} />
 
-        {previews.length ? (
+        {previews.length || existingFiles.length ? (
           <div className="flex flex-wrap justify-center gap-4">
             <button
               type="button"
@@ -565,6 +570,26 @@ function FilesScreen({
             >
               <Plus size={46} className="rounded-full bg-[#A3A3A3] p-2 text-white" />
             </button>
+
+            {existingFiles.map((file, index) => (
+              <div
+                key={file._id || file.fileId || file.id || file.url || index}
+                className="grid h-[132px] w-40 place-items-center overflow-hidden rounded-xl bg-[#F1F1F1] dark:bg-[#454545] max-md:h-[106px] max-md:w-[126px]"
+              >
+                {file.url ? (
+                  <img
+                    src={file.url}
+                    alt={file.fileName || `ملف طبي ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-[#777] dark:text-[#D0D0D0]">
+                    <FileText size={38} />
+                    <span className="text-xs">ملف طبي {index + 1}</span>
+                  </div>
+                )}
+              </div>
+            ))}
 
             {previews.map((preview) => (
               <div key={preview.id} className="group relative grid h-[132px] w-40 place-items-center overflow-hidden rounded-xl bg-[#F1F1F1] dark:bg-[#454545] max-md:h-[106px] max-md:w-[126px]">
@@ -612,7 +637,7 @@ function FilesScreen({
   );
 }
 
-function SuccessScreen({ patientId }) {
+function SuccessScreen({ patientId, isEditMode }) {
   return (
     <section className="flex min-h-[650px] w-full max-w-[1320px] flex-col items-center justify-center text-center">
       <div className="relative h-[450px] w-[470px] max-w-[90vw] max-md:h-[320px]" aria-hidden="true">
@@ -625,7 +650,9 @@ function SuccessScreen({ patientId }) {
           <Check size={190} strokeWidth={1.2} className="max-md:size-[132px]" />
         </div>
       </div>
-      <h1 className="m-0 text-[clamp(27px,2.4vw,36px)] font-semibold leading-[1.35] text-[#333333] dark:text-[#F0F0F0]">تم إعداد ملفك الطبي بنجاح</h1>
+      <h1 className="m-0 text-[clamp(27px,2.4vw,36px)] font-semibold leading-[1.35] text-[#333333] dark:text-[#F0F0F0]">
+        {isEditMode ? "تم تعديل ملفك الطبي بنجاح" : "تم إعداد ملفك الطبي بنجاح"}
+      </h1>
       <p className="mb-10 mt-2 text-xl font-semibold text-[#333333] dark:text-[#F0F0F0] max-md:text-[17px]">
         يمكنك الآن حجز المواعيد، متابعة سجلك الطبي، والحصول على توصيات طبية أكثر دقة.
       </p>
@@ -664,7 +691,9 @@ function WizardActions({
 
 export default function PatientOnboardingPage() {
   const { patientId } = useParams();
-  const [screenIndex, setScreenIndex] = useState(0);
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("edit") === "true";
+  const [screenIndex, setScreenIndex] = useState(isEditMode ? 1 : 0);
   const [info, setInfo] = useState({ height: 75, weight: 165, smoker: "لا", bloodType: "A+" });
   const [checks, setChecks] = useState({
     chronic: checklistScreens.chronic.defaults,
@@ -672,7 +701,54 @@ export default function PatientOnboardingPage() {
     medications: checklistScreens.medications.defaults,
   });
   const [files, setFiles] = useState([]);
+  const [existingFiles, setExistingFiles] = useState([]);
+  const [profileLoading, setProfileLoading] = useState(isEditMode);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isEditMode) return undefined;
+
+    let mounted = true;
+
+    getMyPatientProfile()
+      .then((patient) => {
+        if (!mounted) return;
+
+        setInfo({
+          height: String(patient.height || 75),
+          weight: String(patient.weight || 0),
+          smoker: patient.smoker === true ? "نعم" : "لا",
+          bloodType: patient.bloodType || "A+",
+        });
+        setChecks({
+          chronic:
+            patient.chronicConditions?.length > 0
+              ? patient.chronicConditions
+              : [checklistScreens.chronic.none],
+          allergies:
+            patient.allergies?.length > 0
+              ? patient.allergies
+              : [checklistScreens.allergies.none],
+          medications:
+            patient.chronicMedications?.length > 0
+              ? patient.chronicMedications
+              : [checklistScreens.medications.none],
+        });
+        setExistingFiles(patient.medicalFiles || []);
+      })
+      .catch((error) => {
+        if (mounted) {
+          toast.error(error.message || "تعذر تحميل بيانات الملف الطبي");
+        }
+      })
+      .finally(() => {
+        if (mounted) setProfileLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isEditMode]);
 
   const currentStepIndex = Math.max(0, Math.min(screenIndex - 1, steps.length - 1));
   const isWizard = screenIndex > 0 && screenIndex < 6;
@@ -717,6 +793,12 @@ export default function PatientOnboardingPage() {
       <PatientHeader />
 
       <main className="flex min-h-[690px] flex-col items-center px-6 py-[86px] max-md:min-h-0 max-md:px-4 max-md:py-9">
+        {profileLoading ? (
+          <div className={`${cardClass} grid min-h-[440px] place-items-center text-lg font-semibold`}>
+            جاري تحميل بياناتك...
+          </div>
+        ) : (
+          <>
         {isWizard && <ProgressSteps currentIndex={currentStepIndex} />}
 
         {screenIndex === 0 && <WelcomeScreen onNext={goNext} />}
@@ -755,12 +837,17 @@ export default function PatientOnboardingPage() {
           <FilesScreen
             files={files}
             setFiles={setFiles}
+            existingFiles={existingFiles}
             onNext={submitPatientInformation}
             onPrevious={goPrevious}
             isSubmitting={isSubmitting}
           />
         )}
-        {screenIndex === 6 && <SuccessScreen patientId={patientId} />}
+        {screenIndex === 6 && (
+          <SuccessScreen patientId={patientId} isEditMode={isEditMode} />
+        )}
+          </>
+        )}
       </main>
 
       <PatientFooter />

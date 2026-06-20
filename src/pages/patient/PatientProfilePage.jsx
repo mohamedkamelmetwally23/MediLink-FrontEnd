@@ -3,12 +3,9 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
-import xrayOne from "../../assets/doctor departement/image 12.png";
-import reportImage from "../../assets/doctor departement/image 12 (1).png";
-import xrayTwo from "../../assets/doctor departement/image 12 (2).png";
 import {
   getCurrentAuthUser,
-  getPatient,
+  getMyPatientProfile,
   listAppointments,
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
@@ -35,15 +32,6 @@ const prescriptions = [
   { date: "30 يناير 2026", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
   { date: "3 يناير 2026", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
   { date: "24 ديسمبر 2025", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
-];
-
-const initialFiles = [
-  { id: "sample-1", name: "20042026.PNG", src: xrayOne },
-  { id: "sample-2", name: "20042026.PNG", src: xrayTwo },
-  { id: "sample-3", name: "20042026.PNG", src: reportImage },
-  { id: "sample-4", name: "20042026.PNG", src: xrayTwo },
-  { id: "sample-5", name: "20042026.PNG", src: reportImage },
-  { id: "sample-6", name: "20042026.PNG", src: xrayOne },
 ];
 
 function currentPatientId(user) {
@@ -84,18 +72,25 @@ export default function PatientProfilePage() {
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "extra";
   const [search, setSearch] = useState("");
   const [appointments, setAppointments] = useState([]);
-  const [files, setFiles] = useState(initialFiles);
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
     let mounted = true;
     const patientId = routePatientId || currentPatientId(authUser);
 
     Promise.all([
-      patientId ? getPatient(patientId).catch(() => null) : Promise.resolve(null),
+      getMyPatientProfile().catch(() => null),
       listAppointments().catch(() => []),
     ]).then(([patientResult, appointmentResult]) => {
       if (!mounted) return;
       setPatient(buildPatient(authUser, patientResult));
+      setFiles(
+        patientResult?.medicalFiles?.map((file, index) => ({
+          id: file._id || file.fileId || file.id || `medical-file-${index}`,
+          name: file.name || file.fileName || `ملف طبي ${index + 1}`,
+          src: file.url || file.src || "",
+        })) || [],
+      );
       setAppointments(
         appointmentResult.filter((appointment) =>
           !patientId || !appointment.patientId || String(appointment.patientId) === String(patientId),
@@ -162,7 +157,7 @@ export default function PatientProfilePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/profile/edit`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
+            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/patientinformation?edit=true`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
             <button type="button" onClick={() => toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")} className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600">حذف الحساب</button>
           </div>
         </section>
