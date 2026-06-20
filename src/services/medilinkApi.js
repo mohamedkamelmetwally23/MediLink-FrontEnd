@@ -1519,39 +1519,16 @@ export async function completePatientProfile(values) {
   };
   const medicalFiles = values.medicalFiles || [];
 
-  if (medicalFiles.length === 0) {
-    return apiRequest("/patient/complete-profile", {
-      method: "PATCH",
-      body: payload,
-    });
+  const profileResponse = await apiRequest("/patient/complete-profile", {
+    method: "PATCH",
+    body: payload,
+  });
+
+  if (medicalFiles.length > 0) {
+    await uploadPatientMedicalFiles(medicalFiles);
   }
 
-  const formData = new FormData();
-  formData.append("bloodType", payload.bloodType);
-  formData.append("tall", String(payload.tall));
-  formData.append("weight", String(payload.weight));
-  formData.append("smoking", String(payload.smoking));
-
-  [
-    "chronicMedications",
-    "allergies",
-    "chronicConditions",
-    "favoriteDoctors",
-  ].forEach((key) => {
-    const items = payload[key];
-    items.forEach((item) => {
-      formData.append(key, item);
-    });
-  });
-
-  medicalFiles.forEach((file) => {
-    formData.append("medicalFiles", file);
-  });
-
-  return apiRequest("/patient/complete-profile", {
-    method: "PATCH",
-    body: formData,
-  });
+  return profileResponse;
 }
 
 export async function uploadPatientMedicalFiles(files) {
