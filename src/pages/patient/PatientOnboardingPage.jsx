@@ -73,6 +73,39 @@ const checklistScreens = {
 
 const bloodTypes = ["A-", "A+", "O-", "B+", "B-", "AB+", "AB-", "O+"];
 
+function getMedicalFileId(file, index = 0) {
+  return String(
+    file?._id ||
+      file?.fileId ||
+      file?.id ||
+      file?.url ||
+      `medical-file-${index}`,
+  );
+}
+
+function saveUploadedFileNames(patientId, medicalFiles, uploadedFiles, previousIds) {
+  if (!patientId || uploadedFiles.length === 0) return;
+
+  const storageKey = `medilink-medical-file-names-${patientId}`;
+  let savedNames = {};
+
+  try {
+    savedNames = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch {
+    savedNames = {};
+  }
+
+  medicalFiles
+    .filter((file, index) => !previousIds.has(getMedicalFileId(file, index)))
+    .forEach((file, index) => {
+      if (uploadedFiles[index]) {
+        savedNames[getMedicalFileId(file, index)] = uploadedFiles[index].name;
+      }
+    });
+
+  localStorage.setItem(storageKey, JSON.stringify(savedNames));
+}
+
 const cardClass =
   "w-full max-w-[920px] rounded-[10px] bg-white shadow-[0_4px_18px_rgba(0,0,0,0.12)] dark:bg-[#383838] dark:shadow-[0_10px_28px_rgba(0,0,0,0.34)]";
 const headingClass =
@@ -769,6 +802,14 @@ export default function PatientOnboardingPage() {
     setIsSubmitting(true);
 
     try {
+      const previousProfile =
+        files.length > 0
+          ? await getMyPatientProfile().catch(() => null)
+          : null;
+      const previousFileIds = new Set(
+        (previousProfile?.medicalFiles || []).map(getMedicalFileId),
+      );
+
       await completePatientProfile({
         bloodType: info.bloodType,
         height: info.height,
@@ -780,6 +821,17 @@ export default function PatientOnboardingPage() {
         favoriteDoctors: [],
         medicalFiles: files,
       });
+
+      if (files.length > 0) {
+        const updatedProfile = await getMyPatientProfile().catch(() => null);
+        saveUploadedFileNames(
+          patientId,
+          updatedProfile?.medicalFiles || [],
+          files,
+          previousFileIds,
+        );
+      }
+
       localStorage.setItem(
         `medilink-patient-profile-completed-${patientId}`,
         "true",
