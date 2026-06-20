@@ -41,7 +41,10 @@ import searchDoctorIcon from "../../assets/landingPage/13(1).png";
 import specialtyIcon from "../../assets/landingPage/13 (2).png";
 import appointmentIcon from "../../assets/landingPage/13 (3).png";
 import { clearAuthSession } from "../../services/authApi";
-import { getCurrentAuthUser } from "../../services/medilinkApi";
+import {
+  getCurrentAuthUser,
+  getCurrentUser,
+} from "../../services/medilinkApi";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
@@ -121,6 +124,9 @@ export function PatientHomeHeader() {
   const navigate = useNavigate();
   const { patientId } = useParams();
   const authUser = getCurrentAuthUser();
+  const [profilePhoto, setProfilePhoto] = useState(
+    authUser?.photo || avatar,
+  );
   const currentPatientId =
     patientId ||
     authUser?.patientId ||
@@ -152,6 +158,28 @@ export function PatientHomeHeader() {
 
     document.addEventListener("pointerdown", handleOutsideClick);
     return () => document.removeEventListener("pointerdown", handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentUser()
+      .then((user) => {
+        if (mounted && user.photo) setProfilePhoto(user.photo);
+      })
+      .catch(() => null);
+
+    const handleUserUpdated = (event) => {
+      const user = event.detail || getCurrentAuthUser() || {};
+      setProfilePhoto(user.photo || avatar);
+    };
+
+    window.addEventListener("medilink-user-updated", handleUserUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("medilink-user-updated", handleUserUpdated);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -198,7 +226,7 @@ export function PatientHomeHeader() {
             aria-expanded={profileOpen}
             aria-controls="patient-profile-menu"
           >
-            <img src={avatar} alt="صورة الحساب" className="size-10 rounded-full object-cover sm:size-11" />
+            <img src={profilePhoto} alt="صورة الحساب" className="size-10 rounded-full object-cover sm:size-11" />
           </button>
 
           <div

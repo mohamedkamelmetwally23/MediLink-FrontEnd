@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/Avatar.png";
 import {
   getCurrentAuthUser,
+  getCurrentUser,
   getMyPatientProfile,
   listAppointments,
   uploadPatientMedicalFiles,
@@ -87,7 +88,12 @@ function buildPatient(user, apiPatient) {
     id: source.id || source._id || currentPatientId(user),
     name: source.name || [source.firstName, source.lastName].filter(Boolean).join(" ") || "خالد طارق",
     phone: source.phone || source.phoneNumber || source.mobile || "0107338300",
-    image: source.profileImage || source.image || source.avatar || avatar,
+    image:
+      source.photo ||
+      source.profileImage ||
+      source.image ||
+      source.avatar ||
+      avatar,
     status: source.status === "inactive" ? "غير مفعل" : "مفعل",
     height: source.tall ?? source.height ?? "غير متوفر",
     weight: source.weight || 70,
@@ -124,10 +130,16 @@ export default function PatientProfilePage() {
 
     Promise.all([
       getMyPatientProfile().catch(() => null),
+      getCurrentUser().catch(() => null),
       listAppointments().catch(() => []),
-    ]).then(([patientResult, appointmentResult]) => {
+    ]).then(([patientResult, currentUser, appointmentResult]) => {
       if (!mounted) return;
-      setPatient(buildPatient(authUser, patientResult));
+      setPatient(
+        buildPatient(authUser, {
+          ...patientResult,
+          photo: currentUser?.photo || "",
+        }),
+      );
       setFiles(
         patientResult?.medicalFiles?.map((file, index) => ({
           id: getMedicalFileId(file, index),

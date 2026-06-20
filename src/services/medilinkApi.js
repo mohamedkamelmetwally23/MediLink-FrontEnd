@@ -1014,6 +1014,11 @@ export async function getMyPatientProfile() {
   return normalizePatient(patient);
 }
 
+export async function getCurrentUser() {
+  const response = await apiRequest("/users/me");
+  return findEntity(response, ["user", "profile"]);
+}
+
 export async function updatePatient(id, values) {
   const response = await requestFirst(
     [`/patient/${id}`, `/patients/${id}`, `/patientprofiles/${id}`],
@@ -1038,6 +1043,18 @@ export async function updateCurrentPatient(values) {
   });
 
   return normalizePatient(findEntity(response, ["patient", "user", "profile"]));
+}
+
+export async function updateCurrentUserPhoto(photo) {
+  const formData = new FormData();
+  formData.append("photo", photo);
+
+  await apiRequest("/users/updateMe", {
+    method: "PATCH",
+    body: formData,
+  });
+
+  return getCurrentUser();
 }
 
 export async function changePatientPassword(values) {
