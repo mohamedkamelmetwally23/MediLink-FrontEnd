@@ -149,7 +149,7 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
   const [accountDetailsOpen, setAccountDetailsOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const isHomePage = location.pathname === patientHomePath;
-  const isAppointmentsPage = location.pathname.startsWith("/patient/doctors");
+  const isAppointmentsPage = location.pathname === "/patient/doctors";
 
   const mobileLinks = [
     { href: patientHomePath, label: "الرئيسية", route: true },
@@ -611,7 +611,13 @@ function DoctorsSection({ search = "" }) {
             const rating = getDoctorRating(doctor);
 
             return (
-              <article key={doctor.id || index} className="flex min-h-[225px] min-w-[190px] snap-start flex-col items-center rounded-lg bg-linear-to-b from-[#F0F0F0] to-white p-4 text-center shadow-[0_4px_16px_rgba(0,0,0,0.09)] dark:from-[#454545] dark:to-[#383838] sm:min-w-[205px]">
+              <Link
+                key={doctor.id || index}
+                to={`/patient/doctors/${encodeURIComponent(doctor.id)}`}
+                state={{ doctor }}
+                aria-label={`عرض صفحة ${getDoctorName(doctor)}`}
+                className="flex min-h-[225px] min-w-[190px] snap-start flex-col items-center rounded-lg bg-linear-to-b from-[#F0F0F0] to-white p-4 text-center shadow-[0_4px_16px_rgba(0,0,0,0.09)] transition hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05ADE8] dark:from-[#454545] dark:to-[#383838] sm:min-w-[205px]"
+              >
                 <img src={getDoctorImage(doctor, index)} alt={getDoctorName(doctor)} className="h-28 w-full object-contain" />
                 <h3 className="mt-2 text-base font-bold text-[#333333] dark:text-[#F0F0F0]">{getDoctorName(doctor)}</h3>
                 <p className="mt-1 text-xs text-[#777777] dark:text-[#C7C7C7]">{doctor.specialty || "طب عام"}</p>
@@ -623,7 +629,7 @@ function DoctorsSection({ search = "" }) {
                     ))}
                   </span>
                 </div>
-              </article>
+              </Link>
             );
           })}
 
