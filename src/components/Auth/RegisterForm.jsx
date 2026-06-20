@@ -257,7 +257,7 @@ export default function RegisterForm({
       gender: formData.gender,
       phone: formData.phoneNumber.trim(),
       password: formData.password,
-      confirmpassword: formData.confirmPassword,
+      confirmPassword: formData.confirmPassword,
       day: Number(formData.birthDay),
       month: Number(formData.birthMonth),
       year: Number(formData.birthYear),

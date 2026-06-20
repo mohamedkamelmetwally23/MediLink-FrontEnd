@@ -37,6 +37,10 @@ function toArabicErrorMessage(message, fallback) {
     return "PHONE_ALREADY_EXISTS";
   }
 
+  if (normalized.includes("confirm") && normalized.includes("password")) {
+    return "تأكيد كلمة المرور غير صحيح";
+  }
+
   if (normalized.includes("password")) {
     return "رقم الهاتف أو كلمة المرور غير صحيحة";
   }
