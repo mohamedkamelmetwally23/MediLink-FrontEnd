@@ -540,10 +540,14 @@ function SpecialtiesSection() {
       <h2 className="text-center text-3xl font-semibold text-[#333333] dark:text-[#F0F0F0]">التخصصات</h2>
       <div className="mt-8 flex snap-x gap-4 overflow-x-auto pb-5 [scrollbar-color:#60C8CB_transparent] [scrollbar-width:thin]">
         {specialties.map((item) => (
-          <button key={item.id || item.name} type="button" className="flex min-h-32 min-w-[180px] snap-start flex-col items-center justify-center rounded-lg bg-white p-4 text-center shadow-[0_4px_18px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 dark:bg-[#383838] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:min-w-[190px]">
+          <Link
+            key={item.id || item.name}
+            to={`/patient/doctors?specialty=${encodeURIComponent(item.name)}`}
+            className="flex min-h-32 min-w-[180px] snap-start flex-col items-center justify-center rounded-lg bg-white p-4 text-center shadow-[0_4px_18px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 dark:bg-[#383838] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:min-w-[190px]"
+          >
             <img src={item.image} alt="" className="mb-3 size-12 object-contain" />
             <span className="text-sm font-semibold text-[#333333] dark:text-[#F0F0F0]">{item.name}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </section>
