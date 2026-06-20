@@ -6,9 +6,8 @@ import doctorAvatar from "../../../assets/landingPage/doctor1.png";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
-  getCurrentDoctorId,
   getCurrentDoctorProfile,
-  listDoctorAppointments,
+  listMyDoctorAppointments,
 } from "../../../services/medilinkApi";
 
 const navItems = [
@@ -78,26 +77,11 @@ function getPatientImage(appointment) {
   );
 }
 
-async function loadDoctorAppointments(doctor) {
-  const ids = Array.from(
-    new Set(
-      [doctor?.profileId, doctor?.id, doctor?.userId, getCurrentDoctorId()]
-        .filter(Boolean)
-        .map(String),
-    ),
-  );
+function getPatientPhone(appointment) {
+  const patient = appointment.raw?.patient || appointment.raw?.patientId || {};
+  const user = patient.user || patient.account || patient;
 
-  for (const id of ids) {
-    try {
-      const appointments = await listDoctorAppointments(id);
-
-      if (appointments.length > 0) return appointments;
-    } catch {
-      // Try another id shape from the current doctor payload.
-    }
-  }
-
-  return [];
+  return appointment.phone || appointment.raw?.patientPhone || patient.phone || user.phone || "";
 }
 
 function buildWaitingList(appointments) {
@@ -115,10 +99,19 @@ function buildWaitingList(appointments) {
       id: appointment.id || `${appointment.date}-${appointment.time}`,
       patientId: appointment.patientId,
       name: getPatientName(appointment),
+      phone: getPatientPhone(appointment),
       time: formatTime(appointment.time),
       status: index === 0 ? "الآن" : "التالي",
       statusTone: index === 0 ? "now" : "soon",
       image: getPatientImage(appointment),
+      patient: {
+        id: appointment.patientId,
+        _id: appointment.patientId,
+        name: getPatientName(appointment),
+        phone: getPatientPhone(appointment),
+        image: getPatientImage(appointment),
+        profileImage: getPatientImage(appointment),
+      },
       current: index === 0,
     }));
 }
@@ -133,8 +126,11 @@ export default function DoctorLayout() {
 
     async function loadSidebarData() {
       try {
-        const currentDoctor = await getCurrentDoctorProfile();
-        const appointments = await loadDoctorAppointments(currentDoctor);
+        const todayIso = getIsoDate(new Date());
+        const [currentDoctor, appointments] = await Promise.all([
+          getCurrentDoctorProfile().catch(() => null),
+          listMyDoctorAppointments(todayIso).catch(() => []),
+        ]);
 
         if (!mounted) return;
 
@@ -364,7 +360,13 @@ function WaitingItem({ item, onClose }) {
   const openExamination = () => {
     if (!patientProfileId) return;
 
-    navigate(`/doctor/patients/${patientProfileId}/profile`, { state: { startExam: true } });
+    navigate(`/doctor/patients/${patientProfileId}/profile`, {
+      state: {
+        startExam: true,
+        appointmentId: item.id,
+        patient: item.patient,
+      },
+    });
     onClose();
   };
 

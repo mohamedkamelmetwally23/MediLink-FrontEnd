@@ -949,6 +949,30 @@ function getDoctorLookupIds(doctor = {}) {
   );
 }
 
+function getDoctorAvailableSlotLookupIds(doctor = {}) {
+  const value = doctor || {};
+
+  return Array.from(
+    new Set(
+      [
+        value.profileId,
+        value.raw?._id,
+        value.raw?.doctorProfile?._id,
+        value.raw?.doctorProfile?.id,
+        value.raw?.profile?._id,
+        value.raw?.profile?.id,
+        value.raw?.id,
+        value.id,
+        value.userId,
+        value.raw?.user?._id,
+        value.raw?.user?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
 function doctorMatchesIds(doctor, ids) {
   const idsSet = new Set(ids.map(String));
   return getDoctorLookupIds(doctor).some((id) => idsSet.has(id));
@@ -982,70 +1006,180 @@ export async function getCurrentDoctorProfile() {
 }
 
 function normalizeAvailableSlotDay(item = {}) {
-  const slots = Array.isArray(item.slots)
-    ? item.slots
-    : Array.isArray(item.availableSlots)
-      ? item.availableSlots
-      : Array.isArray(item.times)
-        ? item.times
-        : [];
+  const value = typeof item === "string" ? { time: item } : item || {};
+  const slots = getAvailableSlotList(value);
+  const date = getAvailableSlotDate(value);
 
   return {
-    date: normalizeDate(item.date || item.dayDate || item.appointmentDate),
-    day: item.day || item.name || "",
+    date,
+    day: value.dayName || value.weekDay || value.weekday || value.day || value.name || "",
     slots: slots
       .map((slot) => {
-        const value = typeof slot === "string" ? { time: slot } : slot || {};
+        const slotValue = typeof slot === "string" ? { time: slot } : slot || {};
 
         return {
+          date: getAvailableSlotDate(slotValue, date),
           time: normalizeTime(
-            value.time || value.startTime || value.appointmentTime || "",
+            slotValue.time ||
+              slotValue.slotTime ||
+              slotValue.startTime ||
+              slotValue.appointmentTime ||
+              slotValue.from ||
+              "",
           ),
-          status: value.status || value.state || "available",
+          status:
+            slotValue.status ||
+            slotValue.state ||
+            (slotValue.available === false ? "booked" : "available"),
           raw: slot,
         };
       })
       .filter((slot) => slot.time),
-    raw: item,
+    raw: value,
   };
+}
+
+function getAvailableSlotList(item = {}) {
+  if (typeof item === "string") return [item];
+  if (Array.isArray(item)) return item;
+  if (Array.isArray(item.slots)) return item.slots;
+  if (Array.isArray(item.availableSlots)) return item.availableSlots;
+  if (Array.isArray(item.times)) return item.times;
+  if (item.time || item.slotTime || item.startTime || item.appointmentTime) {
+    return [item];
+  }
+
+  return [];
+}
+
+function hasAvailableSlotDate(item = {}) {
+  return Boolean(
+    item?.date ||
+      item?.dayDate ||
+      item?.appointmentDate ||
+      item?.slotDate ||
+      item?.availableDate ||
+      item?.dateIso,
+  );
+}
+
+function getAvailableSlotDate(item = {}, fallback = "") {
+  if (typeof item !== "object" || !item) return normalizeDate(fallback);
+
+  return normalizeDate(
+    item.date ||
+      item.dayDate ||
+      item.appointmentDate ||
+      item.slotDate ||
+      item.availableDate ||
+      item.dateIso ||
+      fallback ||
+      new Date(),
+  );
+}
+
+function slotItemsFromObject(value = {}) {
+  return Object.entries(value).flatMap(([date, slots]) => {
+    if (Array.isArray(slots)) {
+      return slots.map((slot) =>
+        typeof slot === "string" ? { date, time: slot } : { date, ...slot },
+      );
+    }
+
+    if (slots && typeof slots === "object") {
+      return [{ date, ...slots }];
+    }
+
+    return [];
+  });
+}
+
+function findAvailableSlotItems(response) {
+  const roots = [
+    response,
+    unwrapData(response),
+    response?.data?.data,
+    response?.data?.result,
+    response?.result,
+  ];
+  const slotKeys = ["availableSlots", "slots", "days", "times", "available"];
+
+  for (const root of roots) {
+    if (Array.isArray(root)) return root;
+    if (!root || typeof root !== "object") continue;
+
+    if (
+      getAvailableSlotList(root).length > 0 &&
+      (hasAvailableSlotDate(root) ||
+        root.time ||
+        root.slotTime ||
+        root.startTime ||
+        root.appointmentTime)
+    ) {
+      return [root];
+    }
+
+    for (const key of slotKeys) {
+      const value = root[key];
+
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === "object") {
+        const objectItems = slotItemsFromObject(value);
+        if (objectItems.length > 0) return objectItems;
+      }
+    }
+  }
+
+  return [];
 }
 
 export async function listDoctorAvailableSlots(doctorId) {
   if (!doctorId) return [];
 
-  const slots = await listFromPaths(
+  const response = await requestFirst(
     [
       `/doctors/${doctorId}/available-slots`,
       `/doctorprofiles/${doctorId}/available-slots`,
       `/doctorProfiles/${doctorId}/available-slots`,
       `/doctor-profiles/${doctorId}/available-slots`,
     ],
-    ["slots", "availableSlots", "days"],
   );
+  const slots = findAvailableSlotItems(response);
 
   return slots.map(normalizeAvailableSlotDay);
 }
 
+function isEmptyAvailableSlotsError(error) {
+  if (!(error instanceof ApiError)) return false;
+
+  const message = String(error.message || "").toLowerCase();
+  return (
+    [400, 404, 405, 500].includes(error.status) ||
+    message.includes("something went wrong")
+  );
+}
+
 export async function listCurrentDoctorAvailableSlots(doctor) {
   const lookupIds = [
-    ...getDoctorLookupIds(doctor),
+    ...getDoctorAvailableSlotLookupIds(doctor),
     ...getCurrentDoctorCandidateIds(),
   ];
+  let emptySlots = [];
 
   for (const id of Array.from(new Set(lookupIds.filter(Boolean)))) {
     try {
-      return await listDoctorAvailableSlots(id);
+      const slots = await listDoctorAvailableSlots(id);
+
+      if (slots.some((day) => day.slots?.length > 0)) return slots;
+      if (emptySlots.length === 0) emptySlots = slots;
     } catch (error) {
-      if (
-        !(error instanceof ApiError) ||
-        ![400, 404, 405].includes(error.status)
-      ) {
+      if (!isEmptyAvailableSlotsError(error)) {
         throw error;
       }
     }
   }
 
-  return [];
+  return emptySlots;
 }
 
 export async function createDoctor(values) {
@@ -1166,6 +1300,123 @@ export async function listPatients() {
   ]);
   const hydratedPatients = await withHydratedUsers(patients, { enabled: false });
   return hydratedPatients.map(normalizePatient);
+}
+
+function patientFromDoctorPatientItem(item = {}) {
+  const source =
+    item.patient ||
+    item.patientId ||
+    item.patientProfile ||
+    item.profile ||
+    item.user ||
+    item;
+  const fallback = compactObject({
+    _id:
+      getId(source) ||
+      item.patientId ||
+      item.patient ||
+      item.userId ||
+      item._id ||
+      item.id,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    name:
+      item.patientName ||
+      item.name ||
+      [item.firstName, item.lastName].filter(Boolean).join(" ").trim(),
+    phone: item.patientPhone || item.phone,
+    appointmentsCount:
+      item.appointmentsCount ?? item.visitCount ?? item.appointments?.length,
+    casesCount: item.casesCount ?? item.caseCount ?? item.visitCount,
+  });
+
+  if (source && typeof source === "object") {
+    return normalizePatient({
+      ...fallback,
+      ...source,
+      appointmentsCount:
+        source.appointmentsCount ??
+        source.visitCount ??
+        source.appointments?.length ??
+        fallback.appointmentsCount,
+      casesCount:
+        source.casesCount ??
+        source.caseCount ??
+        source.visitCount ??
+        fallback.casesCount,
+    });
+  }
+
+  return normalizePatient(fallback);
+}
+
+function isAppointmentPatientItem(item = {}) {
+  return Boolean(
+    item.appointmentDate ||
+      item.date ||
+      item.day ||
+      item.time ||
+      item.slotTime ||
+      item.doctor ||
+      item.doctorId ||
+      item.patient ||
+      item.patientId,
+  );
+}
+
+function normalizeDoctorPatients(items = []) {
+  const patientsByKey = new Map();
+
+  items.forEach((item) => {
+    const patient = patientFromDoctorPatientItem(item);
+    const key = patient.id || patient.userId || patient.phone || patient.name;
+
+    if (!key) return;
+
+    const current = patientsByKey.get(String(key));
+    const isSummaryItem =
+      item.visitCount !== undefined ||
+      item.appointmentsCount !== undefined ||
+      item.casesCount !== undefined ||
+      item.caseCount !== undefined;
+    const appointmentIncrement = !isSummaryItem && isAppointmentPatientItem(item) ? 1 : 0;
+    const nextCasesCount = Math.max(
+      current?.casesCount || 0,
+      patient.casesCount || 0,
+      patient.appointmentsCount || 0,
+    ) + (current && appointmentIncrement ? appointmentIncrement : 0);
+
+    patientsByKey.set(String(key), {
+      ...(current || {}),
+      ...patient,
+      casesCount: current ? nextCasesCount : nextCasesCount || appointmentIncrement,
+      appointmentsCount: current
+        ? nextCasesCount
+        : patient.appointmentsCount || patient.casesCount || appointmentIncrement,
+    });
+  });
+
+  return Array.from(patientsByKey.values());
+}
+
+export async function listPatientsForDoctor() {
+  const response = await apiRequest("/appointments/getPatientsForDoctor");
+  const patients = findArray(response, [
+    "patients",
+    "patient",
+    "allPatients",
+    "allPatient",
+    "patientProfiles",
+    "patientprofiles",
+    "profiles",
+    "appointments",
+    "allAppointments",
+    "appointment",
+    "bookings",
+    "bookedAppointments",
+  ]);
+
+  return normalizeDoctorPatients(patients);
 }
 
 export async function getPatient(id) {
@@ -1608,6 +1859,52 @@ export async function listAppointments() {
   return appointments.map(normalizeAppointment);
 }
 
+function isEmptyDatedAppointmentsError(error) {
+  if (!(error instanceof ApiError)) return false;
+
+  const message = String(error.message || "").toLowerCase();
+  return error.status === 404 || message.includes("something went wrong");
+}
+
+export async function listMyDoctorAppointments(date) {
+  const normalizedDate = normalizeDate(date);
+  const query = normalizedDate
+    ? `?date=${encodeURIComponent(normalizedDate)}`
+    : "";
+  let response;
+
+  try {
+    response = await apiRequest(`/appointments/my-appointments${query}`);
+  } catch (error) {
+    if (normalizedDate && isEmptyDatedAppointmentsError(error)) return [];
+    throw error;
+  }
+
+  const appointments = findArray(response, [
+    "appointments",
+    "appointment",
+    "allAppointments",
+    "allAppointment",
+    "myAppointments",
+    "doctorAppointments",
+    "bookedAppointments",
+    "bookings",
+    "booking",
+    "reservations",
+  ]);
+
+  return appointments.map((appointment) =>
+    normalizeAppointment({
+      ...appointment,
+      date:
+        appointment.date ||
+        appointment.appointmentDate ||
+        appointment.day ||
+        normalizedDate,
+    }),
+  );
+}
+
 export async function listDoctorAppointments(doctorId) {
   if (!doctorId) return listAppointments();
 
@@ -1719,6 +2016,91 @@ export async function createAppointment(values) {
   return normalizeAppointment(
     findEntity(response, ["appointment", "booking", "reservation"]),
   );
+}
+
+function normalizePrescriptionMedicines(medicines = []) {
+  return medicines
+    .map((medicine) =>
+      compactObject({
+        name: medicine.name,
+        medicineName: medicine.name,
+        drugName: medicine.name,
+        dose: medicine.dose,
+        dosage: medicine.dose,
+        frequency: medicine.schedule,
+        schedule: medicine.schedule,
+        duration: medicine.duration,
+      }),
+    )
+    .filter((medicine) => Object.keys(medicine).length > 0);
+}
+
+function visitPatientPayload(values = {}) {
+  const patientId = values.patientId || values.patient || values.patientProfile;
+  const doctorId = values.doctorId || values.doctor || values.doctorProfile;
+
+  return compactObject({
+    patientId,
+    patient_id: patientId,
+    patient: patientId,
+    patientProfile: patientId,
+    doctorId,
+    doctor_id: doctorId,
+    doctor: doctorId,
+    doctorProfile: doctorId,
+    appointmentId: values.appointmentId,
+    appointment_id: values.appointmentId,
+    appointment: values.appointmentId,
+    diagnosis: values.diagnosis,
+    notes: values.notes,
+    doctorNotes: values.notes,
+    date: values.date,
+    visitDate: values.date,
+    followUpDate: values.reviewDate || values.followUpDate,
+    reviewDate: values.reviewDate || values.followUpDate,
+    followUpNotes: values.reviewNotes || values.followUpNotes,
+    reviewNotes: values.reviewNotes || values.followUpNotes,
+  });
+}
+
+export async function createPrescription(values = {}) {
+  const medicines = normalizePrescriptionMedicines(
+    values.medicines || values.medications || [],
+  );
+  const payload = {
+    ...visitPatientPayload(values),
+    prescriptionDate: values.date,
+    medicines,
+    medications: medicines,
+    drugs: medicines,
+  };
+
+  return requestFirst(["/prescription", "/prescriptions"], {
+    method: "POST",
+    body: compactObject(payload),
+  });
+}
+
+export async function createMedicalReport(values = {}) {
+  const medicines = normalizePrescriptionMedicines(
+    values.medicines || values.medications || [],
+  );
+  const payload = {
+    ...visitPatientPayload(values),
+    reportDate: values.date,
+    medicalReportDate: values.date,
+    title: values.title || values.diagnosis,
+    summary: values.summary || values.notes,
+    report: values.report || values.notes,
+    description: values.description || values.notes,
+    medicines,
+    medications: medicines,
+  };
+
+  return requestFirst(["/medicalReports", "/medicalReport"], {
+    method: "POST",
+    body: compactObject(payload),
+  });
 }
 
 export async function completePatientProfile(values) {

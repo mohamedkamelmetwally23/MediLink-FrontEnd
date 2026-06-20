@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronLeft,
@@ -10,8 +10,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useUsersStore } from "../admin/users/useUsersStore";
 import { includesSearchText } from "../../utils/searchText";
+import { listPatientsForDoctor } from "../../services/medilinkApi";
 
 const pageSize = 10;
 
@@ -22,25 +22,47 @@ const statusLabels = {
 
 function toPatientRow(user) {
   return {
-    id: user.id,
+    id: user.id || user.userId || user.phone || user.name,
+    userId: user.userId || "",
     name: user.name || `${user.firstName} ${user.lastName}`.trim(),
     phone: user.phone || "",
     casesCount: user.casesCount ?? user.appointmentsCount ?? 0,
     status: user.status || "active",
+    raw: user,
   };
 }
 
 export default function DoctorPatientsPage() {
-  const { users, deleteUsers: removeUsers } = useUsersStore();
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const patients = useMemo(
-    () => users.filter((user) => user.role === "patient").map(toPatientRow),
-    [users],
-  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    listPatientsForDoctor()
+      .then((result) => {
+        if (!mounted) return;
+        setPatients(result.map(toPatientRow));
+      })
+      .catch((requestError) => {
+        if (!mounted) return;
+        setPatients([]);
+        setError(requestError.message || "تعذر تحميل مرضى الدكتور");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredPatients = useMemo(() => {
     const query = search.trim();
@@ -91,7 +113,7 @@ export default function DoctorPatientsPage() {
   };
 
   const deletePatients = (ids) => {
-    removeUsers(ids);
+    setPatients((current) => current.filter((patient) => !ids.includes(patient.id)));
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setPendingDelete(null);
   };
@@ -121,8 +143,12 @@ export default function DoctorPatientsPage() {
                 }
               />
 
-              {filteredPatients.length === 0 ? (
-                <EmptyState />
+              {loading ? (
+                <TableState text="جاري تحميل المرضى..." />
+              ) : error ? (
+                <TableState text={error} />
+              ) : filteredPatients.length === 0 ? (
+                <TableState text="لا يوجد مرضى حتى الآن" />
               ) : (
                 pagePatients.map((patient) => (
                   <PatientRow
@@ -296,6 +322,7 @@ function PatientRow({ patient, selected, onToggle, onDelete }) {
       </div>
       <Link
         to={`/doctor/patients/${patient.id}/profile`}
+        state={{ patient: patient.raw || patient }}
         aria-label={`عرض ملف ${patient.name}`}
         className="grid h-full place-items-center text-[#333] dark:text-white"
       >
@@ -336,10 +363,10 @@ function StatusBadge({ status }) {
   );
 }
 
-function EmptyState() {
+function TableState({ text }) {
   return (
     <div className="grid min-h-[470px] place-items-center text-[14px] font-bold text-[#333] dark:text-white">
-      لا يوجد مرضى حتى الآن
+      {text}
     </div>
   );
 }

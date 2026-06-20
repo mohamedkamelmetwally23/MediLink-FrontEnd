@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Bell,
   CalendarCheck,
   CalendarDays,
   ChevronLeft,
@@ -27,30 +26,27 @@ import {
   getCurrentDoctorProfile,
   listCurrentDoctorAvailableSlots,
   listDoctorAppointments,
+  listMyDoctorAppointments,
 } from "../../services/medilinkApi";
 
 const statusMeta = {
   confirmed: {
     label: "مؤكد",
-    activity: "تم تأكيد حجز موعد",
     tone: "waiting",
     color: "#1976d2",
   },
   pending: {
     label: "قيد الانتظار",
-    activity: "تم إنشاء طلب حجز جديد",
     tone: "waiting",
     color: "#38bfd7",
   },
   completed: {
     label: "تم الكشف",
-    activity: "تم إنهاء كشف المريض",
     tone: "done",
     color: "#4aae1b",
   },
   cancelled: {
     label: "ملغي",
-    activity: "تم إلغاء موعد",
     tone: "cancelled",
     color: "#ff4b4b",
   },
@@ -163,22 +159,6 @@ function formatMonth(date) {
   return date.toLocaleDateString("ar-EG", { month: "short" });
 }
 
-function formatRelativeTime(value) {
-  const timestamp = value ? new Date(value).getTime() : 0;
-
-  if (!timestamp || Number.isNaN(timestamp)) return "منذ قليل";
-
-  const diffMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
-
-  if (diffMinutes < 1) return "الآن";
-  if (diffMinutes < 60) return `منذ ${diffMinutes} دقيقة`;
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-
-  return `منذ ${Math.round(diffHours / 24)} يوم`;
-}
-
 function getDoctorName(doctor) {
   return (
     [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
@@ -223,7 +203,7 @@ function flattenAvailableSlots(days = []) {
   return days
     .flatMap((day) =>
       (day.slots || []).map((slot) => ({
-        date: day.date,
+        date: slot.date || day.date,
         day: day.day,
         time: slot.time,
         status: slot.status,
@@ -309,24 +289,25 @@ function buildWeeklyStates(appointments) {
     .filter((item) => item.count > 0);
 }
 
-function buildRecentActivities(appointments) {
-  return [...appointments]
-    .sort((left, right) => {
-      const leftDate = left.raw?.updatedAt || left.raw?.createdAt || left.date;
-      const rightDate = right.raw?.updatedAt || right.raw?.createdAt || right.date;
-      return new Date(rightDate).getTime() - new Date(leftDate).getTime();
-    })
-    .slice(0, 5)
-    .map((appointment) => {
-      const meta = statusMeta[appointment.status] || statusMeta.confirmed;
-      const date = appointment.raw?.updatedAt || appointment.raw?.createdAt || appointment.date;
+function mergeDashboardAppointments(...groups) {
+  const appointmentsByKey = new Map();
 
-      return {
-        id: appointment.id || `${appointment.date}-${appointment.time}-${getPatientName(appointment)}`,
-        text: `${meta.activity} - ${getPatientName(appointment)}`,
-        time: formatRelativeTime(date),
-      };
-    });
+  groups.flat().forEach((appointment, index) => {
+    const key =
+      appointment.id ||
+      [
+        appointment.date,
+        appointment.time,
+        appointment.patientId || getPatientName(appointment),
+        index,
+      ]
+        .filter(Boolean)
+        .join("|");
+
+    appointmentsByKey.set(String(key), appointment);
+  });
+
+  return Array.from(appointmentsByKey.values());
 }
 
 async function loadDoctorAppointments(doctor) {
@@ -385,16 +366,12 @@ export default function DoctorDashboard() {
     () => buildWeeklyStates(appointments),
     [appointments],
   );
-  const recentActivities = useMemo(
-    () => buildRecentActivities(appointments),
-    [appointments],
-  );
   const maxChartValue = Math.max(4, ...monthlyBookings.map((item) => item.value));
   const dashboardStats = [
     {
       title: "مواعيد اليوم",
       value: todayAppointments.length,
-      subtitle: "من الحجوزات المسجلة",
+      subtitle: "من حجوزات اليوم",
     },
     {
       title: "إجمالي المرضى",
@@ -422,16 +399,30 @@ export default function DoctorDashboard() {
 
       try {
         const currentDoctor = await getCurrentDoctorProfile();
-        const [doctorAppointments, doctorSlots] = await Promise.all([
-          loadDoctorAppointments(currentDoctor),
-          listCurrentDoctorAvailableSlots(currentDoctor),
-        ]);
+        const todayIso = getIsoDate(new Date());
+        const [appointmentsResult, todayAppointmentsResult, slotsResult] =
+          await Promise.allSettled([
+            loadDoctorAppointments(currentDoctor),
+            listMyDoctorAppointments(todayIso),
+            listCurrentDoctorAvailableSlots(currentDoctor),
+          ]);
 
         if (!mounted) return;
 
+        const allAppointments =
+          appointmentsResult.status === "fulfilled"
+            ? appointmentsResult.value
+            : [];
+        const todayAppointments =
+          todayAppointmentsResult.status === "fulfilled"
+            ? todayAppointmentsResult.value
+            : [];
+
         setDoctor(currentDoctor);
-        setAppointments(doctorAppointments);
-        setAvailableSlotDays(doctorSlots);
+        setAppointments(mergeDashboardAppointments(allAppointments, todayAppointments));
+        setAvailableSlotDays(
+          slotsResult.status === "fulfilled" ? slotsResult.value : [],
+        );
       } catch (requestError) {
         if (mounted) {
           setError(requestError.message || "تعذر تحميل بيانات لوحة التحكم");
@@ -539,8 +530,6 @@ export default function DoctorDashboard() {
           <WeeklyBookings states={weeklyStates} loading={loading} />
           <AvailableSlots slots={availableSlots} loading={loading} />
         </div>
-
-        <RecentActivity activities={recentActivities} loading={loading} />
       </main>
     </section>
   );
@@ -554,7 +543,7 @@ function Header({ doctorName }) {
           مرحبا {doctorName} 👋
         </h1>
         <p className="mt-1 text-[11px] leading-5 text-[#8a8a8a] dark:text-gray-300">
-          إليك ملخص أدائك اليوم
+          إليك ملخص مواعيدك اليوم
         </p>
       </div>
 
@@ -649,7 +638,7 @@ function AppointmentsToday({ appointments, loading }) {
       {loading ? (
         <LoadingRows />
       ) : appointments.length === 0 ? (
-        <EmptyState text="لا توجد مواعيد اليوم" />
+        <EmptyState text="لا توجد مواعيد مسجلة اليوم" />
       ) : (
         <div className="space-y-[2px]">
           {appointments.slice(0, 5).map((appointment) => (
@@ -789,52 +778,6 @@ function AvailableSlots({ slots, loading }) {
         </div>
       )}
     </DashboardCard>
-  );
-}
-
-function RecentActivity({ activities, loading }) {
-  return (
-    <DashboardCard
-      title="النشاط الأخير"
-      action={<CardLink to="/doctor/activity" />}
-      className="min-h-[190px] overflow-hidden"
-    >
-      {loading ? (
-        <LoadingRows />
-      ) : activities.length === 0 ? (
-        <EmptyState text="لا يوجد نشاط حديث" />
-      ) : (
-        <div className="mt-1 overflow-hidden">
-          {activities.map((activity) => (
-            <ActivityRow key={activity.id} activity={activity} />
-          ))}
-        </div>
-      )}
-    </DashboardCard>
-  );
-}
-
-function ActivityRow({ activity }) {
-  return (
-    <div
-      className="flex h-[35px] items-center justify-between gap-4 border-b border-[#eef2f4] last:border-b-0 dark:border-white/15"
-      dir="ltr"
-    >
-      <span className="shrink-0 text-[8px] text-[#777] dark:text-gray-300">
-        {activity.time}
-      </span>
-      <div className="flex min-w-0 items-center gap-[9px]" dir="ltr">
-        <span
-          className="truncate text-[11px] font-medium text-[#333] dark:text-white"
-          dir="rtl"
-        >
-          {activity.text}
-        </span>
-        <span className="grid h-[25px] w-[25px] shrink-0 place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
-          <Bell size={13} />
-        </span>
-      </div>
-    </div>
   );
 }
 

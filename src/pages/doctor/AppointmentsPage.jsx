@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  getCurrentDoctorId,
-  getCurrentDoctorProfile,
-  listDoctorAppointments,
-} from "../../services/medilinkApi";
+import { listMyDoctorAppointments } from "../../services/medilinkApi";
 
 const views = [
   { id: "day", label: "يوم" },
@@ -139,6 +135,58 @@ function getMonthCells(date) {
   });
 }
 
+function getMonthDates(date) {
+  const monthLength = new Date(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    0,
+  ).getDate();
+
+  return Array.from({ length: monthLength }, (_, index) =>
+    getIsoDate(new Date(date.getFullYear(), date.getMonth(), index + 1)),
+  );
+}
+
+function getAppointmentQueryDates(activeView, selectedDate) {
+  if (activeView === "day") return [getIsoDate(selectedDate)];
+  if (activeView === "week") {
+    return getWeekDays(selectedDate).map((day) => day.dateIso);
+  }
+
+  return getMonthDates(selectedDate);
+}
+
+function mergeAppointmentGroups(groups) {
+  const appointmentsByKey = new Map();
+
+  groups.flat().forEach((appointment, index) => {
+    const key =
+      appointment.id ||
+      [
+        appointment.date,
+        appointment.time,
+        appointment.patientId || appointment.patient,
+        index,
+      ]
+        .filter(Boolean)
+        .join("|");
+
+    appointmentsByKey.set(String(key), appointment);
+  });
+
+  return Array.from(appointmentsByKey.values());
+}
+
+function getSettledAppointmentGroups(results) {
+  return results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+}
+
+function getFirstAppointmentError(results) {
+  return results.find((result) => result.status === "rejected")?.reason;
+}
+
 function getRangeTitle(activeView, selectedDate) {
   if (activeView === "day") {
     return `${selectedDate.getDate()} ${selectedDate.toLocaleDateString("ar-EG", {
@@ -241,30 +289,6 @@ function toCalendarAppointment(appointment, index, baseDate = new Date()) {
   };
 }
 
-async function loadCurrentDoctorAppointments() {
-  const doctor = await getCurrentDoctorProfile().catch(() => null);
-
-  const ids = Array.from(
-    new Set(
-      [doctor?.profileId, doctor?.id, doctor?.userId, getCurrentDoctorId()]
-        .filter(Boolean)
-        .map(String),
-    ),
-  );
-
-  for (const id of ids) {
-    try {
-      const appointments = await listDoctorAppointments(id);
-
-      if (appointments.length > 0) return appointments;
-    } catch {
-      // Try another doctor id shape.
-    }
-  }
-
-  return [];
-}
-
 export default function DoctorAppointmentsPage() {
   const [activeView, setActiveView] = useState("week");
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
@@ -299,11 +323,30 @@ export default function DoctorAppointmentsPage() {
 
   useEffect(() => {
     let mounted = true;
+    const queryDates = getAppointmentQueryDates(activeView, selectedDate);
 
-    loadCurrentDoctorAppointments()
-      .then((fetchedAppointments) => {
+    Promise.resolve()
+      .then(() => {
         if (mounted) {
-          setAppointments(fetchedAppointments);
+          setLoading(true);
+          setError("");
+        }
+
+        return Promise.allSettled(
+          queryDates.map((date) => listMyDoctorAppointments(date)),
+        );
+      })
+      .then((results) => {
+        if (mounted) {
+          const appointmentGroups = getSettledAppointmentGroups(results);
+          const requestError = getFirstAppointmentError(results);
+
+          setAppointments(mergeAppointmentGroups(appointmentGroups));
+          setError(
+            appointmentGroups.length === 0 && requestError
+              ? requestError.message || "تعذر تحميل المواعيد"
+              : "",
+          );
         }
       })
       .catch((requestError) => {
@@ -321,7 +364,7 @@ export default function DoctorAppointmentsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [activeView, selectedDate]);
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">

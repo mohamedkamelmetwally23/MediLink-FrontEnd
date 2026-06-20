@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,6 +15,14 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { transcribeAudio } from "../../services/chatApi";
+import {
+  createMedicalReport,
+  createPrescription,
+  getCurrentDoctorId,
+  getCurrentDoctorProfile,
+  listMyDoctorAppointments,
+  listPatientsForDoctor,
+} from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 import patientImage from "../../assets/landingPage/admin.png";
 import cigaretteIcon from "../../assets/doctor departement/ph_cigarette.png";
@@ -82,25 +90,85 @@ function buildPatientFromUser(user) {
   if (!user) return null;
 
   const name = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim();
+  const gender =
+    user.gender === "female"
+      ? "أنثى"
+      : user.gender === "male"
+        ? "ذكر"
+        : user.gender || "";
+  const smoker =
+    typeof user.smoker === "boolean"
+      ? user.smoker
+        ? "نعم"
+        : "لا"
+      : user.smoker || "";
 
   return {
-    ...defaultPatient,
+    role: user.role || defaultPatient.role,
     name: name || defaultPatient.name,
-    phone: user.phone || defaultPatient.phone,
-    birthDate: user.birthDate || defaultPatient.birthDate,
-    registeredAt: user.createdAt || user.registrationDate || defaultPatient.registeredAt,
-    height: user.height || defaultPatient.height,
-    weight: user.weight || defaultPatient.weight,
-    bloodType: user.bloodType || defaultPatient.bloodType,
-    smoker: user.smoker || defaultPatient.smoker,
-    age: getAgeFromBirthDate(user.birthDate) || user.age || defaultPatient.age,
-    gender:
-      user.gender === "female"
-        ? "أنثى"
-        : user.gender === "male"
-          ? "ذكر"
-          : defaultPatient.gender,
+    phone: user.phone || "",
+    image: user.image || user.profileImage || user.avatar || patientImage,
+    birthDate: user.birthDate || "",
+    registeredAt: user.createdAt || user.registrationDate || "",
+    height: user.height || "",
+    weight: user.weight || "",
+    bloodType: user.bloodType || "",
+    smoker,
+    age: getAgeFromBirthDate(user.birthDate) || user.age || "",
+    gender,
     status: user.status === "inactive" ? "غير مفعل" : defaultPatient.status,
+  };
+}
+
+function getPatientRecordId(source, fallbackId) {
+  return (
+    source?.patientId ||
+    source?.patient?._id ||
+    source?.patient?.id ||
+    source?.profileId ||
+    source?.userId ||
+    source?._id ||
+    source?.id ||
+    fallbackId
+  );
+}
+
+function getDoctorRecordId(source, fallbackId = "") {
+  return (
+    source?.profileId ||
+    source?.doctorId ||
+    source?.id ||
+    source?.userId ||
+    source?.raw?._id ||
+    source?.raw?.id ||
+    fallbackId
+  );
+}
+
+function getIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function sameId(left, right) {
+  return Boolean(left && right && String(left) === String(right));
+}
+
+function findAppointmentForPatient(appointments, targetPatientId) {
+  return appointments.find((appointment) =>
+    sameId(appointment.patientId, targetPatientId),
+  );
+}
+
+function createEmptyMedicineRow(id = Date.now()) {
+  return {
+    id,
+    name: "",
+    dose: "",
+    schedule: "",
+    duration: "",
   };
 }
 
@@ -165,9 +233,9 @@ const medicalRecords = [
 ];
 
 const followupData = {
-  diseases: ["السكري (النوع الثاني)", "ارتفاع ضغط الدم"],
-  allergies: ["أكزيما", "حساسية اللاكتوز"],
-  medicines: ["ميتفورمين", "كورتيزون", "لوراتادين"],
+  diseases: [],
+  allergies: [],
+  medicines: [],
 };
 
 const prescriptions = [
@@ -194,8 +262,13 @@ const prescriptions = [
   },
 ];
 
+const patientMedicalRecords = medicalRecords.filter(() => false);
+const patientPrescriptions = prescriptions.filter(() => false);
+
 export default function DoctorPatientProfilePage({ startExam = false }) {
   const { patientId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
   const [activeSection, setActiveSection] = useState("info");
@@ -204,43 +277,125 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [selectedRecordId, setSelectedRecordId] = useState(null);
   const [diagnosis, setDiagnosis] = useState("");
   const [notes, setNotes] = useState("");
-  const [medicineDate, setMedicineDate] = useState("2025-06-22");
-  const [medicineRows, setMedicineRows] = useState([
-    {
-      id: 1,
-      name: "Vontolin",
-      dose: "حباية 1",
-      schedule: "كل 6 ساعات",
-      duration: "3 أيام",
-    },
-    {
-      id: 2,
-      name: "Paracetamol",
-      dose: "حباية 1",
-      schedule: "كل 8 ساعات",
-      duration: "7 أيام",
-    },
-    {
-      id: 3,
-      name: "Panadol",
-      dose: "حباية 1",
-      schedule: "كل 12 ساعات",
-      duration: "عند اللزوم",
-    },
-  ]);
-  const [reviewDate, setReviewDate] = useState("2025-06-22");
-  const [reviewNotes, setReviewNotes] = useState(
-    "في حالة الإستجابة للدواء واختفاء الأعراض لا داعي للمراجعة",
-  );
+  const [medicineDate, setMedicineDate] = useState(() => getIsoDate(new Date()));
+  const [medicineRows, setMedicineRows] = useState(() => [createEmptyMedicineRow(1)]);
+  const [reviewDate, setReviewDate] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [isSavingVisit, setIsSavingVisit] = useState(false);
+  const [loadedPatient, setLoadedPatient] = useState(null);
+  const [currentAppointment, setCurrentAppointment] = useState(null);
+  const [currentDoctorId, setCurrentDoctorId] = useState("");
   const selectedRecord = useMemo(
-    () => medicalRecords.find((record) => record.id === selectedRecordId),
+    () => patientMedicalRecords.find((record) => record.id === selectedRecordId),
     [selectedRecordId],
   );
-  const storedPatient = getUser(patientId);
+  const routedPatient = location.state?.patient;
+  const storedPatient = routedPatient || loadedPatient || getUser(patientId);
   const patient =
     buildPatientFromUser(storedPatient) ||
-    fallbackPatients[patientId] ||
+    (!startExam ? fallbackPatients[patientId] : null) ||
+    (startExam
+      ? { ...defaultPatient, name: "جاري تحميل بيانات المريض", phone: "" }
+      : null) ||
     defaultPatient;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadExamContext() {
+      const todayIso = getIsoDate(new Date());
+      const [patientsResult, appointmentsResult, doctorResult] =
+        await Promise.allSettled([
+          routedPatient ? Promise.resolve([]) : listPatientsForDoctor(),
+          listMyDoctorAppointments(todayIso),
+          getCurrentDoctorProfile(),
+        ]);
+
+      if (!mounted) return;
+
+      if (!routedPatient && patientsResult.status === "fulfilled") {
+        const matchedPatient = patientsResult.value.find((item) =>
+          sameId(getPatientRecordId(item), patientId),
+        );
+
+        if (matchedPatient) setLoadedPatient(matchedPatient);
+      }
+
+      if (appointmentsResult.status === "fulfilled") {
+        const appointment = findAppointmentForPatient(
+          appointmentsResult.value,
+          patientId,
+        );
+
+        if (appointment) setCurrentAppointment(appointment);
+      }
+
+      if (doctorResult.status === "fulfilled") {
+        setCurrentDoctorId(
+          getDoctorRecordId(doctorResult.value, getCurrentDoctorId()),
+        );
+      } else {
+        setCurrentDoctorId(getCurrentDoctorId());
+      }
+    }
+
+    loadExamContext();
+
+    return () => {
+      mounted = false;
+    };
+  }, [patientId, routedPatient]);
+
+  const handleFinishVisit = async () => {
+    const targetPatientId = getPatientRecordId(storedPatient, patientId);
+    const appointmentId =
+      location.state?.appointmentId || currentAppointment?.id || "";
+    const doctorId =
+      currentAppointment?.doctorId || currentDoctorId || getCurrentDoctorId();
+    const medicines = medicineRows.filter((row) =>
+      [row.name, row.dose, row.schedule, row.duration].some((value) =>
+        String(value || "").trim(),
+      ),
+    );
+    const payload = {
+      patientId: targetPatientId,
+      doctorId,
+      appointmentId,
+      diagnosis,
+      notes,
+      date: medicineDate,
+      medicines,
+      reviewDate,
+      reviewNotes,
+      title: diagnosis,
+      summary: notes,
+    };
+
+    if (!targetPatientId) {
+      toast.error("تعذر تحديد المريض");
+      return;
+    }
+
+    if (!doctorId || !appointmentId) {
+      toast.error("جاري تحميل بيانات الموعد، حاول مرة أخرى");
+      return;
+    }
+
+    setIsSavingVisit(true);
+
+    try {
+      await Promise.all([
+        createPrescription(payload),
+        createMedicalReport(payload),
+      ]);
+      toast.success("تم حفظ الروشتة والسجل المرضي");
+      navigate("/doctor/patients", { replace: true });
+    } catch (error) {
+      toast.error(error.message || "تعذر حفظ بيانات الزيارة");
+    } finally {
+      setIsSavingVisit(false);
+    }
+  };
 
   if (!startExam) {
     return (
@@ -285,7 +440,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
 
                 <div className="mt-[18px] min-h-[360px] sm:mt-[31px] lg:min-h-[560px]">
                   {activeSection === "booking" && <BookingDetails />}
-                  {activeSection === "info" && <PatientInformation />}
+                  {activeSection === "info" && <PatientInformation patient={patient} />}
                   {activeSection === "files" && <MedicalFiles large />}
                   {activeSection === "records" && !selectedRecord && (
                     <MedicalRecords onOpenRecord={openRecord} />
@@ -352,6 +507,8 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
             reviewDate={reviewDate}
             reviewNotes={reviewNotes}
             onBack={() => setConsultationStep("review")}
+            onFinish={handleFinishVisit}
+            isSaving={isSavingVisit}
           />
         )}
       </main>
@@ -420,9 +577,9 @@ function PatientProfileDetails({
 function PatientInfoPanel({ patient }) {
   const info = [
     { label: "تاريخ الميلاد", value: formatProfileDate(patient.birthDate) },
-    { label: "العمر", value: patient.age || defaultPatient.age },
-    { label: "الجنس", value: patient.gender || defaultPatient.gender },
-    { label: "رقم الهاتف", value: patient.phone || defaultPatient.phone },
+    { label: "العمر", value: patient.age },
+    { label: "الجنس", value: patient.gender },
+    { label: "رقم الهاتف", value: patient.phone },
     { label: "تاريخ التسجيل", value: formatProfileDate(patient.registeredAt) },
   ];
 
@@ -440,7 +597,7 @@ function PatientInfoPanel({ patient }) {
             dir="rtl"
           >
             <span className="font-medium text-[#444] dark:text-white">{item.label}</span>
-            <span>{item.value}</span>
+            <span>{item.value || "غير مسجل"}</span>
           </div>
         ))}
       </div>
@@ -453,7 +610,7 @@ function PatientIdentityCard({ patient }) {
     <article className="grid min-h-[338px] place-items-center rounded-[10px] bg-white px-6 py-[23px] text-center shadow-[0_5px_22px_rgba(0,0,0,0.10)] dark:bg-[#3d3d3d]">
       <div>
         <div className="mx-auto h-[205px] w-[205px] overflow-hidden rounded-full border-[7px] border-[#eeeeee] bg-[#f5f5f5] dark:border-[#555] dark:bg-[#454545]">
-          <img src={patientImage} alt={patient.name} className="h-full w-full object-cover" />
+          <img src={patient.image || patientImage} alt={patient.name} className="h-full w-full object-cover" />
         </div>
 
         <h2 className="mt-[22px] text-[28px] font-bold leading-10 text-[#333] dark:text-white">
@@ -474,25 +631,25 @@ function PatientVitals({ patient }) {
   const vitals = [
     {
       label: "الطول",
-      value: patient.height || defaultPatient.height,
+      value: patient.height || "غير مسجل",
       icon: heightIcon,
       className: "h-[47px] w-[62px]",
     },
     {
       label: "الوزن",
-      value: patient.weight || defaultPatient.weight,
+      value: patient.weight || "غير مسجل",
       icon: scaleIcon,
       className: "h-[38px] w-[38px]",
     },
     {
       label: "فصيلة الدم",
-      value: patient.bloodType || defaultPatient.bloodType,
+      value: patient.bloodType || "غير مسجل",
       icon: bloodIcon,
       className: "h-[41px] w-[41px]",
     },
     {
       label: "مدخن",
-      value: patient.smoker || defaultPatient.smoker,
+      value: patient.smoker || "غير مسجل",
       icon: cigaretteIcon,
       className: "h-[40px] w-[40px]",
     },
@@ -559,6 +716,14 @@ function PatientProfileTabs({
   );
 }
 
+function PatientEmptyState({ text }) {
+  return (
+    <div className="grid min-h-[180px] place-items-center rounded-[10px] bg-white px-4 text-center text-[15px] font-semibold text-[#777] shadow-[0_5px_20px_rgba(0,0,0,0.06)] dark:bg-[#3d3d3d] dark:text-gray-300">
+      {text}
+    </div>
+  );
+}
+
 function PatientProfileSearch({ value, onChange }) {
   return (
     <label className="flex h-[52px] w-full max-w-[260px] items-center gap-[10px] rounded-[10px] border border-[#d7d7d7] bg-white px-[12px] text-[#a0a0a0] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:border-white/15 dark:bg-[#3d3d3d] dark:text-gray-300">
@@ -584,9 +749,13 @@ function PatientProfileSearch({ value, onChange }) {
 }
 
 function ProfileMedicalRecords({ search }) {
-  const records = filterItems(medicalRecords, search, (record) =>
+  const records = filterItems(patientMedicalRecords, search, (record) =>
     [record.date, record.title, record.summary].join(" "),
   );
+
+  if (records.length === 0) {
+    return <PatientEmptyState text="لا يوجد سجل طبي حتى الآن" />;
+  }
 
   return (
     <div className="space-y-[9px]">
@@ -614,9 +783,13 @@ function ProfileMedicalRecords({ search }) {
 }
 
 function ProfilePrescriptions({ search }) {
-  const groups = filterItems(prescriptions, search, (group) =>
+  const groups = filterItems(patientPrescriptions, search, (group) =>
     `${group.date} ${group.rows.flat().join(" ")}`,
   );
+
+  if (groups.length === 0) {
+    return <PatientEmptyState text="لا توجد وصفات طبية حتى الآن" />;
+  }
 
   return (
     <div className="space-y-[48px] overflow-x-auto pb-2 text-right">
@@ -666,6 +839,10 @@ function ProfileExtraInfo({ search }) {
       values: filterItems(group.values, search, (value) => value),
     }))
     .filter((group) => group.values.length > 0 || !search.trim());
+
+  if (visibleGroups.every((group) => group.values.length === 0)) {
+    return <PatientEmptyState text="لا توجد معلومات إضافية حتى الآن" />;
+  }
 
   return (
     <div className="space-y-[38px] pt-[2px] text-right">
@@ -1401,7 +1578,15 @@ function SummaryStep({
   reviewDate,
   reviewNotes,
   onBack,
+  onFinish,
+  isSaving,
 }) {
+  const visibleMedicineRows = medicineRows.filter((row) =>
+    [row.name, row.dose, row.schedule, row.duration].some((value) =>
+      String(value || "").trim(),
+    ),
+  );
+
   return (
     <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
       <article className="grid min-h-[108px] items-center rounded-[10px] bg-white px-[22px] py-[18px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[120px_minmax(0,1fr)] sm:px-[34px]" dir="ltr">
@@ -1431,19 +1616,25 @@ function SummaryStep({
               <span>معاد الجرعة</span>
               <span>لمدة</span>
             </div>
-            <div className="mt-[11px] space-y-[8px]">
-              {medicineRows.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid grid-cols-4 gap-[8px] text-[18px] text-[#333] dark:text-white sm:text-[20px]"
-                >
-                  <SummaryCell>{row.name}</SummaryCell>
-                  <SummaryCell>{row.dose}</SummaryCell>
-                  <SummaryCell>{row.schedule}</SummaryCell>
-                  <SummaryCell>{row.duration}</SummaryCell>
-                </div>
-              ))}
-            </div>
+            {visibleMedicineRows.length > 0 ? (
+              <div className="mt-[11px] space-y-[8px]">
+                {visibleMedicineRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="grid grid-cols-4 gap-[8px] text-[18px] text-[#333] dark:text-white sm:text-[20px]"
+                  >
+                    <SummaryCell>{row.name}</SummaryCell>
+                    <SummaryCell>{row.dose}</SummaryCell>
+                    <SummaryCell>{row.schedule}</SummaryCell>
+                    <SummaryCell>{row.duration}</SummaryCell>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-[11px] rounded-[8px] bg-[#FAFAFA] px-[18px] py-[14px] text-center text-[16px] font-semibold text-[#777] dark:bg-[#3d3d3d] dark:text-gray-300">
+                لا توجد أدوية مضافة
+              </div>
+            )}
           </div>
         </div>
 
@@ -1487,10 +1678,12 @@ function SummaryStep({
       <div className="mt-[60px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
         <button
           type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[15px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[17px]"
+          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[15px] font-medium text-white shadow-sm transition hover:brightness-105 disabled:cursor-wait disabled:opacity-70 sm:text-[17px]"
+          disabled={isSaving}
+          onClick={onFinish}
         >
           <ArrowLeft size={23} strokeWidth={2.2} />
-          إنهاء الزيارة وحفظ البيانات
+          {isSaving ? "جاري حفظ البيانات..." : "إنهاء الزيارة وحفظ البيانات"}
         </button>
         <button
           type="button"
@@ -1688,7 +1881,7 @@ function PatientCard({ patient }) {
   return (
     <section className="grid min-h-[205px] gap-4 rounded-[10px] bg-white px-[18px] py-[18px] shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:px-[24px] md:grid-cols-[190px_minmax(0,1fr)] md:px-[31px]">
       <div className="h-[120px] w-[120px] overflow-hidden rounded-full border-[5px] border-[#eeeeee] justify-self-center dark:border-[#555] sm:h-[132px] sm:w-[132px] sm:justify-self-start md:h-[144px] md:w-[144px]">
-        <img src={patientImage} alt={patient.name} className="h-full w-full object-cover" />
+        <img src={patient.image || patientImage} alt={patient.name} className="h-full w-full object-cover" />
       </div>
 
       <div className="text-center sm:text-right">
@@ -1696,18 +1889,23 @@ function PatientCard({ patient }) {
           {patient.name}
         </h1>
         <div className="mt-[7px] flex items-center justify-center gap-[13px] text-[14px] text-[#6d6d6d] dark:text-gray-300 sm:justify-start">
-          <span>{patient.role}</span>
+          <span>{patient.role || "مريض"}</span>
           <span className="rounded-[6px] bg-[#e2f8e9] px-[8px] py-[2px] text-[11px] font-bold text-[#229b4e] dark:bg-[#234f35] dark:text-[#8ee3aa]">
-            {patient.status}
+            {patient.status || "مفعل"}
           </span>
         </div>
-        <p className="mt-[17px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
-          {patient.gender}
-          <span className="mx-[18px]">{patient.age}</span>
-        </p>
-        <p className="mt-[4px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
-          {patient.phone}
-        </p>
+        {(patient.gender || patient.age) && (
+          <p className="mt-[17px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
+            {patient.gender}
+            {patient.gender && patient.age && <span className="mx-[18px]">|</span>}
+            {patient.age}
+          </p>
+        )}
+        {patient.phone && (
+          <p className="mt-[4px] text-[17px] leading-7 text-[#6d6d6d] dark:text-gray-300">
+            {patient.phone}
+          </p>
+        )}
       </div>
     </section>
   );
@@ -1728,12 +1926,12 @@ function BackButton({ onClick }) {
   );
 }
 
-function PatientInformation() {
+function PatientInformation({ patient }) {
   const stats = [
-    { label: "مدخن", value: "نعم", icon: cigaretteIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
-    { label: "فصيلة الدم", value: "O+", icon: bloodIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
-    { label: "الوزن", value: "70", icon: scaleIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
-    { label: "الطول", value: "166", icon: heightIcon, iconClass: "h-[38px] w-[50px] sm:h-[48px] sm:w-[64px]" },
+    { label: "مدخن", value: patient.smoker, icon: cigaretteIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "فصيلة الدم", value: patient.bloodType, icon: bloodIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "الوزن", value: patient.weight, icon: scaleIcon, iconClass: "h-[30px] w-[30px] sm:h-[39px] sm:w-[39px]" },
+    { label: "الطول", value: patient.height, icon: heightIcon, iconClass: "h-[38px] w-[50px] sm:h-[48px] sm:w-[64px]" },
   ];
 
   return (
@@ -1751,7 +1949,7 @@ function PatientInformation() {
                 className={`mx-auto object-contain ${item.iconClass}`}
               />
               <p className="mt-[12px] text-[14px] leading-6 sm:mt-[18px] sm:text-[16px]">{item.label}</p>
-              <p className="mt-[5px] text-[17px] font-bold leading-7 sm:mt-[9px] sm:text-[20px]">{item.value}</p>
+              <p className="mt-[5px] text-[15px] font-bold leading-7 sm:mt-[9px] sm:text-[18px]">{item.value || "غير مسجل"}</p>
             </div>
           </article>
         ))}
@@ -1768,6 +1966,11 @@ function PatientTags({ title, values }) {
   return (
     <section className="text-right">
       <h2 className="text-[16px] font-bold text-[#333] dark:text-white">{title}</h2>
+      {values.length === 0 && (
+        <p className="mt-[13px] rounded-[9px] bg-white px-[16px] py-[10px] text-[14px] font-medium text-[#777] shadow-[0_5px_18px_rgba(0,0,0,0.06)] dark:bg-[#3d3d3d] dark:text-gray-300">
+          لا توجد بيانات مسجلة
+        </p>
+      )}
       <div className="mt-[13px] flex flex-wrap justify-start gap-[8px] sm:gap-[12px]">
         {values.map((value) => (
           <span
@@ -1783,9 +1986,13 @@ function PatientTags({ title, values }) {
 }
 
 function MedicalRecords({ onOpenRecord }) {
+  if (patientMedicalRecords.length === 0) {
+    return <PatientEmptyState text="لا يوجد سجل طبي حتى الآن" />;
+  }
+
   return (
     <div className="space-y-[9px]">
-      {medicalRecords.map((record) => (
+      {patientMedicalRecords.map((record) => (
         <button
           key={record.id}
           type="button"
@@ -1829,6 +2036,10 @@ function MedicalRecordDetails({ record }) {
 }
 
 function PreviousMedicines() {
+  if (patientPrescriptions.length === 0) {
+    return <PatientEmptyState text="لا توجد أدوية أو جرعات سابقة حتى الآن" />;
+  }
+
   return (
     <section className="overflow-x-auto text-right">
       <h2 className="mb-[18px] text-[19px] font-semibold text-[#333] dark:text-white sm:mb-[25px] sm:text-[23px]">
@@ -1836,7 +2047,7 @@ function PreviousMedicines() {
       </h2>
 
       <div className="min-w-[620px] space-y-[28px]">
-        {prescriptions.map((group) => (
+        {patientPrescriptions.map((group) => (
           <section key={group.date}>
             <p className="mb-[17px] text-[15px] font-medium text-[#28bfd8]">{group.date}</p>
             <div className="grid grid-cols-4 gap-[9px] text-[15px] font-semibold text-[#666] dark:text-gray-300">
@@ -1871,28 +2082,14 @@ function PreviousMedicines() {
 
 function BookingDetails() {
   return (
-    <section className="space-y-[31px] text-right">
-      <div>
-        <h2 className="mb-[10px] text-[17px] font-bold text-[#333] dark:text-white">
-          سبب الزيارة
-        </h2>
-        <div className="rounded-[8px] bg-[#f1f1f1] px-[18px] py-[12px] text-[17px] text-[#333] dark:bg-[#3d3d3d] dark:text-white sm:px-[26px] sm:text-[21px]">
-          سعال شديد وألم في الصدر
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-[15px] text-[17px] font-bold text-[#333] dark:text-white">
-          الملفات المرفقة
-        </h2>
-        <MedicalFiles compact />
-      </div>
+    <section className="text-right">
+      <PatientEmptyState text="لا توجد تفاصيل حجز مسجلة حتى الآن" />
     </section>
   );
 }
 
 function MedicalFiles({ compact = false, large = false }) {
-  const files = large
+  const files = (large
     ? [
         { type: "xray", image: xrayImageOne },
         { type: "report", image: reportImage },
@@ -1904,7 +2101,11 @@ function MedicalFiles({ compact = false, large = false }) {
     : [
         { type: "report", image: reportImage },
         { type: "xray", image: xrayImageOne },
-      ];
+      ]).filter(() => false);
+
+  if (files.length === 0) {
+    return <PatientEmptyState text="لا توجد ملفات طبية حتى الآن" />;
+  }
 
   return (
     <div className={`grid gap-[12px] ${large ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
