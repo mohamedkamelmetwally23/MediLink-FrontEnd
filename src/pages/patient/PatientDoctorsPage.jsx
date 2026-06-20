@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -199,12 +199,13 @@ function Pagination({ currentPage, totalPages, visibleCount, totalCount, onChang
 }
 
 export default function PatientDoctorsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { doctors, loading, error, reload } = useDoctors();
   const [specializations, setSpecializations] = useState([]);
   const [specializationsLoading, setSpecializationsLoading] = useState(true);
   const [specializationsError, setSpecializationsError] = useState("");
   const [filters, setFilters] = useState({
-    specialty: "",
+    specialty: searchParams.get("specialty") || "",
     experience: "",
     day: "",
     rating: "",
@@ -270,6 +271,20 @@ export default function PatientDoctorsPage() {
   const setFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
     setCurrentPage(1);
+
+    if (key === "specialty") {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+
+        if (value) {
+          nextParams.set("specialty", value);
+        } else {
+          nextParams.delete("specialty");
+        }
+
+        return nextParams;
+      });
+    }
   };
 
   return (
@@ -352,6 +367,11 @@ export default function PatientDoctorsPage() {
               onClick={() => {
                 setFilters({ specialty: "", experience: "", day: "", rating: "", gender: "" });
                 setCurrentPage(1);
+                setSearchParams((currentParams) => {
+                  const nextParams = new URLSearchParams(currentParams);
+                  nextParams.delete("specialty");
+                  return nextParams;
+                });
               }}
             >
               <RotateCcw size={16} />

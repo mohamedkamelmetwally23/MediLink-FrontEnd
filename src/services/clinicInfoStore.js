@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ApiError, apiRequest } from "./apiClient";
+import { ApiError, apiRequest, getStoredToken } from "./apiClient";
+
+const clinicInformationUrl =
+  "https://medilink-backend-production-0364.up.railway.app/api/v1/clinic/informations";
 
 export const clinicInfoStorageKey = "medilink-clinic-info";
 
@@ -67,9 +70,32 @@ export function saveClinicInfo(info) {
   );
 }
 
+function findClinicInfo(response, visited = new WeakSet()) {
+  if (!response || typeof response !== "object" || visited.has(response)) {
+    return {};
+  }
+
+  visited.add(response);
+
+  if (
+    ["address", "phone", "email", "name", "description"].some(
+      (key) => key in response,
+    )
+  ) {
+    return response;
+  }
+
+  for (const value of Object.values(response)) {
+    const clinicInfo = findClinicInfo(value, visited);
+    if (Object.keys(clinicInfo).length > 0) return clinicInfo;
+  }
+
+  return {};
+}
+
 function normalizeClinicInfo(response) {
-  const data = response?.data?.clinic || response?.data?.information || response?.data || response?.clinic || response?.information || response || {};
-  const schedule = data.schedule || response?.data?.schedule || response?.schedule || {};
+  const data = findClinicInfo(response);
+  const schedule = data.schedule || {};
 
   return {
     name: data.name || "",
@@ -114,43 +140,48 @@ function normalizeSchedule(response) {
 
 export async function loadClinicInfo() {
   const currentInfo = readClinicInfo();
-  const [infoResult, scheduleResult] = await Promise.allSettled([
-    apiRequest("/clinic/informations"),
-    apiRequest("/clinic/schedule"),
+  const token = getStoredToken();
+  const [response, scheduleResponse] = await Promise.all([
+    fetch(clinicInformationUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      cache: "no-store",
+    }),
+    apiRequest("/clinic/schedule").catch(() => null),
   ]);
 
-  if (infoResult.status === "rejected" && scheduleResult.status === "rejected") {
-    throw infoResult.reason;
+  if (!response.ok) {
+    throw new ApiError("تعذر تحميل معلومات العيادة", {
+      status: response.status,
+    });
   }
 
-  const response =
-    infoResult.status === "fulfilled" ? infoResult.value : currentInfo;
+  const responseData = await response.json();
+  const backendInfo = normalizeClinicInfo(responseData);
+  const backendSchedule = scheduleResponse
+    ? normalizeSchedule(scheduleResponse)
+    : {};
   const info = {
     ...defaultClinicInfo,
     ...currentInfo,
-    ...normalizeClinicInfo(response),
-  };
-  const schedule =
-    scheduleResult.status === "fulfilled"
-      ? normalizeSchedule(scheduleResult.value)
-      : info.schedule;
-  const nextInfo = {
-    ...info,
+    ...Object.fromEntries(
+      Object.entries(backendInfo).filter(
+        ([key, value]) => key === "schedule" || value !== "",
+      ),
+    ),
     schedule: {
       ...defaultClinicInfo.schedule,
       ...currentInfo.schedule,
-      ...info.schedule,
-      ...schedule,
-      appointmentDuration:
-        schedule.appointmentDuration ||
-        info.schedule?.appointmentDuration ||
-        currentInfo.schedule?.appointmentDuration ||
-        defaultClinicInfo.schedule.appointmentDuration,
+      ...backendInfo.schedule,
+      ...backendSchedule,
     },
   };
 
-  saveClinicInfo(nextInfo);
-  return nextInfo;
+  saveClinicInfo(info);
+  return info;
 }
 
 export async function updateClinicInfo(info) {
@@ -226,6 +257,14 @@ export function useClinicInfo() {
   const [clinicInfo, setClinicInfo] = useState(readClinicInfo);
 
   useEffect(() => {
+    let mounted = true;
+
+    loadClinicInfo()
+      .then((info) => {
+        if (mounted) setClinicInfo(info);
+      })
+      .catch(() => null);
+
     const handleChange = (event) => {
       setClinicInfo(event.detail || readClinicInfo());
     };
@@ -239,6 +278,7 @@ export function useClinicInfo() {
     window.addEventListener("storage", handleStorage);
 
     return () => {
+      mounted = false;
       window.removeEventListener("medilink-clinic-info-change", handleChange);
       window.removeEventListener("storage", handleStorage);
     };

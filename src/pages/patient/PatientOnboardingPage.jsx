@@ -21,6 +21,8 @@ import {
   completePatientProfile,
   getMyPatientProfile,
 } from "../../services/medilinkApi";
+import { useSpecializations } from "../../hooks/useSpecializations";
+import { useClinicInfo } from "../../services/clinicInfoStore";
 
 const gradient = "bg-linear-to-b from-[#13B5DF] to-[#64CAC6]";
 
@@ -30,21 +32,6 @@ const steps = [
   { key: "allergies", title: "حساسيات", number: 3 },
   { key: "medications", title: "أدوية", number: 4 },
   { key: "files", title: "ملفات طبية", number: 5 },
-];
-
-const footerColumns = [
-  {
-    title: "روابط سريعة",
-    links: ["الرئيسية", "من نحن", "خدماتنا", "التخصصات", "الأطباء"],
-  },
-  {
-    title: "خدماتنا",
-    links: ["حجز موعد", "الاستشارات", "الملفات الطبية", "المتابعة والتنبيهات"],
-  },
-  {
-    title: "التخصصات",
-    links: ["الباطنة", "الأطفال", "الجلدية", "الفم والأسنان", "المخ والأعصاب"],
-  },
 ];
 
 const checklistScreens = {
@@ -153,9 +140,16 @@ function PatientHeader() {
 }
 
 function PatientFooter() {
+  const { patientId } = useParams();
+  const clinicInfo = useClinicInfo();
+  const { specialties } = useSpecializations();
+  const specialtiesSectionHref = `/patient/${encodeURIComponent(
+    patientId || "",
+  )}/home#specialties`;
+
   return (
     <footer id="contact" className="bg-white shadow-[0_-7px_20px_rgba(0,0,0,0.04)] dark:bg-[#343434]" dir="rtl">
-      <div className="mx-auto grid w-[min(1320px,calc(100%_-_110px))] grid-cols-[1.35fr_repeat(3,1fr)_1.15fr] items-start gap-12 py-[72px] max-lg:w-[min(980px,calc(100%_-_40px))] max-lg:grid-cols-2 max-md:w-[min(520px,calc(100%_-_32px))] max-md:grid-cols-1 max-md:gap-7 max-md:py-10">
+      <div className="mx-auto grid w-[min(1320px,calc(100%_-_110px))] grid-cols-[1.35fr_1fr_1.15fr] items-start gap-12 py-[72px] max-lg:w-[min(980px,calc(100%_-_40px))] max-lg:grid-cols-2 max-md:w-[min(520px,calc(100%_-_32px))] max-md:grid-cols-1 max-md:gap-7 max-md:py-10">
         <section>
           <ThemeLogo className="mb-6 w-40 object-contain" />
           <p className="m-0 max-w-[290px] text-[17px] font-semibold leading-tight text-[#333333] dark:text-[#F0F0F0]">
@@ -169,27 +163,38 @@ function PatientFooter() {
           </div>
         </section>
 
-        {footerColumns.map((column) => (
-          <section key={column.title}>
-            <h3 className="mb-5 text-lg font-extrabold text-[#333333] dark:text-[#F0F0F0]">{column.title}</h3>
-            {column.links.map((link) => (
-              <a href="#top" key={link} className="mb-[15px] block text-[17px] font-semibold text-[#333333] transition hover:text-[#25B8D7] dark:text-[#F0F0F0]">
-                {link}
-              </a>
-            ))}
-          </section>
-        ))}
+        <section>
+          <h3 className="mb-5 text-lg font-extrabold text-[#333333] dark:text-[#F0F0F0]">التخصصات</h3>
+          {specialties.slice(0, 5).map((specialty) => (
+            <Link
+              key={specialty.id || specialty.name}
+              to={`/patient/doctors?specialty=${encodeURIComponent(specialty.name)}`}
+              className="mb-[15px] block text-[17px] font-semibold text-[#333333] transition hover:text-[#25B8D7] dark:text-[#F0F0F0]"
+            >
+              {specialty.name}
+            </Link>
+          ))}
+          <Link
+            to={specialtiesSectionHref}
+            className="block text-[17px] font-bold text-[#25B8D7] transition hover:underline hover:underline-offset-4"
+          >
+            عرض المزيد
+          </Link>
+        </section>
 
         <section>
           <h3 className="mb-5 text-lg font-extrabold text-[#333333] dark:text-[#F0F0F0]">تواصل معنا</h3>
           <p className="mb-[15px] flex items-center gap-3 text-[17px] font-semibold text-[#333333] dark:text-[#F0F0F0]">
-            <Phone size={18} fill="currentColor" /> 015 5677 3899
+            <Phone size={18} fill="currentColor" />
+            <span>{clinicInfo.phone}</span>
           </p>
           <p className="mb-[15px] flex items-center gap-3 text-[17px] font-semibold text-[#333333] dark:text-[#F0F0F0]">
-            <Mail size={18} fill="currentColor" /> info@medilink.com
+            <Mail size={18} fill="currentColor" />
+            <span className="break-all">{clinicInfo.email}</span>
           </p>
           <p className="mb-[15px] flex items-center gap-3 text-[17px] font-semibold text-[#333333] dark:text-[#F0F0F0]">
-            <MapPin size={20} fill="currentColor" /> القاهرة، مصر
+            <MapPin size={20} fill="currentColor" />
+            <span>{clinicInfo.address}</span>
           </p>
         </section>
       </div>
