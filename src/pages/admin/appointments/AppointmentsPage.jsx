@@ -16,6 +16,8 @@ import {
 import { includesSearchText } from "../../../utils/searchText";
 
 const pageSize = 10;
+const appointmentsCacheKey = "medilink-appointments-cache-admin";
+const sharedAppointmentsCacheKey = "medilink-appointments-cache";
 
 const bookingStatusLabels = {
   confirmed: "تم التأكيد",
@@ -57,8 +59,40 @@ const arabicMonths = [
   "ديسمبر",
 ];
 
+function readCachedAppointments() {
+  if (typeof localStorage === "undefined") return [];
+
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(appointmentsCacheKey) ||
+        localStorage.getItem(sharedAppointmentsCacheKey) ||
+        "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedAppointments(appointments) {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(
+      appointmentsCacheKey,
+      JSON.stringify(appointments.slice(0, 100)),
+    );
+    localStorage.setItem(
+      sharedAppointmentsCacheKey,
+      JSON.stringify(appointments.slice(0, 100)),
+    );
+  } catch {
+    localStorage.removeItem(appointmentsCacheKey);
+  }
+}
+
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState([]);
+  const [appointments, setAppointments] = useState(() => readCachedAppointments());
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
@@ -67,7 +101,7 @@ export default function AppointmentsPage() {
   const [paymentFilter, setPaymentFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => readCachedAppointments().length === 0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -76,6 +110,7 @@ export default function AppointmentsPage() {
     listAppointments()
       .then((fetchedAppointments) => {
         if (mounted) {
+          saveCachedAppointments(fetchedAppointments);
           setAppointments(fetchedAppointments);
         }
       })

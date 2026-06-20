@@ -11,6 +11,7 @@ import { normalizeSpecialtyLabel } from "./usersData";
 
 const patientActiveStorageKey = "medilink-patient-active-statuses";
 const userStatusNotesStorageKey = "medilink-user-status-notes";
+const usersCacheKeyPrefix = "medilink-users-cache";
 
 function sameId(left, right) {
   return String(left) === String(right);
@@ -108,8 +109,33 @@ function readUserStatusNotes() {
   }
 }
 
-function getUserStatusNote(user) {
-  const savedNote = readUserStatusNotes()[getStatusUserId(user)];
+function getUsersCacheKey(scope) {
+  return `${usersCacheKeyPrefix}-${scope}`;
+}
+
+function readCachedUsers(scope) {
+  if (typeof localStorage === "undefined") return [];
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(getUsersCacheKey(scope)) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedUsers(scope, users) {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(getUsersCacheKey(scope), JSON.stringify(users.slice(0, 100)));
+  } catch {
+    localStorage.removeItem(getUsersCacheKey(scope));
+  }
+}
+
+function getUserStatusNote(user, statusNotes = readUserStatusNotes()) {
+  const savedNote = statusNotes[getStatusUserId(user)];
 
   if (typeof savedNote === "string") return savedNote;
 
@@ -142,8 +168,12 @@ function saveUserStatusNote(user, note) {
   localStorage.setItem(userStatusNotesStorageKey, JSON.stringify(notes));
 }
 
-function normalizeLoadedUser(user) {
-  const savedActive = readPatientActiveStatuses()[getPatientUserId(user)];
+function normalizeLoadedUser(
+  user,
+  patientActiveStatuses = readPatientActiveStatuses(),
+  statusNotes = readUserStatusNotes(),
+) {
+  const savedActive = patientActiveStatuses[getPatientUserId(user)];
   const explicitActive =
     typeof savedActive === "boolean" && getExplicitActiveValue(user) === null
       ? savedActive
@@ -158,7 +188,7 @@ function normalizeLoadedUser(user) {
         };
   const userWithStatusNote = {
     ...syncedUser,
-    statusNote: getUserStatusNote(syncedUser),
+    statusNote: getUserStatusNote(syncedUser, statusNotes),
   };
 
   if (userWithStatusNote.role !== "doctor" || !userWithStatusNote.specialty) {
@@ -169,6 +199,15 @@ function normalizeLoadedUser(user) {
     ...userWithStatusNote,
     specialty: normalizeSpecialtyLabel(userWithStatusNote.specialty),
   };
+}
+
+function normalizeLoadedUsers(users) {
+  const patientActiveStatuses = readPatientActiveStatuses();
+  const statusNotes = readUserStatusNotes();
+
+  return users.map((user) =>
+    normalizeLoadedUser(user, patientActiveStatuses, statusNotes),
+  );
 }
 
 function normalizeUser(values) {
@@ -226,8 +265,8 @@ function getStatusFromToggleResponse(response, fallbackActive) {
 }
 
 export function useUsersStore(scope = "all") {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState(() => normalizeLoadedUsers(readCachedUsers(scope)));
+  const [loading, setLoading] = useState(() => readCachedUsers(scope).length === 0);
   const [error, setError] = useState("");
   const listUsers = scope === "patients" ? listPatients : listAllUsers;
 
@@ -239,12 +278,14 @@ export function useUsersStore(scope = "all") {
   };
 
   const refreshUsers = async () => {
-    setLoading(true);
+    setLoading(users.length === 0);
     setError("");
 
     try {
       const fetchedUsers = await listUsers();
-      commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
+      const normalizedUsers = normalizeLoadedUsers(fetchedUsers);
+      saveCachedUsers(scope, normalizedUsers);
+      commitUsers(() => normalizedUsers);
     } catch (requestError) {
       setError(requestError.message || "");
     } finally {
@@ -258,7 +299,9 @@ export function useUsersStore(scope = "all") {
     listUsers()
       .then((fetchedUsers) => {
         if (!mounted) return;
-        commitUsers(() => fetchedUsers.map(normalizeLoadedUser));
+        const normalizedUsers = normalizeLoadedUsers(fetchedUsers);
+        saveCachedUsers(scope, normalizedUsers);
+        commitUsers(() => normalizedUsers);
       })
       .catch((requestError) => {
         if (mounted) {

@@ -33,7 +33,7 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
-  const { getUser } = useUsersStore();
+  const { getUser, loading } = useUsersStore();
   const storedUser = userId ? getUser(userId) : null;
   const profile = buildProfile(storedUser, searchParams);
 
@@ -45,6 +45,10 @@ export default function UserProfilePage() {
 
     navigate("/admin/appointments");
   };
+
+  if (userId && loading && !storedUser) {
+    return <ProfileLoadingState />;
+  }
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
@@ -124,6 +128,29 @@ function buildProfile(user, searchParams) {
   };
 }
 
+function ProfileLoadingState() {
+  return (
+    <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
+      <header className="relative flex min-h-[120px] items-start justify-start bg-white px-4 pt-[38px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
+        <div className="text-right">
+          <h1 className="text-[26px] font-bold leading-[31px] text-[#333] dark:text-white">
+            ملف المستخدم
+          </h1>
+          <p className="mt-1 text-[16px] leading-5 text-[#8a8a8a] dark:text-gray-300">
+            جاري تحميل البيانات...
+          </p>
+        </div>
+      </header>
+
+      <main className="grid min-h-[calc(100vh-120px)] place-items-center px-4 py-[30px] sm:px-6 lg:px-[34px]">
+        <p className="text-[18px] font-medium text-[#666] dark:text-gray-200">
+          جاري تحميل بيانات المستخدم...
+        </p>
+      </main>
+    </section>
+  );
+}
+
 function formatGender(gender) {
   if (gender === "female") return "أنثى";
   if (gender === "male") return "ذكر";
@@ -177,6 +204,11 @@ function getProfileImage(role) {
 
 function InfoCard({ profile }) {
   const rows = getInfoRows(profile);
+  const titles = {
+    doctor: "معلومات الطبيب",
+    receptionist: "معلومات موظف الاستقبال",
+    patient: "معلومات المريض",
+  };
 
   return (
     <section
@@ -184,7 +216,7 @@ function InfoCard({ profile }) {
       dir="rtl"
     >
       <h2 className="mb-[27px] text-right text-[27px] font-medium text-[#333] dark:text-white">
-        {profile.role === "doctor" ? "معلومات الطبيب" : "معلومات موظف الاستقبال"}
+        {titles[profile.role] || "معلومات المستخدم"}
       </h2>
 
       <div>

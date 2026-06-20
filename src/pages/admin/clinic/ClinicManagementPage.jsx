@@ -255,6 +255,7 @@ export default function ClinicManagementPage() {
             onAppointmentSettingsChange={setAppointmentSettings}
             onSave={saveChanges}
             onCancel={cancelChanges}
+            loading={clinicLoading}
             saving={clinicSaving}
           />
         )}
@@ -348,10 +349,11 @@ function WorkingHoursForm({
   onAppointmentSettingsChange,
   onSave,
   onCancel,
+  loading = false,
   saving = false,
 }) {
   const errors = getWorkingHoursErrors(days, appointmentSettings);
-  const canSave = !saving && errors.length === 0;
+  const canSave = !loading && !saving && errors.length === 0;
 
   const updateDay = (id, field, value) => {
     onDaysChange((current) =>
@@ -380,6 +382,11 @@ function WorkingHoursForm({
   return (
     <div className="mx-auto grid max-w-[780px] gap-5">
       <FormCard className="max-w-none rounded-2xl p-6 shadow-[0_2px_20px_rgba(0,0,0,0.1)]">
+        {loading && (
+          <p className="text-center text-sm text-[#777] dark:text-[#CCC]">
+            جاري تحميل ساعات العمل...
+          </p>
+        )}
         <div className="overflow-x-auto">
           <div className="min-w-[720px]" dir="ltr">
             <div className="grid h-14 grid-cols-[1fr_1fr_1.45fr] items-center bg-[#f7f7f7] px-8 text-base font-semibold dark:bg-[#454545]">
@@ -451,7 +458,7 @@ function WorkingHoursForm({
               setAppointmentField("duration", event.target.value)
             }
           />
-          {errors.length > 0 && (
+          {!loading && errors.length > 0 && (
             <p className="text-right text-sm font-semibold text-red-500">
               {errors[0]}
             </p>
@@ -462,7 +469,13 @@ function WorkingHoursForm({
           onSave={onSave}
           onCancel={onCancel}
           disabled={!canSave}
-          saveLabel={saving ? "جاري الحفظ..." : "حفظ التغييرات"}
+          saveLabel={
+            loading
+              ? "جاري التحميل..."
+              : saving
+                ? "جاري الحفظ..."
+                : "حفظ التغييرات"
+          }
         />
       </FormCard>
     </div>

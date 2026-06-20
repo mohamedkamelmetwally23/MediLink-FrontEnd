@@ -88,6 +88,26 @@ async function requestFirst(paths, options = {}) {
   throw lastError;
 }
 
+async function requestFastest(paths, options = {}) {
+  const retryStatuses = options.retryStatuses || [400, 404, 405];
+  const requestOptions = { ...options };
+  delete requestOptions.retryStatuses;
+
+  const results = await Promise.allSettled(
+    paths.map((path) => apiRequest(path, requestOptions)),
+  );
+  const fulfilled = results.find((result) => result.status === "fulfilled");
+
+  if (fulfilled) return fulfilled.value;
+
+  const rejected = results.find((result) => {
+    const error = result.reason;
+    return !(error instanceof ApiError) || !retryStatuses.includes(error.status);
+  });
+
+  throw rejected?.reason || results[0]?.reason;
+}
+
 async function listFromPaths(paths, keys) {
   const response = await requestFirst(paths);
   return findArray(response, keys);
@@ -671,14 +691,19 @@ export async function listBaseUsers() {
   return items.map(normalizeBaseUser);
 }
 
-async function withHydratedUsers(items) {
+async function withHydratedUsers(
+  items,
+  { enabled = true, hydrateMissingCreatedAt = true } = {},
+) {
+  if (!enabled) return items;
+
   const needsUserHydration = items.some((item) => {
     if (typeof item?.user === "string") return true;
 
     const user = item?.user || item?.account;
     const userId = getProfileUserId(item);
 
-    if (userId && !getCreatedAt(item)) return true;
+    if (hydrateMissingCreatedAt && userId && !getCreatedAt(item)) return true;
 
     return (
       user &&
@@ -1128,7 +1153,7 @@ export async function deleteSpecialization(specialization) {
 }
 
 export async function listPatients() {
-  const response = await apiRequest("/patient?limit=500");
+  const response = await apiRequest("/patient?limit=100");
   const patients = findArray(response, [
     "patients",
     "patient",
@@ -1139,7 +1164,7 @@ export async function listPatients() {
     "patientProfiles",
     "profiles",
   ]);
-  const hydratedPatients = await withHydratedUsers(patients);
+  const hydratedPatients = await withHydratedUsers(patients, { enabled: false });
   return hydratedPatients.map(normalizePatient);
 }
 
@@ -1383,6 +1408,7 @@ export async function toggleUserActiveStatus(user, options = {}) {
       patientIds.map((id) => `/patient/${id}/active`),
       {
         method: "PATCH",
+        body: statusPayload,
       },
     );
   }
@@ -1556,16 +1582,16 @@ export function isAppointmentSlotAvailable(values, appointments = []) {
 }
 
 export async function listAppointments() {
-  const response = await requestFirst(
+  const response = await requestFastest(
     [
-      "/appointment?limit=500",
+      "/appointment?limit=100",
       "/appointment",
       "/appointment/getAllAppointments",
-      "/appointments?limit=500",
+      "/appointments?limit=100",
       "/appointments",
       "/appointments/getAllAppointments",
-      "/booking?limit=500",
-      "/bookings?limit=500",
+      "/booking?limit=100",
+      "/bookings?limit=100",
     ],
     {
       retryStatuses: [400, 403, 404, 405],

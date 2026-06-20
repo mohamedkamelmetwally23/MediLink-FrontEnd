@@ -59,6 +59,7 @@ export default function SpecialtiesPage() {
   const {
     specialties,
     specialtyItems,
+    loading,
     addSpecialty,
     updateSpecialty,
     deleteSpecialties,
@@ -289,7 +290,9 @@ export default function SpecialtiesPage() {
                 onToggleAll={toggleAllVisible}
               />
 
-              {filteredSpecialties.length === 0 ? (
+              {loading && filteredSpecialties.length === 0 ? (
+                <EmptyState text="جاري تحميل التخصصات..." />
+              ) : filteredSpecialties.length === 0 ? (
                 <EmptyState
                   text={search.trim() ? "لا يوجد نتائج" : "لا يوجد تخصصات حتى الآن"}
                 />

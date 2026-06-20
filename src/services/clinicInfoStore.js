@@ -10,7 +10,7 @@ export const defaultClinicInfo = {
   phone: "015 5677 3899",
   email: "info@medilink.com",
   schedule: {
-    appointmentDuration: "",
+    appointmentDuration: "30",
     maxAppointmentsPerDay: "",
     workingDays: [],
   },
@@ -78,8 +78,13 @@ function normalizeClinicInfo(response) {
     phone: data.phone || "",
     email: data.email || "",
     schedule: {
-      appointmentDuration: schedule.appointmentDuration ?? "",
-      maxAppointmentsPerDay: schedule.maxAppointmentsPerDay ?? "",
+      appointmentDuration:
+        schedule.appointmentDuration ??
+        schedule.duration ??
+        schedule.appointmentDurationInMinutes ??
+        "",
+      maxAppointmentsPerDay:
+        schedule.maxAppointmentsPerDay ?? schedule.dailyLimit ?? "",
       workingDays: Array.isArray(schedule.workingDays)
         ? schedule.workingDays
         : [],
@@ -97,21 +102,55 @@ function normalizeSchedule(response) {
     {};
 
   return {
-    appointmentDuration: data.appointmentDuration ?? "",
-    maxAppointmentsPerDay: data.maxAppointmentsPerDay ?? "",
+    appointmentDuration:
+      data.appointmentDuration ??
+      data.duration ??
+      data.appointmentDurationInMinutes ??
+      "",
+    maxAppointmentsPerDay: data.maxAppointmentsPerDay ?? data.dailyLimit ?? "",
     workingDays: Array.isArray(data.workingDays) ? data.workingDays : [],
   };
 }
 
 export async function loadClinicInfo() {
-  const response = await apiRequest("/clinic/informations");
+  const currentInfo = readClinicInfo();
+  const [infoResult, scheduleResult] = await Promise.allSettled([
+    apiRequest("/clinic/informations"),
+    apiRequest("/clinic/schedule"),
+  ]);
+
+  if (infoResult.status === "rejected" && scheduleResult.status === "rejected") {
+    throw infoResult.reason;
+  }
+
+  const response =
+    infoResult.status === "fulfilled" ? infoResult.value : currentInfo;
   const info = {
     ...defaultClinicInfo,
+    ...currentInfo,
     ...normalizeClinicInfo(response),
   };
+  const schedule =
+    scheduleResult.status === "fulfilled"
+      ? normalizeSchedule(scheduleResult.value)
+      : info.schedule;
+  const nextInfo = {
+    ...info,
+    schedule: {
+      ...defaultClinicInfo.schedule,
+      ...currentInfo.schedule,
+      ...info.schedule,
+      ...schedule,
+      appointmentDuration:
+        schedule.appointmentDuration ||
+        info.schedule?.appointmentDuration ||
+        currentInfo.schedule?.appointmentDuration ||
+        defaultClinicInfo.schedule.appointmentDuration,
+    },
+  };
 
-  saveClinicInfo(info);
-  return info;
+  saveClinicInfo(nextInfo);
+  return nextInfo;
 }
 
 export async function updateClinicInfo(info) {

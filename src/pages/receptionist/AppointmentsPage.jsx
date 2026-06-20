@@ -18,6 +18,8 @@ import {
 import { includesSearchText } from "../../utils/searchText";
 
 const pageSize = 10;
+const appointmentsCacheKey = "medilink-appointments-cache-receptionist";
+const sharedAppointmentsCacheKey = "medilink-appointments-cache";
 
 const bookingStatusLabels = {
   confirmed: "تم التأكيد",
@@ -185,6 +187,38 @@ function createDemoAppointments() {
   ];
 }
 
+function readCachedAppointments() {
+  if (typeof localStorage === "undefined") return [];
+
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(appointmentsCacheKey) ||
+        localStorage.getItem(sharedAppointmentsCacheKey) ||
+        "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedAppointments(appointments) {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(
+      appointmentsCacheKey,
+      JSON.stringify(appointments.slice(0, 100)),
+    );
+    localStorage.setItem(
+      sharedAppointmentsCacheKey,
+      JSON.stringify(appointments.slice(0, 100)),
+    );
+  } catch {
+    localStorage.removeItem(appointmentsCacheKey);
+  }
+}
+
 function isPermissionError(error) {
   const message = String(error?.message || error || "").toLowerCase();
 
@@ -197,7 +231,11 @@ function isPermissionError(error) {
 }
 
 export default function ReceptionistAppointmentsPage() {
-  const [appointments, setAppointments] = useState([]);
+  const cachedAppointments = useMemo(() => readCachedAppointments(), []);
+  const demoAppointments = useMemo(() => createDemoAppointments(), []);
+  const [appointments, setAppointments] = useState(() =>
+    cachedAppointments.length > 0 ? cachedAppointments : demoAppointments,
+  );
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
@@ -207,9 +245,8 @@ export default function ReceptionistAppointmentsPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const demoAppointments = useMemo(() => createDemoAppointments(), []);
 
   useEffect(() => {
     let mounted = true;
@@ -217,9 +254,10 @@ export default function ReceptionistAppointmentsPage() {
     listAppointments()
       .then((fetchedAppointments) => {
         if (!mounted) return;
-        setAppointments(
-          fetchedAppointments.length > 0 ? fetchedAppointments : demoAppointments,
-        );
+        const nextAppointments =
+          fetchedAppointments.length > 0 ? fetchedAppointments : demoAppointments;
+        saveCachedAppointments(nextAppointments);
+        setAppointments(nextAppointments);
       })
       .catch((requestError) => {
         if (!mounted) return;
