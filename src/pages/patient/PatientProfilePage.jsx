@@ -7,6 +7,7 @@ import {
   getCurrentAuthUser,
   getMyPatientProfile,
   listAppointments,
+  uploadPatientMedicalFiles,
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
@@ -36,6 +37,48 @@ const prescriptions = [
 
 function currentPatientId(user) {
   return user?.patientId || user?.patient?._id || user?.patient?.id || user?.profile?._id || user?._id || user?.id || "";
+}
+
+function getMedicalFileId(file, index = 0) {
+  return String(
+    file?._id ||
+      file?.fileId ||
+      file?.id ||
+      file?.url ||
+      `medical-file-${index}`,
+  );
+}
+
+function getMedicalFileName(file, index = 0, savedNames = {}) {
+  return (
+    file?.name ||
+    file?.fileName ||
+    file?.filename ||
+    file?.originalName ||
+    file?.originalname ||
+    savedNames[getMedicalFileId(file, index)] ||
+    `ملف طبي ${index + 1}`
+  );
+}
+
+function readMedicalFileNames(patientId) {
+  if (!patientId) return {};
+
+  try {
+    return JSON.parse(
+      localStorage.getItem(`medilink-medical-file-names-${patientId}`) || "{}",
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveMedicalFileNames(patientId, names) {
+  if (!patientId) return;
+  localStorage.setItem(
+    `medilink-medical-file-names-${patientId}`,
+    JSON.stringify(names),
+  );
 }
 
 function buildPatient(user, apiPatient) {
@@ -73,6 +116,7 @@ export default function PatientProfilePage() {
   const [search, setSearch] = useState("");
   const [appointments, setAppointments] = useState([]);
   const [files, setFiles] = useState([]);
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -86,8 +130,12 @@ export default function PatientProfilePage() {
       setPatient(buildPatient(authUser, patientResult));
       setFiles(
         patientResult?.medicalFiles?.map((file, index) => ({
-          id: file._id || file.fileId || file.id || `medical-file-${index}`,
-          name: file.name || file.fileName || `ملف طبي ${index + 1}`,
+          id: getMedicalFileId(file, index),
+          name: getMedicalFileName(
+            file,
+            index,
+            readMedicalFileNames(patientId),
+          ),
           src: file.url || file.src || "",
         })) || [],
       );
@@ -137,13 +185,44 @@ export default function PatientProfilePage() {
           <div className="mt-6">
             {activeTab !== "extra" && (
               <div className="mb-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
-                {activeTab === "files" ? <UploadButton setFiles={setFiles} /> : <span />}
+                {activeTab === "files" ? (
+                  <UploadButton
+                    onUploaded={async (selectedFiles) => {
+                      const profile = await getMyPatientProfile();
+                      const currentIds = new Set(files.map((file) => file.id));
+                      const newFiles = profile.medicalFiles.filter(
+                        (file, index) =>
+                          !currentIds.has(getMedicalFileId(file, index)),
+                      );
+                      const savedNames = readMedicalFileNames(routePatientId);
+
+                      newFiles.forEach((file, index) => {
+                        const selectedFile = selectedFiles[index];
+                        if (selectedFile) {
+                          savedNames[getMedicalFileId(file, index)] =
+                            selectedFile.name;
+                        }
+                      });
+                      saveMedicalFileNames(routePatientId, savedNames);
+
+                      setFiles(
+                        profile.medicalFiles.map((file, index) => ({
+                          id: getMedicalFileId(file, index),
+                          name: getMedicalFileName(file, index, savedNames),
+                          src: file.url || file.src || "",
+                        })),
+                      );
+                    }}
+                  />
+                ) : <span />}
                 <SearchBox value={search} onChange={setSearch} />
               </div>
             )}
 
             {activeTab === "extra" && <ExtraInfo patient={patient} />}
-            {activeTab === "files" && <MedicalFiles files={files} search={search} />}
+            {activeTab === "files" && (
+              <MedicalFiles files={files} search={search} onPreview={setPreviewFile} />
+            )}
             {activeTab === "records" && <MedicalRecords search={search} />}
             {activeTab === "prescriptions" && <Prescriptions search={search} />}
             {activeTab === "appointments" && (
@@ -162,6 +241,27 @@ export default function PatientProfilePage() {
           </div>
         </section>
       </main>
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4"
+          onClick={() => setPreviewFile(null)}
+        >
+          <button
+            type="button"
+            aria-label="إغلاق المعاينة"
+            className="absolute left-5 top-5 grid size-11 place-items-center rounded-full bg-white/15 text-white"
+            onClick={() => setPreviewFile(null)}
+          >
+            <X size={25} />
+          </button>
+          <img
+            src={previewFile.src}
+            alt={previewFile.name}
+            className="max-h-[88vh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
       <PatientHomeFooter />
     </div>
   );
@@ -245,32 +345,46 @@ function TagGroup({ title, values }) {
   );
 }
 
-function UploadButton({ setFiles }) {
+function UploadButton({ onUploaded }) {
   const inputRef = useRef(null);
-  const addFiles = (selected) => {
-    const next = Array.from(selected).map((file) => ({
-      id: `${file.name}-${file.size}-${file.lastModified}`,
-      name: file.name,
-      src: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
-    }));
-    setFiles((current) => [...current, ...next]);
+  const [uploading, setUploading] = useState(false);
+
+  const addFiles = async (selected) => {
+    const files = Array.from(selected);
+    if (!files.length) return;
+
+    setUploading(true);
+    try {
+      await uploadPatientMedicalFiles(files);
+      await onUploaded?.(files);
+      toast.success("تمت إضافة الملف الطبي بنجاح");
+    } catch (error) {
+      toast.error(error.message || "تعذر رفع الملف الطبي");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   };
   return (
     <>
       <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [])} />
-      <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white"><Plus size={20} />أضف ملف جديد</button>
+      <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white disabled:opacity-60"><Plus size={20} />{uploading ? "جاري الرفع..." : "أضف ملف جديد"}</button>
     </>
   );
 }
 
-function MedicalFiles({ files, search }) {
+function MedicalFiles({ files, search, onPreview }) {
   const filtered = files.filter((file) => includesSearchText(file.name, search));
   return filtered.length ? (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {filtered.map((file) => (
         <article key={file.id} className="flex min-h-44 items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242]">
           <strong className="break-all text-left">{file.name}</strong>
-          {file.src ? <img src={file.src} alt={file.name} className="h-36 w-28 rounded-xl object-cover" /> : <FileText size={54} className="text-[#20B7D5]" />}
+          {file.src ? (
+            <button type="button" onClick={() => onPreview(file)}>
+              <img src={file.src} alt={file.name} className="h-36 w-28 cursor-zoom-in rounded-xl object-cover" />
+            </button>
+          ) : <FileText size={54} className="text-[#20B7D5]" />}
         </article>
       ))}
     </div>

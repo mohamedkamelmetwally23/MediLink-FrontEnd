@@ -1554,6 +1554,19 @@ export async function completePatientProfile(values) {
   });
 }
 
+export async function uploadPatientMedicalFiles(files) {
+  const formData = new FormData();
+
+  Array.from(files || []).forEach((file) => {
+    formData.append("medicalFiles", file);
+  });
+
+  return apiRequest("/patient/complete-profile", {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
 export async function createPaidDemoAppointment(values) {
   let appointments;
 

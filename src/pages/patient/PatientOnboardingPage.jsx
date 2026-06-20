@@ -657,10 +657,14 @@ function SuccessScreen({ patientId, isEditMode }) {
         يمكنك الآن حجز المواعيد، متابعة سجلك الطبي، والحصول على توصيات طبية أكثر دقة.
       </p>
       <Link
-        to={`/patient/${encodeURIComponent(patientId)}/home`}
+        to={
+          isEditMode
+            ? `/patient/${encodeURIComponent(patientId)}/profile`
+            : `/patient/${encodeURIComponent(patientId)}/home`
+        }
         className={`${primaryButtonClass} w-full max-w-[820px]`}
       >
-        إبدأ استخدام Medilink
+        {isEditMode ? "عرض الملف الشخصي" : "إبدأ استخدام Medilink"}
       </Link>
     </section>
   );
@@ -829,11 +833,11 @@ export default function PatientOnboardingPage() {
             screen="medications"
             values={checks}
             setValues={setChecks}
-            onNext={goNext}
+            onNext={isEditMode ? submitPatientInformation : goNext}
             onPrevious={goPrevious}
           />
         )}
-        {screenIndex === 5 && (
+        {screenIndex === 5 && !isEditMode && (
           <FilesScreen
             files={files}
             setFiles={setFiles}
