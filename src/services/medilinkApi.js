@@ -92,7 +92,7 @@ async function requestFirst(paths, options = {}) {
   throw lastError;
 }
 
-async function requestFastest(paths, options = {}) {
+async function requestParallel(paths, options = {}) {
   const retryStatuses = options.retryStatuses || [400, 404, 405];
   const requestOptions = { ...options };
   delete requestOptions.retryStatuses;
@@ -675,8 +675,21 @@ export function normalizePatient(item = {}) {
   const user = item.user || item.account || item;
   const profile =
     item.patientProfile || item.patientprofile || item.profile || item.patient || {};
-  const name = item.name || joinName(user) || joinName(item);
+  const name =
+    item.name || joinName(user) || joinName(profile) || joinName(item);
   const nameParts = splitName(name);
+  const phone =
+    user.phone ||
+    user.phoneNumber ||
+    user.mobile ||
+    profile.phone ||
+    profile.phoneNumber ||
+    profile.mobile ||
+    item.phone ||
+    item.phoneNumber ||
+    item.mobile ||
+    item.patientPhone ||
+    "";
   const status = normalizeStatus(
     user.active ??
       user.status ??
@@ -689,15 +702,50 @@ export function normalizePatient(item = {}) {
   return {
     id: getId(item),
     userId: getProfileUserId(item) || getId(user),
-    firstName: user.firstName || item.firstName || nameParts.firstName,
-    lastName: user.lastName || item.lastName || nameParts.lastName,
+    firstName:
+      user.firstName || profile.firstName || item.firstName || nameParts.firstName,
+    lastName:
+      user.lastName || profile.lastName || item.lastName || nameParts.lastName,
     name,
-    gender: user.gender || item.gender || "",
+    gender: user.gender || profile.gender || item.gender || "",
     birthDate:
       getBirthDateValue(user) ||
       getBirthDateValue(profile) ||
       getBirthDateValue(item),
-    phone: user.phone || item.phone || "",
+    day:
+      user.birthDay ||
+      user.dayOfBirth ||
+      user.day ||
+      profile.birthDay ||
+      profile.dayOfBirth ||
+      profile.day ||
+      item.birthDay ||
+      item.dayOfBirth ||
+      item.day ||
+      "",
+    month:
+      user.birthMonth ||
+      user.monthOfBirth ||
+      user.month ||
+      profile.birthMonth ||
+      profile.monthOfBirth ||
+      profile.month ||
+      item.birthMonth ||
+      item.monthOfBirth ||
+      item.month ||
+      "",
+    year:
+      user.birthYear ||
+      user.yearOfBirth ||
+      user.year ||
+      profile.birthYear ||
+      profile.yearOfBirth ||
+      profile.year ||
+      item.birthYear ||
+      item.yearOfBirth ||
+      item.year ||
+      "",
+    phone,
     height: item.tall ?? user.tall ?? item.height ?? user.height ?? "",
     weight: item.weight ?? user.weight ?? "",
     bloodType: item.bloodType || user.bloodType || "",
@@ -1123,7 +1171,13 @@ function normalizeAvailableSlotDay(item = {}) {
           status:
             slotValue.status ||
             slotValue.state ||
+            (slotValue.booked === true || slotValue.isBooked === true
+              ? "booked"
+              : "") ||
             (slotValue.available === false ? "booked" : "available"),
+          available: slotValue.available,
+          booked: slotValue.booked,
+          isBooked: slotValue.isBooked,
           raw: slot,
         };
       })
@@ -1226,18 +1280,55 @@ function findAvailableSlotItems(response) {
   return [];
 }
 
-export async function listDoctorAvailableSlots(doctorId) {
-  if (!doctorId) return [];
+function getAvailableSlotRequestIds(doctor) {
+  if (Array.isArray(doctor)) {
+    return Array.from(new Set(doctor.flatMap(getAvailableSlotRequestIds)));
+  }
 
-  const response = await requestFirst([
-    `/doctors/${doctorId}/available-slots`,
-    `/doctorprofiles/${doctorId}/available-slots`,
-    `/doctorProfiles/${doctorId}/available-slots`,
-    `/doctor-profiles/${doctorId}/available-slots`,
-  ]);
-  const slots = findAvailableSlotItems(response);
+  if (doctor && typeof doctor === "object") {
+    return getDoctorAvailableSlotLookupIds(doctor);
+  }
 
-  return slots.map(normalizeAvailableSlotDay);
+  return doctor ? [String(doctor)] : [];
+}
+
+function normalizeAvailableSlotResponse(response) {
+  return findAvailableSlotItems(response).map(normalizeAvailableSlotDay);
+}
+
+export async function listDoctorAvailableSlots(doctor) {
+  const doctorIds = getAvailableSlotRequestIds(doctor);
+  if (doctorIds.length === 0) return [];
+
+  const paths = doctorIds.map((doctorId) => `/doctors/${doctorId}/available-slots`);
+
+  const results = await Promise.allSettled(
+    paths.map((path) =>
+      apiRequest(path, {
+        timeoutMs: 2500,
+      }),
+    ),
+  );
+  let emptySlots = [];
+  let hasSuccessfulResponse = false;
+  let firstError;
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      hasSuccessfulResponse = true;
+      const slots = normalizeAvailableSlotResponse(result.value);
+
+      if (slots.some((day) => day.slots?.length > 0)) return slots;
+      if (emptySlots.length === 0) emptySlots = slots;
+    } else if (!firstError) {
+      firstError = result.reason;
+    }
+  }
+
+  if (hasSuccessfulResponse) return emptySlots;
+  if (firstError) throw firstError;
+
+  return [];
 }
 
 function isEmptyAvailableSlotsError(error) {
@@ -1378,21 +1469,62 @@ export async function deleteSpecialization(specialization) {
 }
 
 export async function listPatients() {
-  const response = await apiRequest("/patient?limit=100");
-  const patients = findArray(response, [
-    "patients",
-    "patient",
-    "allPatients",
-    "allPatient",
-    "users",
-    "patientprofiles",
-    "patientProfiles",
-    "profiles",
-  ]);
+  const patients = await requestParallel(
+    [
+      "/patient?limit=500",
+      "/patient",
+      "/patients?limit=500",
+      "/patients",
+      "/patientprofiles?limit=500",
+      "/patientProfiles?limit=500",
+      "/patient-profiles?limit=500",
+      "/users?role=patient&limit=500",
+      "/users?role=user&limit=500",
+      "/users?limit=500",
+    ],
+    {
+      retryStatuses: [400, 403, 404, 405, 408, 504],
+      timeoutMs: 6000,
+    },
+  )
+    .then((response) =>
+      findArray(response, [
+        "patients",
+        "patient",
+        "allPatients",
+        "allPatient",
+        "users",
+        "patientprofiles",
+        "patientProfiles",
+        "profiles",
+      ]),
+    )
+    .catch(() => []);
+
   const hydratedPatients = await withHydratedUsers(patients, {
     enabled: false,
   });
-  return hydratedPatients.map(normalizePatient);
+  const normalizedPatients = hydratedPatients
+    .map(normalizePatient)
+    .filter((patient) => {
+      const rawRole = normalizeUserRole(
+        patient.raw?.role ||
+          patient.raw?.userRole ||
+          patient.raw?.user?.role ||
+          patient.raw?.account?.role ||
+          patient.role,
+      );
+
+      return !rawRole || rawRole === "patient";
+    });
+
+  if (normalizedPatients.length > 0) return normalizedPatients;
+
+  try {
+    return await listPatientsFromAppointments();
+  } catch {
+    return [];
+  }
 }
 
 function patientFromDoctorPatientItem(item = {}) {
@@ -1502,6 +1634,32 @@ function normalizeDoctorPatients(items = []) {
   });
 
   return Array.from(patientsByKey.values());
+}
+
+async function listPatientsFromAppointments() {
+  const response = await requestParallel(
+    [
+      "/appointments",
+      "/appointments/getAllAppointments",
+      "/appointment/getAllAppointments",
+      "/appointment",
+      "/booking",
+      "/bookings",
+    ],
+    {
+      retryStatuses: [400, 403, 404, 405, 408, 504],
+      timeoutMs: 6000,
+    },
+  );
+  const appointments = findArray(response, [
+    "allAppointments",
+    "appointments",
+    "appointment",
+    "bookings",
+    "reservations",
+  ]);
+
+  return normalizeDoctorPatients(appointments);
 }
 
 export async function listPatientsForDoctor() {
@@ -2089,19 +2247,18 @@ export function isAppointmentSlotAvailable(values, appointments = []) {
 }
 
 export async function listAppointments() {
-  const response = await requestFastest(
+  const response = await requestFirst(
     [
-      "/appointment?limit=100",
-      "/appointment",
-      "/appointment/getAllAppointments",
-      "/appointments?limit=100",
       "/appointments",
       "/appointments/getAllAppointments",
-      "/booking?limit=100",
-      "/bookings?limit=100",
+      "/appointment/getAllAppointments",
+      "/appointment",
+      "/booking",
+      "/bookings",
     ],
     {
-      retryStatuses: [400, 403, 404, 405],
+      retryStatuses: [400, 404, 405, 408, 504],
+      timeoutMs: 8000,
     },
   );
   const appointments = findArray(response, [
@@ -2268,6 +2425,45 @@ export async function createAppointment(values) {
       body,
     },
   );
+
+  return normalizeAppointment(
+    findEntity(response, ["appointment", "booking", "reservation"]),
+  );
+}
+
+export async function bookAppointmentByReceptionist(values) {
+  const toOptionalNumber = (value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : undefined;
+  };
+  const payload = compactObject({
+    doctorId: values.doctorId || values.doctor,
+    date: values.date || values.appointmentDate,
+    slotTime: normalizeTime(
+      values.slotTime || values.time || values.appointmentTime || values.startTime,
+    ),
+    reason: values.reason || values.visitReason || values.notes,
+    firstName: values.firstName,
+    lastName: values.lastName,
+    phone: values.phone || values.patientPhone,
+    gender: values.gender,
+    day: toOptionalNumber(values.birthDay || values.dayOfBirth || values.day),
+    month: toOptionalNumber(
+      values.birthMonth || values.monthOfBirth || values.month,
+    ),
+    year: toOptionalNumber(values.birthYear || values.yearOfBirth || values.year),
+  });
+
+  if (!payload.phone) {
+    throw new ApiError("رقم الهاتف مطلوب");
+  }
+
+  const response = await apiRequest("/appointments/bookByReceptionist", {
+    method: "POST",
+    body: payload,
+    timeoutMs: 15000,
+  });
 
   return normalizeAppointment(
     findEntity(response, ["appointment", "booking", "reservation"]),

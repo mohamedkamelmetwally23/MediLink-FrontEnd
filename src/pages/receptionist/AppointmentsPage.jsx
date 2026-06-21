@@ -61,132 +61,6 @@ const arabicMonths = [
   "ديسمبر",
 ];
 
-function getIsoDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function createDemoAppointments() {
-  const today = getIsoDate(new Date());
-  const yesterday = getIsoDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-  const tomorrow = getIsoDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
-
-  return [
-    {
-      id: "demo-receptionist-appointment-1",
-      patient: "محمد حسين",
-      doctor: "د.محمد خالد",
-      date: today,
-      time: "13:00",
-      phone: "01066666666",
-      specialty: "قلب",
-      status: "confirmed",
-      payment: "paid",
-    },
-    {
-      id: "demo-receptionist-appointment-2",
-      patient: "يوسف أمين",
-      doctor: "د.كمال شوقي",
-      date: today,
-      time: "13:00",
-      phone: "01077777777",
-      specialty: "جلدية",
-      status: "pending",
-      payment: "waiting",
-    },
-    {
-      id: "demo-receptionist-appointment-3",
-      patient: "محمد حسني",
-      doctor: "د.جيهان الشامي",
-      date: today,
-      time: "16:00",
-      phone: "01088888888",
-      specialty: "أطفال",
-      status: "confirmed",
-      payment: "paid",
-    },
-    {
-      id: "demo-receptionist-appointment-4",
-      patient: "عبد الرحمن نعم الله",
-      doctor: "د.مروان يوسف",
-      date: today,
-      time: "17:00",
-      phone: "01099999999",
-      specialty: "باطنة",
-      status: "cancelled",
-      payment: "waiting",
-    },
-    {
-      id: "demo-receptionist-appointment-5",
-      patient: "خالد فتحي",
-      doctor: "د.كمال شوقي",
-      date: yesterday,
-      time: "10:00",
-      phone: "01111111111",
-      specialty: "جلدية",
-      status: "confirmed",
-      payment: "paid",
-    },
-    {
-      id: "demo-receptionist-appointment-6",
-      patient: "سارة عبد الله",
-      doctor: "د.مروان خالد",
-      date: yesterday,
-      time: "10:00",
-      phone: "01222222222",
-      specialty: "قلب",
-      status: "completed",
-      payment: "refunded",
-    },
-    {
-      id: "demo-receptionist-appointment-7",
-      patient: "سما سامي",
-      doctor: "د.كمال شوقي",
-      date: yesterday,
-      time: "12:30",
-      phone: "01555555555",
-      specialty: "جلدية",
-      status: "pending",
-      payment: "waiting",
-    },
-    {
-      id: "demo-receptionist-appointment-8",
-      patient: "ياسمين أحمد",
-      doctor: "د.كمال شوقي",
-      date: yesterday,
-      time: "12:00",
-      phone: "01033333333",
-      specialty: "باطنة",
-      status: "confirmed",
-      payment: "paid",
-    },
-    {
-      id: "demo-receptionist-appointment-9",
-      patient: "نورا أمين",
-      doctor: "د.مروان خالد",
-      date: yesterday,
-      time: "06:00",
-      phone: "01044444444",
-      specialty: "أطفال",
-      status: "completed",
-      payment: "paid",
-    },
-    {
-      id: "demo-receptionist-appointment-10",
-      patient: "محمد توفيق",
-      doctor: "د.مروان خالد",
-      date: tomorrow,
-      time: "17:00",
-      phone: "01055555555",
-      specialty: "عيون",
-      status: "cancelled",
-      payment: "unpaid",
-    },
-  ];
-}
-
 function readCachedAppointments() {
   if (typeof localStorage === "undefined") return [];
 
@@ -219,23 +93,9 @@ function saveCachedAppointments(appointments) {
   }
 }
 
-function isPermissionError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-
-  return (
-    error?.status === 403 ||
-    message.includes("permission") ||
-    message.includes("not have") ||
-    message.includes("not authorized")
-  );
-}
-
 export default function ReceptionistAppointmentsPage() {
   const cachedAppointments = useMemo(() => readCachedAppointments(), []);
-  const demoAppointments = useMemo(() => createDemoAppointments(), []);
-  const [appointments, setAppointments] = useState(() =>
-    cachedAppointments.length > 0 ? cachedAppointments : demoAppointments,
-  );
+  const [appointments, setAppointments] = useState(() => cachedAppointments);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
@@ -245,7 +105,7 @@ export default function ReceptionistAppointmentsPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => cachedAppointments.length === 0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -254,22 +114,14 @@ export default function ReceptionistAppointmentsPage() {
     listAppointments()
       .then((fetchedAppointments) => {
         if (!mounted) return;
-        const nextAppointments =
-          fetchedAppointments.length > 0 ? fetchedAppointments : demoAppointments;
-        saveCachedAppointments(nextAppointments);
-        setAppointments(nextAppointments);
+        saveCachedAppointments(fetchedAppointments);
+        setAppointments(fetchedAppointments);
+        setError("");
       })
       .catch((requestError) => {
         if (!mounted) return;
 
-        if (isPermissionError(requestError)) {
-          setAppointments(demoAppointments);
-          setError("");
-          return;
-        }
-
-        setAppointments(demoAppointments);
-        setError("");
+        setError(requestError.message || "تعذر تحميل المواعيد");
       })
       .finally(() => {
         if (mounted) {
@@ -280,7 +132,7 @@ export default function ReceptionistAppointmentsPage() {
     return () => {
       mounted = false;
     };
-  }, [demoAppointments]);
+  }, []);
 
   const doctors = useMemo(
     () =>

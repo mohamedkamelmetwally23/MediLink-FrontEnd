@@ -69,36 +69,6 @@ const statusMeta = {
   },
 };
 
-function createDemoAppointments(baseDate = new Date()) {
-  const today = startOfDay(baseDate);
-  const dates = [-4, -2, -1, 0, 1, 3, 5].map((offset) =>
-    getIsoDate(addDays(today, offset)),
-  );
-
-  return [
-    ["خالد فتحي", "د. خالد علي", dates[0], "09:00", "confirmed"],
-    ["سما سامي", "د. كمال شوقي", dates[0], "12:00", "pending"],
-    ["محمد حسين", "د. محمد خالد", dates[1], "10:00", "pending"],
-    ["يوسف أمين", "د. كمال شوقي", dates[1], "13:00", "cancelled"],
-    ["نور باسم", "د. سارة محمد", dates[2], "15:00", "confirmed"],
-    ["محمد حسني", "د. جيهان الشامي", dates[3], "10:00", "pending"],
-    ["عبد الرحمن عبد الله", "د. مروان يوسف", dates[3], "11:00", "cancelled"],
-    ["ياسمين أحمد", "د. كمال شوقي", dates[3], "12:00", "confirmed"],
-    ["نورا أمين", "د. خالد علي", dates[3], "16:00", "pending"],
-    ["سارة عبد الله", "د. مروان خالد", dates[4], "10:00", "confirmed"],
-    ["أحمد مختار", "د. خالد علي", dates[4], "11:00", "pending"],
-    ["محمد توفيق", "د. خالد علي", dates[5], "17:00", "cancelled"],
-    ["هدى كامل", "د. سارة محمد", dates[6], "12:30", "confirmed"],
-  ].map(([patient, doctor, date, time, status], index) => ({
-    id: `demo-schedule-${index + 1}`,
-    patient,
-    doctor,
-    date,
-    time,
-    status,
-  }));
-}
-
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -331,17 +301,6 @@ function getDoctorOptions(doctors, appointments) {
   return Array.from(names);
 }
 
-function isPermissionError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-
-  return (
-    error?.status === 403 ||
-    message.includes("permission") ||
-    message.includes("not have") ||
-    message.includes("not authorized")
-  );
-}
-
 export default function ReceptionistSchedulePage() {
   const [activeView, setActiveView] = useState("day");
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
@@ -349,10 +308,6 @@ export default function ReceptionistSchedulePage() {
   const [doctors, setDoctors] = useState([]);
   const [doctorFilter, setDoctorFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const demoAppointments = useMemo(
-    () => createDemoAppointments(selectedDate),
-    [selectedDate],
-  );
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
   const currentHour = new Date().getHours();
 
@@ -363,28 +318,14 @@ export default function ReceptionistSchedulePage() {
       .then(([appointmentsResult, doctorsResult]) => {
         if (!mounted) return;
 
-        if (
-          appointmentsResult.status === "fulfilled" &&
-          appointmentsResult.value.length > 0
-        ) {
-          setAppointments(appointmentsResult.value);
-        } else {
-          setAppointments(demoAppointments);
-        }
-
-        if (
-          doctorsResult.status === "fulfilled" &&
-          doctorsResult.value.length > 0
-        ) {
-          setDoctors(doctorsResult.value);
-        } else if (
-          doctorsResult.status === "rejected" &&
-          !isPermissionError(doctorsResult.reason)
-        ) {
-          setDoctors([]);
-        } else {
-          setDoctors([]);
-        }
+        setAppointments(
+          appointmentsResult.status === "fulfilled"
+            ? appointmentsResult.value
+            : [],
+        );
+        setDoctors(
+          doctorsResult.status === "fulfilled" ? doctorsResult.value : [],
+        );
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -393,7 +334,7 @@ export default function ReceptionistSchedulePage() {
     return () => {
       mounted = false;
     };
-  }, [demoAppointments]);
+  }, []);
 
   const doctorOptions = useMemo(
     () => getDoctorOptions(doctors, appointments),

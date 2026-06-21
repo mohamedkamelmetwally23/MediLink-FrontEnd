@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Banknote,
@@ -11,8 +11,9 @@ import {
   UserRound,
 } from "lucide-react";
 import {
-  createAppointment,
+  bookAppointmentByReceptionist,
   listDoctorAvailableSlots,
+  listAppointments,
   listDoctors,
   listPatients,
 } from "../../services/medilinkApi";
@@ -67,76 +68,6 @@ const paymentOptions = [
   },
 ];
 
-function createDemoPatients() {
-  return [
-    {
-      id: "demo-patient-1",
-      name: "محمد حسن",
-      firstName: "محمد",
-      lastName: "حسن",
-      phone: "01066666666",
-    },
-    {
-      id: "demo-patient-2",
-      name: "يوسف أمين",
-      firstName: "يوسف",
-      lastName: "أمين",
-      phone: "01077777777",
-    },
-    {
-      id: "demo-patient-3",
-      name: "خالد فتحي",
-      firstName: "خالد",
-      lastName: "فتحي",
-      phone: "01088888888",
-    },
-    {
-      id: "demo-patient-4",
-      name: "سما سامي",
-      firstName: "سما",
-      lastName: "سامي",
-      phone: "01255555555",
-    },
-  ];
-}
-
-function createDemoDoctors() {
-  return [
-    {
-      id: "demo-doctor-1",
-      firstName: "محمد",
-      lastName: "خالد",
-      specialty: "أمراض القلب",
-      consultationFee: 200,
-      image: "",
-    },
-    {
-      id: "demo-doctor-2",
-      firstName: "كمال",
-      lastName: "شوقي",
-      specialty: "الأمراض الجلدية",
-      consultationFee: 250,
-      image: "",
-    },
-    {
-      id: "demo-doctor-3",
-      firstName: "سارة",
-      lastName: "محمد",
-      specialty: "طب الأطفال",
-      consultationFee: 180,
-      image: "",
-    },
-    {
-      id: "demo-doctor-4",
-      firstName: "خالد",
-      lastName: "علي",
-      specialty: "العظام",
-      consultationFee: 300,
-      image: "",
-    },
-  ];
-}
-
 function getPersonName(person = {}) {
   return (
     person.name ||
@@ -158,6 +89,42 @@ function getIsoDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatApiDate(value) {
+  const date = parseDate(value);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function normalizeDateKey(value) {
+  const date = parseDate(value);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function normalizeTimeKey(value = "") {
+  const [hour = "0", minute = "00"] = String(value || "").split(":");
+  const hourNumber = Number(hour);
+
+  if (!Number.isFinite(hourNumber)) return String(value || "");
+  return `${String(hourNumber).padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function appointmentMatchesPayload(appointment = {}, payload = {}) {
+  const appointmentPhone = normalizePhone(
+    appointment.phone || appointment.raw?.phone || appointment.raw?.patientPhone,
+  );
+  const payloadPhone = normalizePhone(payload.phone || payload.patientPhone);
+  const appointmentTime = normalizeTimeKey(
+    appointment.slotTime || appointment.time || appointment.raw?.slotTime,
+  );
+  const payloadTime = normalizeTimeKey(payload.slotTime || payload.time);
+
+  return (
+    normalizeDateKey(appointment.date || appointment.raw?.date) ===
+      normalizeDateKey(payload.date) &&
+    appointmentTime === payloadTime &&
+    (!payloadPhone || appointmentPhone === payloadPhone)
+  );
 }
 
 function addDays(date, days) {
@@ -206,34 +173,285 @@ function normalizeSlotStatus(status = "") {
 }
 
 function isSlotAvailable(slot) {
+  if (slot?.available === false || slot?.booked === true || slot?.isBooked === true) {
+    return false;
+  }
+
   const status = normalizeSlotStatus(slot?.status);
 
   return ![
     "booked",
+    "confirmed",
+    "pending",
     "reserved",
     "busy",
+    "closed",
+    "full",
     "unavailable",
+    "not available",
+    "not_available",
     "cancelled",
     "canceled",
     "محجوز",
+    "تم الحجز",
+    "مؤكد",
+    "قيد الانتظار",
     "ممتلئ",
     "غير متاح",
   ].includes(status);
 }
 
-function getUpcomingDays(count = 7) {
+function normalizePhone(value = "") {
+  return String(value).replace(/\D/g, "");
+}
+
+function getPhoneSearchKeys(value = "") {
+  const phone = normalizePhone(value);
+  if (!phone) return [];
+
+  const keys = new Set([phone]);
+
+  if (phone.startsWith("20") && phone.length === 12) {
+    keys.add(`0${phone.slice(2)}`);
+  }
+
+  if (phone.startsWith("0") && phone.length === 11) {
+    keys.add(`20${phone.slice(1)}`);
+  }
+
+  if (phone.length >= 10) {
+    keys.add(phone.slice(-10));
+  }
+
+  return Array.from(keys);
+}
+
+function getPatientPhone(patient = {}) {
+  const raw = patient.raw || {};
+  const profile =
+    raw.patientProfile || raw.patientprofile || raw.profile || raw.patient || {};
+  const user = raw.user || raw.account || profile.user || profile.account || {};
+
+  return (
+    patient.phone ||
+    user.phone ||
+    user.phoneNumber ||
+    user.mobile ||
+    profile.phone ||
+    profile.phoneNumber ||
+    profile.mobile ||
+    raw.phone ||
+    raw.phoneNumber ||
+    raw.mobile ||
+    raw.patientPhone ||
+    ""
+  );
+}
+
+function findPatientByPhone(patients, phone) {
+  const inputKeys = getPhoneSearchKeys(phone);
+  if (!inputKeys.some((key) => key.length >= 10)) return null;
+
+  return (
+    patients.find((patient) => {
+      const patientKeys = getPhoneSearchKeys(getPatientPhone(patient));
+      return inputKeys.some(
+        (inputKey) =>
+          inputKey.length >= 10 &&
+          patientKeys.some(
+            (patientKey) =>
+              patientKey === inputKey ||
+              (patientKey.length >= 10 &&
+                patientKey.slice(-10) === inputKey.slice(-10)),
+          ),
+      );
+    }) || null
+  );
+}
+
+function getDoctorBookingIds(doctor) {
+  const value = doctor || {};
+
+  return Array.from(
+    new Set(
+      [
+        value.profileId,
+        value.doctorProfileId,
+        value.raw?.doctorProfile?._id,
+        value.raw?.doctorProfile?.id,
+        value.raw?.profile?._id,
+        value.raw?.profile?.id,
+        value.raw?._id,
+        value.raw?.id,
+        value.doctorId,
+        value.id,
+        value.userId,
+        value.raw?.user?._id,
+        value.raw?.user?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getDoctorBookingId(doctor) {
+  return getDoctorBookingIds(doctor)[0] || "";
+}
+
+function parseTimeMinutes(value = "") {
+  const [hours, minutes = "0"] = String(value || "").split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+function formatTimeValue(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(restMinutes).padStart(2, "0")}`;
+}
+
+function normalizeDayKey(value = "") {
+  return String(value)
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function createDoctorTimeSlots(doctor = {}) {
+  const start = parseTimeMinutes(
+    doctor.workStart || doctor.startTime || doctor.raw?.startTime || "09:00",
+  );
+  const end = parseTimeMinutes(
+    doctor.workEnd || doctor.endTime || doctor.raw?.endTime || "17:00",
+  );
+
+  if (start === null || end === null || end <= start) {
+    return fallbackTimes;
+  }
+
+  const slots = [];
+  for (let minutes = start; minutes < end; minutes += 30) {
+    slots.push(formatTimeValue(minutes));
+  }
+
+  return slots.length ? slots : fallbackTimes;
+}
+
+function buildDoctorScheduleDays(doctor, count = 14) {
+  if (!doctor) return [];
+
+  const workingDays = doctor.workDays || doctor.workingDays || doctor.raw?.workingDays || [];
+  const workingDayKeys = new Set(workingDays.map(normalizeDayKey).filter(Boolean));
+  const times = createDoctorTimeSlots(doctor);
+  const days = [];
   const today = new Date();
 
-  return Array.from({ length: count }, (_, index) => {
+  for (let index = 0; index < count && days.length < 7; index += 1) {
     const date = addDays(today, index);
+    const dayName = date.toLocaleDateString("ar-EG", { weekday: "long" });
+    const isWorkingDay =
+      workingDayKeys.size === 0 || workingDayKeys.has(normalizeDayKey(dayName));
 
-    return {
+    if (!isWorkingDay) continue;
+
+    days.push({
       date: getIsoDate(date),
-      dayName: date.toLocaleDateString("ar-EG", { weekday: "short" }),
+      dayName,
       dayNumber: date.getDate(),
-      slots: fallbackTimes.map((time) => ({ time, status: "available" })),
-    };
-  });
+      slots: times.map((time) => ({ time, status: "available" })),
+    });
+  }
+
+  return days;
+}
+
+function getBirthDateParts(value) {
+  if (!value) return { day: "", month: "", year: "" };
+
+  const date = parseDate(value);
+  if (Number.isNaN(date.getTime())) {
+    return { day: "", month: "", year: "" };
+  }
+
+  return {
+    day: String(date.getDate()),
+    month: String(date.getMonth() + 1),
+    year: String(date.getFullYear()),
+  };
+}
+
+function getPatientBirthDateParts(patient = {}) {
+  const raw = patient.raw || {};
+  const profile =
+    raw.patientProfile || raw.patientprofile || raw.profile || raw.patient || {};
+  const user = raw.user || raw.account || profile.user || profile.account || {};
+  const birthDate =
+    patient.birthDate ||
+    user.birthDate ||
+    user.dateOfBirth ||
+    profile.birthDate ||
+    profile.dateOfBirth ||
+    raw.birthDate ||
+    raw.dateOfBirth ||
+    raw.dob;
+  const parsedBirthDate = getBirthDateParts(birthDate);
+
+  if (parsedBirthDate.day && parsedBirthDate.month && parsedBirthDate.year) {
+    return parsedBirthDate;
+  }
+
+  return {
+    day: String(
+      patient.birthDay ||
+        patient.dayOfBirth ||
+        patient.day ||
+        user.birthDay ||
+        user.dayOfBirth ||
+        user.day ||
+        profile.birthDay ||
+        profile.dayOfBirth ||
+        profile.day ||
+        raw.birthDay ||
+        raw.dayOfBirth ||
+        raw.day ||
+        "",
+    ),
+    month: String(
+      patient.birthMonth ||
+        patient.monthOfBirth ||
+        patient.month ||
+        user.birthMonth ||
+        user.monthOfBirth ||
+        user.month ||
+        profile.birthMonth ||
+        profile.monthOfBirth ||
+        profile.month ||
+        raw.birthMonth ||
+        raw.monthOfBirth ||
+        raw.month ||
+        "",
+    ),
+    year: String(
+      patient.birthYear ||
+        patient.yearOfBirth ||
+        patient.year ||
+        user.birthYear ||
+        user.yearOfBirth ||
+        user.year ||
+        profile.birthYear ||
+        profile.yearOfBirth ||
+        profile.year ||
+        raw.birthYear ||
+        raw.yearOfBirth ||
+        raw.year ||
+        "",
+    ),
+  };
 }
 
 export default function ReceptionistBookingPage() {
@@ -241,17 +459,24 @@ export default function ReceptionistBookingPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [patientQuery, setPatientQuery] = useState("");
   const [doctorQuery, setDoctorQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [patientName, setPatientName] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
+  const [patientGender, setPatientGender] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [bookingReason, setBookingReason] = useState("");
   const [selectedDate, setSelectedDate] = useState(getIsoDate(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
   const [availableSlotDays, setAvailableSlotDays] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [createdAppointment, setCreatedAppointment] = useState(null);
 
   useEffect(() => {
@@ -266,8 +491,8 @@ export default function ReceptionistBookingPage() {
       const fetchedDoctors =
         doctorsResult.status === "fulfilled" ? doctorsResult.value : [];
 
-      setPatients(fetchedPatients.length ? fetchedPatients : createDemoPatients());
-      setDoctors(fetchedDoctors.length ? fetchedDoctors : createDemoDoctors());
+      setPatients(fetchedPatients);
+      setDoctors(fetchedDoctors);
 
     });
 
@@ -279,18 +504,31 @@ export default function ReceptionistBookingPage() {
   useEffect(() => {
     let mounted = true;
 
-    if (!selectedDoctor?.id || String(selectedDoctor.id).startsWith("demo-")) {
+    const doctorIds = getDoctorBookingIds(selectedDoctor);
+
+    setSelectedDate("");
+    setSelectedTime("");
+    setAvailableSlotDays([]);
+    setSlotsError("");
+
+    if (doctorIds.length === 0 || doctorIds.some((id) => id.startsWith("demo-"))) {
+      setSlotsLoading(false);
       return () => {
         mounted = false;
       };
     }
 
-    listDoctorAvailableSlots(selectedDoctor.id)
+    setSlotsLoading(true);
+
+    listDoctorAvailableSlots(doctorIds)
       .then((slots) => {
         if (!mounted) return;
-        setAvailableSlotDays(slots);
+        const hasApiSlots = slots.some((day) => day.slots?.length > 0);
+        const nextSlots = hasApiSlots ? slots : buildDoctorScheduleDays(selectedDoctor);
 
-        const firstAvailableDay = slots.find((day) =>
+        setAvailableSlotDays(nextSlots);
+
+        const firstAvailableDay = nextSlots.find((day) =>
           day.slots?.some(isSlotAvailable),
         );
 
@@ -298,26 +536,37 @@ export default function ReceptionistBookingPage() {
           setSelectedDate(firstAvailableDay.date);
           setSelectedTime("");
         }
+
+        if (!firstAvailableDay) {
+          setSlotsError("لا توجد مواعيد متاحة لهذا الطبيب حاليا");
+        }
       })
-      .catch(() => {
-        if (mounted) setAvailableSlotDays([]);
+      .catch((error) => {
+        if (!mounted) return;
+
+        const fallbackDays = buildDoctorScheduleDays(selectedDoctor);
+        setAvailableSlotDays(fallbackDays);
+
+        const firstAvailableDay = fallbackDays.find((day) =>
+          day.slots?.some(isSlotAvailable),
+        );
+
+        if (firstAvailableDay?.date) {
+          setSelectedDate(firstAvailableDay.date);
+          setSelectedTime("");
+          setSlotsError("");
+        } else {
+          setSlotsError(error.message || "تعذر تحميل مواعيد الطبيب");
+        }
+      })
+      .finally(() => {
+        if (mounted) setSlotsLoading(false);
       });
 
     return () => {
       mounted = false;
     };
   }, [selectedDoctor]);
-
-  const filteredPatients = useMemo(() => {
-    const query = patientQuery || patientName;
-
-    return patients
-      .filter((patient) => {
-        const name = getPersonName(patient);
-        return includesSearchText(`${name} ${patient.phone || ""}`, query);
-      })
-      .slice(0, 6);
-  }, [patientName, patientQuery, patients]);
 
   const filteredDoctors = useMemo(
     () =>
@@ -333,6 +582,8 @@ export default function ReceptionistBookingPage() {
   );
 
   const displayedDays = useMemo(() => {
+    if (!selectedDoctor) return [];
+
     const slotDays = availableSlotDays
       .filter((day) => day.date)
       .map((day) => ({
@@ -345,35 +596,77 @@ export default function ReceptionistBookingPage() {
       }))
       .slice(0, 7);
 
-    return slotDays.length ? slotDays : getUpcomingDays();
-  }, [availableSlotDays]);
+    return slotDays;
+  }, [availableSlotDays, selectedDoctor]);
 
-  const availableTimes = useMemo(() => {
+  const selectedDaySlots = useMemo(() => {
+    if (!selectedDoctor || !selectedDate) return [];
+
     const selectedDay = displayedDays.find((day) => day.date === selectedDate);
-    const daySlots = selectedDay?.slots?.filter(isSlotAvailable) || [];
 
-    return daySlots.length ? daySlots.map((slot) => slot.time) : fallbackTimes;
-  }, [displayedDays, selectedDate]);
+    return selectedDay?.slots || [];
+  }, [displayedDays, selectedDate, selectedDoctor]);
 
   const consultationFee = Number(selectedDoctor?.consultationFee) || 100;
-  const canContinuePatient = patientName.trim() && patientPhone.trim();
-  const canContinueBooking = selectedDoctor && selectedDate && selectedTime;
+  const canContinuePatient = Boolean(patientPhone.trim());
+  const canContinueBooking =
+    selectedDoctor &&
+    selectedDate &&
+    selectedTime &&
+    selectedDaySlots.some(
+      (slot) => slot.time === selectedTime && isSlotAvailable(slot),
+    );
   const canContinuePayment = Boolean(paymentMethod);
 
-  const selectPatient = (patient) => {
+  const fillPatientFields = useCallback((patient, phoneValue = "") => {
     const name = getPersonName(patient);
+    const birthDate = getPatientBirthDateParts(patient);
 
     setSelectedPatient(patient);
     setPatientName(name);
-    setPatientPhone(patient.phone || "");
-    setPatientQuery(name);
+    setPatientPhone(phoneValue || getPatientPhone(patient));
+    setPatientGender(patient.gender || "");
+    setBirthDay(birthDate.day);
+    setBirthMonth(birthDate.month);
+    setBirthYear(birthDate.year);
+  }, []);
+
+  const handlePatientPhoneChange = (value) => {
+    const matchedPatient = findPatientByPhone(patients, value);
+
+    if (matchedPatient) {
+      fillPatientFields(matchedPatient, value);
+      return;
+    }
+
+    if (selectedPatient) {
+      setPatientName("");
+      setPatientGender("");
+      setBirthDay("");
+      setBirthMonth("");
+      setBirthYear("");
+    }
+
+    setSelectedPatient(null);
+    setPatientPhone(value);
   };
+
+  useEffect(() => {
+    if (selectedPatient || !patientPhone.trim()) return;
+
+    const matchedPatient = findPatientByPhone(patients, patientPhone);
+    if (matchedPatient) {
+      fillPatientFields(matchedPatient, patientPhone);
+    }
+  }, [fillPatientFields, patientPhone, patients, selectedPatient]);
 
   const selectDoctor = (doctor) => {
     setSelectedDoctor(doctor);
     setDoctorQuery(getPersonName(doctor));
+    setSelectedDate("");
     setSelectedTime("");
     setAvailableSlotDays([]);
+    setSlotsError("");
   };
 
   const handleCancel = () => {
@@ -384,37 +677,73 @@ export default function ReceptionistBookingPage() {
     if (!canContinuePayment || submitting) return;
 
     setSubmitting(true);
+    setSubmitError("");
 
+    const matchedPatient =
+      selectedPatient || findPatientByPhone(patients, patientPhone);
+    const patientNameParts = splitPatientName(patientName);
     const payload = {
-      patientId: selectedPatient?.id,
+      patientId: matchedPatient?.id,
       patientName,
       patientPhone,
       phone: patientPhone,
-      doctorId: selectedDoctor?.id,
+      firstName: patientNameParts.firstName,
+      lastName: patientNameParts.lastName,
+      gender: patientGender,
+      day: birthDay,
+      month: birthMonth,
+      year: birthYear,
+      doctorId: getDoctorBookingId(selectedDoctor),
       doctorName: getPersonName(selectedDoctor),
       specialty: selectedDoctor?.specialty,
-      date: selectedDate,
+      date: formatApiDate(selectedDate),
+      slotTime: selectedTime,
       time: selectedTime,
+      reason: bookingReason,
       status: "confirmed",
       paymentMethod,
-      paymentStatus: paymentMethod === "cash" ? "waiting" : "paid",
+      paymentStatus: "paid",
       amount: consultationFee,
     };
 
-    try {
-      if (
-        selectedPatient?.id &&
-        selectedDoctor?.id &&
-        !String(selectedPatient.id).startsWith("demo-") &&
-        !String(selectedDoctor.id).startsWith("demo-")
-      ) {
-        await createAppointment(payload);
-      }
-    } catch {
-      // Keep the receptionist flow usable when the API rejects demo data.
-    } finally {
-      setCreatedAppointment(payload);
+    const completeBooking = (created = {}) => {
+      setCreatedAppointment({
+        ...created,
+        ...payload,
+        id: created.id || created._id || payload.id,
+        doctorName: created.doctor || payload.doctorName,
+        patientName: created.patient || payload.patientName,
+        slotTime: created.time || created.slotTime || payload.slotTime,
+      });
       setCurrentStep(4);
+    };
+
+    try {
+      const created = await bookAppointmentByReceptionist(payload);
+      completeBooking(created);
+    } catch (error) {
+      if (error.status === 408) {
+        try {
+          const appointments = await listAppointments();
+          const existingAppointment = appointments.find((appointment) =>
+            appointmentMatchesPayload(appointment, payload),
+          );
+
+          if (existingAppointment) {
+            completeBooking(existingAppointment);
+            return;
+          }
+        } catch {
+          // Keep the timeout message below if verification also fails.
+        }
+      }
+
+      setSubmitError(
+        error.status === 408
+          ? "الخادم استغرق وقتا أطول من المتوقع، تحقق من قائمة الحجوزات"
+          : error.message || "تعذر تأكيد الحجز",
+      );
+    } finally {
       setSubmitting(false);
     }
   };
@@ -450,23 +779,20 @@ export default function ReceptionistBookingPage() {
               <PatientStep
                 patientName={patientName}
                 patientPhone={patientPhone}
-                patientQuery={patientQuery}
-                selectedPatient={selectedPatient}
-                filteredPatients={filteredPatients}
+                patientGender={patientGender}
+                birthDay={birthDay}
+                birthMonth={birthMonth}
+                birthYear={birthYear}
                 canContinue={canContinuePatient}
                 onPatientNameChange={(value) => {
                   setSelectedPatient(null);
                   setPatientName(value);
                 }}
-                onPatientPhoneChange={(value) => {
-                  setSelectedPatient(null);
-                  setPatientPhone(value);
-                }}
-                onPatientQueryChange={(value) => {
-                  setSelectedPatient(null);
-                  setPatientQuery(value);
-                }}
-                onSelectPatient={selectPatient}
+                onPatientPhoneChange={handlePatientPhoneChange}
+                onPatientGenderChange={setPatientGender}
+                onBirthDayChange={setBirthDay}
+                onBirthMonthChange={setBirthMonth}
+                onBirthYearChange={setBirthYear}
                 onNext={() => setCurrentStep(2)}
               />
             )}
@@ -479,7 +805,10 @@ export default function ReceptionistBookingPage() {
                 displayedDays={displayedDays}
                 selectedDate={selectedDate}
                 selectedTime={selectedTime}
-                availableTimes={availableTimes}
+                reason={bookingReason}
+                selectedDaySlots={selectedDaySlots}
+                slotsLoading={slotsLoading}
+                slotsError={slotsError}
                 canContinue={canContinueBooking}
                 onDoctorQueryChange={setDoctorQuery}
                 onSelectDoctor={selectDoctor}
@@ -488,6 +817,7 @@ export default function ReceptionistBookingPage() {
                   setSelectedTime("");
                 }}
                 onSelectTime={setSelectedTime}
+                onReasonChange={setBookingReason}
                 onPrevious={() => setCurrentStep(1)}
                 onNext={() => setCurrentStep(3)}
               />
@@ -497,6 +827,7 @@ export default function ReceptionistBookingPage() {
               <PaymentStep
                 paymentMethod={paymentMethod}
                 submitting={submitting}
+                error={submitError}
                 canContinue={canContinuePayment}
                 onPaymentMethodChange={setPaymentMethod}
                 onCancel={() => setCurrentStep(2)}
@@ -573,14 +904,17 @@ function BookingStepper({ currentStep }) {
 function PatientStep({
   patientName,
   patientPhone,
-  patientQuery,
-  selectedPatient,
-  filteredPatients,
+  patientGender,
+  birthDay,
+  birthMonth,
+  birthYear,
   canContinue,
   onPatientNameChange,
   onPatientPhoneChange,
-  onPatientQueryChange,
-  onSelectPatient,
+  onPatientGenderChange,
+  onBirthDayChange,
+  onBirthMonthChange,
+  onBirthYearChange,
   onNext,
 }) {
   const nameParts = splitPatientName(patientName);
@@ -594,44 +928,6 @@ function PatientStep({
     <div className="mx-auto max-w-[760px]">
       <FormCard title="معلومات المريض" className="px-8 py-8">
         <div className="space-y-6">
-          <div className="relative">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a6b1b6]"
-              />
-              <input
-                value={patientQuery}
-                onChange={(event) => onPatientQueryChange(event.target.value)}
-                placeholder="ابحث عن مريض سابق"
-                className="h-[52px] w-full rounded-[6px] border border-[#edf1f3] bg-white pr-11 pl-9 text-[14px] font-bold outline-none transition placeholder:text-[#b6bec3] focus:border-[#23bfdd] dark:border-white/10 dark:bg-[#454545]"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#aab4ba]">
-                ×
-              </span>
-            </div>
-
-            {patientQuery && !selectedPatient && filteredPatients.length > 0 && (
-              <div className="absolute z-20 mt-2 max-h-[210px] w-full overflow-y-auto rounded-[8px] border border-[#edf1f3] bg-white p-2 shadow-[0_14px_30px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-[#454545]">
-                {filteredPatients.map((patient) => (
-                  <button
-                    key={patient.id || `${getPersonName(patient)}-${patient.phone}`}
-                    type="button"
-                    onClick={() => onSelectPatient(patient)}
-                    className="flex w-full items-center justify-between rounded-[7px] px-3 py-2 text-right transition hover:bg-[#eefbfe] dark:hover:bg-white/10"
-                  >
-                    <span className="text-[12px] font-bold text-[#27343a] dark:text-white">
-                      {getPersonName(patient)}
-                    </span>
-                    <span className="text-[11px] font-semibold text-[#8d9aa0]">
-                      {patient.phone}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="grid gap-5 sm:grid-cols-2">
             <InputField
               label="الاسم الأول"
@@ -658,6 +954,42 @@ function PatientStep({
             placeholder="010XXXXXXXX"
           />
 
+          <div className="grid gap-5 sm:grid-cols-2">
+            <SelectField
+              label="النوع"
+              value={patientGender}
+              onChange={onPatientGenderChange}
+            >
+              <option value="">اختر النوع</option>
+              <option value="male">male</option>
+              <option value="female">female</option>
+            </SelectField>
+
+            <div className="grid grid-cols-3 gap-3">
+              <InputField
+                label="اليوم"
+                value={birthDay}
+                onChange={onBirthDayChange}
+                placeholder="25"
+                type="number"
+              />
+              <InputField
+                label="الشهر"
+                value={birthMonth}
+                onChange={onBirthMonthChange}
+                placeholder="2"
+                type="number"
+              />
+              <InputField
+                label="السنة"
+                value={birthYear}
+                onChange={onBirthYearChange}
+                placeholder="2002"
+                type="number"
+              />
+            </div>
+          </div>
+
           <PrimaryButton disabled={!canContinue} onClick={onNext}>
             التالي
           </PrimaryButton>
@@ -674,12 +1006,16 @@ function BookingDetailsStep({
   displayedDays,
   selectedDate,
   selectedTime,
-  availableTimes,
+  reason,
+  selectedDaySlots,
+  slotsLoading,
+  slotsError,
   canContinue,
   onDoctorQueryChange,
   onSelectDoctor,
   onSelectDate,
   onSelectTime,
+  onReasonChange,
   onPrevious,
   onNext,
 }) {
@@ -758,29 +1094,43 @@ function BookingDetailsStep({
             <div>
               <div className="mb-3 flex items-center justify-end">
                 <span className="text-[13px] font-bold text-[#27343a] dark:text-white">
-                  {formatMonthYear(selectedDate)}
+                  {selectedDate ? formatMonthYear(selectedDate) : "المواعيد"}
                 </span>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-                {displayedDays.map((day) => (
-                  <button
-                    key={day.date}
-                    type="button"
-                    onClick={() => onSelectDate(day.date)}
-                    className={`min-h-[78px] rounded-[5px] border px-2 py-3 text-center transition ${
-                      selectedDate === day.date
-                        ? "border-[#24bdd9] bg-[#eefcff] text-[#222]"
-                        : "border-transparent bg-[#fbfbfb] text-[#9ca8ad] hover:border-[#bdeaf3] dark:bg-[#454545] dark:text-gray-200"
-                    }`}
-                  >
-                    <div className="text-[11px] font-bold">{day.dayName}</div>
-                    <div className="mt-2 text-[18px] font-extrabold">
-                      {day.dayNumber}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {slotsLoading ? (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  جاري تحميل مواعيد الطبيب...
+                </p>
+              ) : !selectedDoctor ? (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  اختر طبيبا لعرض المواعيد المتاحة
+                </p>
+              ) : displayedDays.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                  {displayedDays.map((day) => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => onSelectDate(day.date)}
+                      className={`min-h-[78px] rounded-[5px] border px-2 py-3 text-center transition ${
+                        selectedDate === day.date
+                          ? "border-[#24bdd9] bg-[#eefcff] text-[#222]"
+                          : "border-transparent bg-[#fbfbfb] text-[#9ca8ad] hover:border-[#bdeaf3] dark:bg-[#454545] dark:text-gray-200"
+                      }`}
+                    >
+                      <div className="text-[11px] font-bold">{day.dayName}</div>
+                      <div className="mt-2 text-[18px] font-extrabold">
+                        {day.dayNumber}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  {slotsError || "لا توجد أيام متاحة لهذا الطبيب"}
+                </p>
+              )}
             </div>
           </FormCard>
 
@@ -789,23 +1139,60 @@ function BookingDetailsStep({
               <h3 className="mb-4 text-right text-[13px] font-bold text-[#27343a] dark:text-white">
                 المواعيد المتاحة
               </h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {availableTimes.map((time) => (
-                  <button
-                    key={time}
-                    type="button"
-                    onClick={() => onSelectTime(time)}
-                    className={`h-[38px] rounded-[6px] border text-[12px] font-bold transition ${
-                      selectedTime === time
-                        ? "border-[#24bdd9] bg-[#eefcff] text-[#333]"
-                        : "border-transparent bg-[#fbfbfb] text-[#9da6ab] hover:border-[#24bdd9] dark:bg-[#454545] dark:text-gray-200"
-                    }`}
-                  >
-                    {formatTime(time)}
-                  </button>
-                ))}
-              </div>
+              {slotsLoading ? (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  جاري تحميل المواعيد...
+                </p>
+              ) : !selectedDoctor ? (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  اختر طبيبا أولا
+                </p>
+              ) : !selectedDate ? (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  اختر يوما لعرض الأوقات المتاحة
+                </p>
+              ) : selectedDaySlots.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {selectedDaySlots.map((slot, index) => {
+                    const available = isSlotAvailable(slot);
+                    const selected = selectedTime === slot.time && available;
+
+                    return (
+                      <button
+                        key={`${slot.time}-${index}`}
+                        type="button"
+                        disabled={!available}
+                        onClick={() => {
+                          if (available) onSelectTime(slot.time);
+                        }}
+                        className={`h-[38px] rounded-[6px] border text-[12px] font-bold transition ${
+                          selected
+                            ? "border-[#24bdd9] bg-[#eefcff] text-[#333]"
+                            : available
+                              ? "border-transparent bg-[#fbfbfb] text-[#9da6ab] hover:border-[#24bdd9] dark:bg-[#454545] dark:text-gray-200"
+                              : "cursor-not-allowed border-transparent bg-[#f3f3f3] text-[#c1c8cc] opacity-60 dark:bg-[#3f3f3f] dark:text-gray-500"
+                        }`}
+                      >
+                        {formatTime(slot.time)}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="py-8 text-center text-[12px] font-bold text-[#9ca8ad]">
+                  لا توجد أوقات متاحة لهذا اليوم
+                </p>
+              )}
             </div>
+          </FormCard>
+
+          <FormCard className="px-5 py-5" title="">
+            <TextAreaField
+              label="سبب الزيارة"
+              value={reason}
+              onChange={onReasonChange}
+              placeholder="reason is this"
+            />
           </FormCard>
         </div>
       </div>
@@ -823,13 +1210,14 @@ function BookingDetailsStep({
 function PaymentStep({
   paymentMethod,
   submitting,
+  error,
   canContinue,
   onPaymentMethodChange,
   onCancel,
   onNext,
 }) {
-  const isPaid = paymentMethod && paymentMethod !== "cash";
-  const isUnpaid = paymentMethod === "cash";
+  const isPaid = Boolean(paymentMethod);
+  const isUnpaid = false;
 
   return (
     <div className="mx-auto max-w-[900px]">
@@ -902,6 +1290,11 @@ function PaymentStep({
         onCancel={onCancel}
         onNext={onNext}
       />
+      {error && (
+        <p className="mt-3 text-center text-[12px] font-bold text-[#ff4d4d]">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -940,7 +1333,7 @@ function SuccessStep({ appointment, onDone }) {
           <span>التاريخ</span>
           <span>{formatDate(appointment?.date)}</span>
           <span>الوقت</span>
-          <span>{formatTime(appointment?.time)}</span>
+          <span>{formatTime(appointment?.slotTime || appointment?.time)}</span>
           <span>الطبيب</span>
           <span>{appointment?.doctorName}</span>
         </div>
@@ -974,6 +1367,7 @@ function InputField({
   onChange,
   placeholder = "",
   readOnly = false,
+  type = "text",
 }) {
   return (
     <label className="block text-right">
@@ -981,11 +1375,47 @@ function InputField({
         {label}
       </span>
       <input
+        type={type}
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
+        inputMode={type === "number" ? "numeric" : undefined}
         className="h-[46px] w-full rounded-[4px] border border-transparent bg-[#f0f0f0] px-4 text-right text-[13px] font-bold text-[#27343a] outline-none transition placeholder:text-[#a7b0b5] focus:border-[#23bfdd] dark:bg-[#4b4b4b] dark:text-white"
+      />
+    </label>
+  );
+}
+
+function SelectField({ label, value, onChange, children }) {
+  return (
+    <label className="block text-right">
+      <span className="mb-2 block text-[13px] font-bold text-[#555] dark:text-gray-200">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        className="h-[46px] w-full rounded-[4px] border border-transparent bg-[#f0f0f0] px-4 text-right text-[13px] font-bold text-[#27343a] outline-none transition focus:border-[#23bfdd] dark:bg-[#4b4b4b] dark:text-white"
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function TextAreaField({ label, value, onChange, placeholder = "" }) {
+  return (
+    <label className="block text-right">
+      <span className="mb-2 block text-[13px] font-bold text-[#555] dark:text-gray-200">
+        {label}
+      </span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        className="min-h-[92px] w-full resize-none rounded-[4px] border border-transparent bg-[#f0f0f0] px-4 py-3 text-right text-[13px] font-bold text-[#27343a] outline-none transition placeholder:text-[#a7b0b5] focus:border-[#23bfdd] dark:bg-[#4b4b4b] dark:text-white"
       />
     </label>
   );

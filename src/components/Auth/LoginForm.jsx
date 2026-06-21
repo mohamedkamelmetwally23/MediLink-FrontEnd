@@ -28,7 +28,6 @@ export default function LoginForm() {
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [forceDisabled, setForceDisabled] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -38,7 +37,6 @@ export default function LoginForm() {
       [name]: value,
     }));
     setErrors({});
-    setForceDisabled(false);
   };
 
   const handleSubmit = async (event) => {
@@ -61,7 +59,6 @@ export default function LoginForm() {
         ...newErrors,
         general: "رقم الهاتف أو كلمة المرور غير صحيحة",
       });
-      setForceDisabled(true);
       return;
     }
 
@@ -113,12 +110,17 @@ export default function LoginForm() {
               : "/",
       );
     } catch (error) {
+      console.error("Login failed:", error);
+      const errorMessage =
+        error.message || "رقم الهاتف أو كلمة المرور غير صحيحة";
       setErrors({
         phoneNumber: " ",
-        password: " ",
-        general: error.message || "رقم الهاتف أو كلمة المرور غير صحيحة",
+        password:
+          error.status === 408
+            ? "تعذر التحقق من كلمة المرور، حاول مرة أخرى"
+            : "كلمة المرور غير صحيحة",
+        general: errorMessage,
       });
-      setForceDisabled(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -192,7 +194,6 @@ export default function LoginForm() {
             onChange={handleChange}
             autoComplete="current-password"
             error={errors.password}
-            showErrorText={false}
           />
         </div>
 
@@ -222,7 +223,7 @@ export default function LoginForm() {
         )}
 
         <PrimaryButton
-          disabled={isSubmitting || forceDisabled || !isInputFilled}
+          disabled={isSubmitting || !isInputFilled}
         >
           {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل دخول"}
         </PrimaryButton>

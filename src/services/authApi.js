@@ -4,6 +4,12 @@ const API_BASE_URL = `${API_ROOT}/users`;
 export const inactiveAccountMessage =
   "هذا الحساب غير مفعل. برجاء التواصل مع الإدارة لتفعيل الحساب.";
 
+function createAuthError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
 
@@ -76,8 +82,21 @@ function toArabicErrorMessage(message, fallback) {
   return fallback;
 }
 
-async function request(path, body) {
+async function request(path, body, options = {}) {
+  const { timeoutMs } = options;
   let response;
+  let timedOut = false;
+  let timeoutId;
+  let signal;
+
+  if (timeoutMs) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+  }
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -86,9 +105,19 @@ async function request(path, body) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     });
   } catch {
-    throw new Error("تعذر الاتصال بالخادم، حاول مرة أخرى");
+    if (timedOut) {
+      throw createAuthError(
+        "الخادم استغرق وقتا أطول من المتوقع، حاول مرة أخرى",
+        408,
+      );
+    }
+
+    throw createAuthError("تعذر الاتصال بالخادم، حاول مرة أخرى");
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   const text = await response.text();
@@ -154,7 +183,7 @@ export function verifyOtp(payload) {
 }
 
 export function loginUser(payload) {
-  return request("/login", payload);
+  return request("/login", payload, { timeoutMs: 10000 });
 }
 
 function normalizeRoleValue(value) {

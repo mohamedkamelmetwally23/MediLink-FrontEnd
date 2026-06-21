@@ -58,6 +58,7 @@ export async function apiRequest(path, options = {}) {
     body,
     headers = {},
     signal,
+    timeoutMs,
   } = options;
   const token = getStoredToken();
   const requestHeaders = {
@@ -74,6 +75,24 @@ export async function apiRequest(path, options = {}) {
   }
 
   let response;
+  let timedOut = false;
+  let timeoutId;
+  let requestSignal = signal;
+
+  if (timeoutMs) {
+    const controller = new AbortController();
+    requestSignal = controller.signal;
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+
+    if (signal) {
+      signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
+    }
+  }
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -81,12 +100,21 @@ export async function apiRequest(path, options = {}) {
       headers: requestHeaders,
       body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
       cache: "no-store",
-      signal,
+      signal: requestSignal,
     });
   } catch {
+    if (timedOut) {
+      throw new ApiError(
+        "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u062E\u0627\u062F\u0645",
+        { status: 408 },
+      );
+    }
+
     throw new ApiError(
       "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u062E\u0627\u062F\u0645",
     );
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   const data = await parseResponse(response);

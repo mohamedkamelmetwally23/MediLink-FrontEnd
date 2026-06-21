@@ -19,45 +19,12 @@ import {
 import { includesSearchText } from "../../utils/searchText";
 
 const pageSize = 10;
+const patientsCacheKey = "medilink-users-cache-patients";
 
 const statusLabels = {
   active: "نشط",
   inactive: "غير نشط",
 };
-
-const demoPatients = [
-  ["محمد حسنين", "01234567890", 4, "active"],
-  ["خالد طارق", "01275552006", 3, "active"],
-  ["نورا أحمد", "01275552006", 5, "active"],
-  ["يوسف أمين", "01275552006", 2, "inactive"],
-  ["محمد الهادي", "01275552006", 8, "active"],
-  ["لينا محمد", "01275552006", 2, "active"],
-  ["أحمد المختار", "01275552006", 7, "inactive"],
-  ["هدى كامل", "01275552006", 1, "active"],
-  ["محمود صبحي", "01275552006", 0, "active"],
-  ["خالد لطفي", "01275552006", 11, "inactive"],
-  ["منى خليل", "01275552006", 6, "active"],
-].map(([name, phone, casesCount, status], index) => {
-  const [firstName, ...lastNameParts] = String(name).split(" ");
-
-  return {
-    id: `demo-patient-${index + 1}`,
-    firstName,
-    lastName: lastNameParts.join(" "),
-    name,
-    phone,
-    casesCount,
-    appointmentsCount: casesCount,
-    completedAppointmentsCount: Math.max(0, Number(casesCount) - 1),
-    cancelledAppointmentsCount: index % 4 === 0 ? 1 : 0,
-    gender: index % 3 === 0 ? "female" : "male",
-    birthDate: "2001-01-01",
-    registrationDate: "2026-06-19",
-    status,
-    active: status === "active",
-    raw: {},
-  };
-});
 
 function getPatientName(patient) {
   return (
@@ -78,25 +45,36 @@ function isDemoPatient(patientOrId) {
   return String(id || "").startsWith("demo-patient-");
 }
 
-function isPermissionError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
+function readCachedPatients() {
+  if (typeof localStorage === "undefined") return [];
 
-  return (
-    error?.status === 403 ||
-    message.includes("permission") ||
-    message.includes("not have") ||
-    message.includes("not authorized")
-  );
+  try {
+    const stored = JSON.parse(localStorage.getItem(patientsCacheKey) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedPatients(patients) {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(patientsCacheKey, JSON.stringify(patients));
+  } catch {
+    localStorage.removeItem(patientsCacheKey);
+  }
 }
 
 export default function ReceptionistPatientsPage() {
-  const [patients, setPatients] = useState([]);
+  const cachedPatients = useMemo(() => readCachedPatients(), []);
+  const [patients, setPatients] = useState(() => cachedPatients);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => cachedPatients.length === 0);
 
   useEffect(() => {
     let mounted = true;
@@ -104,11 +82,12 @@ export default function ReceptionistPatientsPage() {
     listPatients()
       .then((items) => {
         if (!mounted) return;
-        setPatients(items.length > 0 ? items : demoPatients);
+        saveCachedPatients(items);
+        setPatients(items);
       })
-      .catch((error) => {
+      .catch(() => {
         if (!mounted) return;
-        setPatients(isPermissionError(error) ? demoPatients : demoPatients);
+        if (cachedPatients.length === 0) setPatients([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -117,7 +96,7 @@ export default function ReceptionistPatientsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [cachedPatients]);
 
   const filteredPatients = useMemo(() => {
     const query = search.trim();

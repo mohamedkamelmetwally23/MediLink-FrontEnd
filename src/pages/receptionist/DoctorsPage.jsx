@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
-import doctorAvatar from "../../assets/landingPage/doctor1.png";
 import {
   deleteDoctor,
   listDoctors,
@@ -27,41 +26,6 @@ const statusLabels = {
   active: "مفعل",
   inactive: "غير مفعل",
 };
-
-const demoDoctors = [
-  ["محمد", "حسين", "أمراض القلب", 214, "active"],
-  ["أحمد", "شوقي", "جلدية وتناسلية", 63, "active"],
-  ["محمد", "أمين", "طب الأطفال", 43, "active"],
-  ["محمد", "فتح الله", "قلب", 81, "active"],
-  ["جمال", "عامر", "جلدية وتناسلية", 116, "active"],
-  ["محمد", "المنشاوي", "عيون", 213, "active"],
-  ["عبد الرحمن", "عبد الله", "قلب", 97, "active"],
-  ["خالد", "كامل", "مخ وأعصاب", 51, "inactive"],
-  ["محمد", "فهمي", "أنف وأذن", 91, "active"],
-  ["مروان", "خالد", "طب الأطفال", 107, "active"],
-  ["يوسف", "محمد", "أمراض القلب", 70, "active"],
-  ["سارة", "محمد", "جلدية وتناسلية", 44, "inactive"],
-].map(([firstName, lastName, specialty, appointmentsCount, status], index) => ({
-  id: `demo-doctor-${index + 1}`,
-  profileId: `demo-profile-${index + 1}`,
-  userId: `demo-user-${index + 1}`,
-  firstName,
-  lastName,
-  specialty,
-  specializationId: specialty,
-  appointmentsCount,
-  status,
-  phone: `010${String(555550000 + index).padStart(8, "0")}`,
-  gender: index % 3 === 0 ? "female" : "male",
-  birthDate: "1990-01-01",
-  experienceYears: 5 + index,
-  workDays: ["السبت", "الأحد", "الاثنين", "الثلاثاء"],
-  workStart: "08:00",
-  workEnd: "16:00",
-  consultationFee: 200 + index * 25,
-  image: index % 3 === 0 ? doctorAvatar : "",
-  raw: {},
-}));
 
 function getDoctorName(doctor) {
   return (
@@ -78,17 +42,6 @@ function getAppointmentsCount(doctor) {
 function isDemoDoctor(doctorOrId) {
   const id = typeof doctorOrId === "string" ? doctorOrId : doctorOrId?.id;
   return String(id || "").startsWith("demo-doctor-");
-}
-
-function isPermissionError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-
-  return (
-    error?.status === 403 ||
-    message.includes("permission") ||
-    message.includes("not have") ||
-    message.includes("not authorized")
-  );
 }
 
 export default function ReceptionistDoctorsPage() {
@@ -108,11 +61,11 @@ export default function ReceptionistDoctorsPage() {
     listDoctors()
       .then((items) => {
         if (!mounted) return;
-        setDoctors(items.length > 0 ? items : demoDoctors);
+        setDoctors(items);
       })
-      .catch((error) => {
+      .catch(() => {
         if (!mounted) return;
-        setDoctors(isPermissionError(error) ? demoDoctors : demoDoctors);
+        setDoctors([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);

@@ -62,182 +62,6 @@ const statCards = [
   },
 ];
 
-function createDemoReceptionistData(date) {
-  const doctors = [
-    {
-      id: "demo-doctor-1",
-      firstName: "سارة",
-      lastName: "محمد",
-      specialty: "الأمراض الجلدية والتناسلية",
-      image: doctorAvatar,
-    },
-    {
-      id: "demo-doctor-2",
-      firstName: "خالد",
-      lastName: "علي",
-      specialty: "طب الأطفال وحديثي الولادة",
-      image: doctorAvatar,
-    },
-    {
-      id: "demo-doctor-3",
-      firstName: "مدحت",
-      lastName: "كامل",
-      specialty: "أمراض القلب والأوعية الدموية",
-      image: doctorAvatar,
-    },
-    {
-      id: "demo-doctor-4",
-      firstName: "يوسف",
-      lastName: "احمد",
-      specialty: "طب الأطفال وحديثي الولادة",
-      image: doctorAvatar,
-    },
-  ];
-
-  const appointments = [
-    {
-      id: "demo-appointment-1",
-      patient: "يوسف احمد",
-      doctor: "د. خالد زهدي",
-      specialty: "جلدية",
-      phone: "01066666666",
-      date,
-      time: "16:00",
-      status: "pending",
-      payment: "waiting",
-      visitType: "كشف",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-2",
-      patient: "محمد حسني",
-      doctor: "د. احمد كامل",
-      specialty: "اطفال",
-      phone: "01077777777",
-      date,
-      time: "15:00",
-      status: "confirmed",
-      payment: "paid",
-      visitType: "متابعة",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-3",
-      patient: "علي احمد فتح الله",
-      doctor: "د. مروان يوسف",
-      specialty: "باطنة",
-      phone: "01088888888",
-      date,
-      time: "15:00",
-      status: "cancelled",
-      payment: "refunded",
-      visitType: "كشف جديد",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-4",
-      patient: "محمد حسنين",
-      doctor: "د. محمد خالد",
-      specialty: "عظام",
-      phone: "01099999999",
-      date,
-      time: "13:00",
-      status: "confirmed",
-      payment: "paid",
-      visitType: "كشف",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-5",
-      patient: "خالد شعبان",
-      doctor: "د. خالد رفعت",
-      specialty: "اسنان",
-      phone: "01111111111",
-      date,
-      time: "10:00",
-      status: "pending",
-      payment: "waiting",
-      visitType: "متابعة",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-6",
-      patient: "سارة عبد الله",
-      doctor: "د. منوة خالد",
-      specialty: "قلب",
-      phone: "01222222222",
-      date,
-      time: "10:00",
-      status: "completed",
-      payment: "paid",
-      visitType: "استشارة",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-7",
-      patient: "سما سامي",
-      doctor: "د. علاء زكي",
-      specialty: "جلدية",
-      phone: "01555555555",
-      date,
-      time: "12:30",
-      status: "confirmed",
-      payment: "paid",
-      visitType: "كشف جديد",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-8",
-      patient: "ياسمين احمد",
-      doctor: "د. خالد رفعت",
-      specialty: "قلب",
-      phone: "01033333333",
-      date,
-      time: "12:00",
-      status: "pending",
-      payment: "waiting",
-      visitType: "كشف",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-9",
-      patient: "نورا امين",
-      doctor: "د. محمود خالد",
-      specialty: "اطفال",
-      phone: "01044444444",
-      date,
-      time: "09:30",
-      status: "completed",
-      payment: "paid",
-      visitType: "استشارة",
-      raw: {},
-    },
-    {
-      id: "demo-appointment-10",
-      patient: "محمد توفيق",
-      doctor: "د. محمود خالد",
-      specialty: "عيون",
-      phone: "01055555555",
-      date,
-      time: "21:00",
-      status: "cancelled",
-      payment: "unpaid",
-      visitType: "كشف",
-      raw: {},
-    },
-  ];
-
-  return {
-    appointments,
-    doctors,
-    summary: {
-      bookings: 40,
-      cancelled: 3,
-      revenue: 125430,
-    },
-  };
-}
-
 function getIsoDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -360,17 +184,6 @@ function isQueuedAppointment(appointment) {
   return !["completed", "cancelled"].includes(appointment.status);
 }
 
-function isPermissionError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-
-  return (
-    error?.status === 403 ||
-    message.includes("permission") ||
-    message.includes("not have") ||
-    message.includes("not authorized")
-  );
-}
-
 export default function ReceptionistDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -380,12 +193,7 @@ export default function ReceptionistDashboard() {
   const [tableBookingFilter, setTableBookingFilter] = useState("");
   const [tablePaymentFilter, setTablePaymentFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [usingDemoData, setUsingDemoData] = useState(false);
   const todayIso = getIsoDate(new Date());
-  const demoData = useMemo(
-    () => createDemoReceptionistData(todayIso),
-    [todayIso],
-  );
 
   useEffect(() => {
     let mounted = true;
@@ -394,21 +202,14 @@ export default function ReceptionistDashboard() {
       .then(([appointmentsResult, doctorsResult]) => {
         if (!mounted) return;
 
-        const hasAppointments =
-          appointmentsResult.status === "fulfilled" &&
-          appointmentsResult.value.length > 0;
-        const hasDoctors =
-          doctorsResult.status === "fulfilled" && doctorsResult.value.length > 0;
-        const shouldUseDemo =
-          !hasAppointments ||
-          (appointmentsResult.status === "rejected" &&
-            isPermissionError(appointmentsResult.reason));
-
         setAppointments(
-          hasAppointments ? appointmentsResult.value : demoData.appointments,
+          appointmentsResult.status === "fulfilled"
+            ? appointmentsResult.value
+            : [],
         );
-        setDoctors(hasDoctors ? doctorsResult.value : demoData.doctors);
-        setUsingDemoData(shouldUseDemo);
+        setDoctors(
+          doctorsResult.status === "fulfilled" ? doctorsResult.value : [],
+        );
       })
       .finally(() => {
         if (mounted) {
@@ -419,7 +220,7 @@ export default function ReceptionistDashboard() {
     return () => {
       mounted = false;
     };
-  }, [demoData]);
+  }, []);
 
   const doctorOptions = useMemo(
     () => getDoctorOptions(doctors, appointments),
@@ -497,15 +298,13 @@ export default function ReceptionistDashboard() {
       todayAppointments,
     ],
   );
-  const stats = usingDemoData
-    ? demoData.summary
-    : {
-        bookings: todayAppointments.length,
-        cancelled: todayAppointments.filter(
-          (appointment) => appointment.status === "cancelled",
-        ).length,
-        revenue: todayAppointments.length * 250,
-      };
+  const stats = {
+    bookings: todayAppointments.length,
+    cancelled: todayAppointments.filter(
+      (appointment) => appointment.status === "cancelled",
+    ).length,
+    revenue: todayAppointments.length * 250,
+  };
 
   return (
     <section className="min-h-screen bg-[#f8fcfd] text-[#27343a] dark:bg-[#2e2e2e] dark:text-white">
