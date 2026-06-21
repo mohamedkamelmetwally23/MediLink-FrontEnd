@@ -15,10 +15,12 @@ import {
 import { FaFacebookF, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import ThemeLogo from "../../components/ThemeLogo";
-import avatar from "../../assets/landingPage/doctor1.png";
+import defaultPatientAvatar from "../../assets/patient departement/default-patient-avatar.svg";
 import patientVector from "../../assets/patient departement/Vector.png";
 import {
   completePatientProfile,
+  getCurrentAuthUser,
+  getCurrentUser,
   getMyPatientProfile,
 } from "../../services/medilinkApi";
 import { useSpecializations } from "../../hooks/useSpecializations";
@@ -101,7 +103,56 @@ const primaryButtonClass = `inline-flex min-h-[54px] items-center justify-center
 const secondaryButtonClass =
   "inline-flex min-h-[54px] items-center justify-center rounded-[9px] border border-[#05ADE8] bg-transparent px-6 text-[17px] font-semibold text-[#21B9D9] transition hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(32,184,213,0.14)]";
 
-function PatientHeader() {
+function PatientHeader({ navigationDisabled = false }) {
+  const authUser = getCurrentAuthUser();
+  const [profilePhoto, setProfilePhoto] = useState(
+    authUser?.photo ||
+      authUser?.profileImage ||
+      authUser?.image ||
+      authUser?.avatar ||
+      defaultPatientAvatar,
+  );
+  const disabledLinkClass =
+    "cursor-not-allowed opacity-45";
+  const activeLinkClass =
+    "transition hover:text-[#25B8D7]";
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentUser()
+      .then((user) => {
+        if (mounted) {
+          setProfilePhoto(
+            user?.photo ||
+              user?.profileImage ||
+              user?.image ||
+              user?.avatar ||
+              defaultPatientAvatar,
+          );
+        }
+      })
+      .catch(() => null);
+
+    const handleUserUpdated = (event) => {
+      const user = event.detail || getCurrentAuthUser() || {};
+      setProfilePhoto(
+        user.photo ||
+          user.profileImage ||
+          user.image ||
+          user.avatar ||
+          defaultPatientAvatar,
+      );
+    };
+
+    window.addEventListener("medilink-user-updated", handleUserUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("medilink-user-updated", handleUserUpdated);
+    };
+  }, []);
+
   return (
     <header
       className="sticky top-0 z-20 mx-auto grid min-h-[86px] w-[min(1320px,calc(100%_-_160px))] grid-cols-[220px_1fr_220px] items-center gap-6 rounded-b-[14px] bg-white/95 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:bg-[#383838]/95 max-lg:w-[min(980px,calc(100%_-_32px))] max-lg:grid-cols-[auto_1fr_auto] max-md:relative max-md:min-h-0 max-md:w-full max-md:grid-cols-[1fr_auto] max-md:p-[14px_18px]"
@@ -115,16 +166,37 @@ function PatientHeader() {
         className="flex justify-center gap-[clamp(24px,4vw,58px)] text-[21px] font-bold text-[#333333] dark:text-[#F0F0F0] max-lg:gap-6 max-lg:text-lg max-md:col-span-full max-md:row-start-2 max-md:justify-start max-md:gap-5 max-md:overflow-x-auto max-md:py-2 max-md:text-base max-md:[scrollbar-width:none]"
         aria-label="روابط MediLink"
       >
-        <Link className="transition hover:text-[#25B8D7]" to="/">
+        <Link
+          className={navigationDisabled ? disabledLinkClass : activeLinkClass}
+          to="/"
+          aria-disabled={navigationDisabled}
+          tabIndex={navigationDisabled ? -1 : undefined}
+          onClick={(event) => {
+            if (navigationDisabled) event.preventDefault();
+          }}
+        >
           الرئيسية
         </Link>
-        <a className="transition hover:text-[#25B8D7]" href="#appointments">
+        <a
+          className={navigationDisabled ? disabledLinkClass : activeLinkClass}
+          href="#appointments"
+          aria-disabled={navigationDisabled}
+          tabIndex={navigationDisabled ? -1 : undefined}
+          onClick={(event) => {
+            if (navigationDisabled) event.preventDefault();
+          }}
+        >
           المواعيد
         </a>
-        <a className="transition hover:text-[#25B8D7]" href="#ai">
-          مساعد AI
-        </a>
-        <a className="transition hover:text-[#25B8D7]" href="#contact">
+        <a
+          className={navigationDisabled ? disabledLinkClass : activeLinkClass}
+          href="#contact"
+          aria-disabled={navigationDisabled}
+          tabIndex={navigationDisabled ? -1 : undefined}
+          onClick={(event) => {
+            if (navigationDisabled) event.preventDefault();
+          }}
+        >
           تواصل معنا
         </a>
       </nav>
@@ -133,7 +205,11 @@ function PatientHeader() {
         <button type="button" className="grid size-12 place-items-center bg-transparent text-[#333333] dark:text-[#F0F0F0]" aria-label="بحث">
           <Search size={32} strokeWidth={1.8} />
         </button>
-        <img src={avatar} alt="" className="size-[46px] rounded-full object-cover" />
+        <img
+          src={profilePhoto}
+          alt="صورة المريض"
+          className="size-[46px] rounded-full object-cover"
+        />
       </div>
     </header>
   );
@@ -320,20 +396,20 @@ function InfoScreen({ data, setData, onNext }) {
       <RangeField
         id="height"
         label="ما هو طولك (سم)"
-        min={25}
+        min={60}
         max={220}
         value={data.height}
-        ticks={[25, 50, 75, 100, 125, 150, 175, 200, 220]}
+        ticks={[60, 80, 100, 120, 140, 160, 180, 200, 220]}
         onChange={(height) => setData((current) => ({ ...current, height }))}
       />
 
       <RangeField
         id="weight"
         label="ما هو وزنك (كجم)"
-        min={0}
+        min={40}
         max={200}
         value={data.weight}
-        ticks={[0, 40, 80, 120, 160, 200]}
+        ticks={[40, 60, 80, 100, 120, 160, 200]}
         onChange={(weight) => setData((current) => ({ ...current, weight }))}
       />
 
@@ -388,6 +464,9 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
   const noneSelected = selected.includes(config.none);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
+  const customValueLength = customValue.trim().length;
+  const customValueIsValid =
+    customValueLength >= 2 && customValueLength <= 50;
   const customItems = selected.filter(
     (item) => item !== config.none && !config.options.includes(item),
   );
@@ -409,7 +488,14 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
 
   const addCustomItem = () => {
     const item = customValue.trim();
-    if (!item) return;
+    if (item.length < 2) {
+      toast.warning("يجب ألا يقل النص عن حرفين");
+      return;
+    }
+    if (item.length > 50) {
+      toast.warning("يجب ألا يزيد النص عن 50 حرفًا");
+      return;
+    }
 
     setValues((current) => {
       const list = (current[screen] ?? []).filter(
@@ -496,6 +582,8 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
             <div className="flex gap-2">
               <input
                 value={customValue}
+                minLength={2}
+                maxLength={50}
                 onChange={(event) => setCustomValue(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -517,12 +605,25 @@ function ChecklistScreen({ screen, values, setValues, onNext, onPrevious }) {
                 type="button"
                 onClick={addCustomItem}
                 className="h-10 rounded-lg bg-[#35BBD3] px-4 text-sm font-semibold text-white disabled:opacity-50"
-                disabled={!customValue.trim()}
+                disabled={!customValueIsValid}
               >
                 إضافة
               </button>
             </div>
-
+            <div className="mt-1.5 flex items-center justify-between text-xs">
+              <span
+                className={
+                  customValueLength > 0 && customValueLength < 2
+                    ? "text-red-500"
+                    : "text-[#888888] dark:text-[#BBBBBB]"
+                }
+              >
+                من حرفين إلى 50 حرفًا
+              </span>
+              <span className="text-[#888888] dark:text-[#BBBBBB]">
+                {customValue.length}/50
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -736,7 +837,12 @@ export default function PatientOnboardingPage() {
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get("edit") === "true";
   const [screenIndex, setScreenIndex] = useState(isEditMode ? 1 : 0);
-  const [info, setInfo] = useState({ height: 75, weight: 165, smoker: "لا", bloodType: "A+" });
+  const [info, setInfo] = useState({
+    height: 170,
+    weight: 70,
+    smoker: "لا",
+    bloodType: "A+",
+  });
   const [checks, setChecks] = useState({
     chronic: checklistScreens.chronic.defaults,
     allergies: checklistScreens.allergies.defaults,
@@ -757,8 +863,12 @@ export default function PatientOnboardingPage() {
         if (!mounted) return;
 
         setInfo({
-          height: String(patient.height || 75),
-          weight: String(patient.weight || 0),
+          height: String(
+            Math.min(220, Math.max(60, Number(patient.height) || 170)),
+          ),
+          weight: String(
+            Math.min(200, Math.max(40, Number(patient.weight) || 70)),
+          ),
           smoker: patient.smoker === true ? "نعم" : "لا",
           bloodType: patient.bloodType || "A+",
         });
@@ -851,7 +961,7 @@ export default function PatientOnboardingPage() {
 
   return (
     <div id="top" className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
-      <PatientHeader />
+      <PatientHeader navigationDisabled={isEditMode} />
 
       <main className="flex min-h-[690px] flex-col items-center px-6 py-[86px] max-md:min-h-0 max-md:px-4 max-md:py-9">
         {profileLoading ? (
