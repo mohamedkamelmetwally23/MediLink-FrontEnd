@@ -12,6 +12,7 @@ import {
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
+import { validatePatientMedicalFiles } from "../../utils/patientFileValidation";
 import { getDoctorImage, getDoctorName, useDoctors } from "../../hooks/useDoctors";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
@@ -362,14 +363,25 @@ function UploadButton({ onUploaded }) {
   const [uploading, setUploading] = useState(false);
 
   const addFiles = async (selected) => {
-    const files = Array.from(selected);
-    if (!files.length) return;
+    const {
+      acceptedFiles,
+      oversizedFiles,
+      exceededCount,
+    } = validatePatientMedicalFiles(selected);
+
+    if (oversizedFiles.length > 0) {
+      toast.warning("حجم الملف الواحد يجب ألا يزيد عن 3 ميجابايت");
+    }
+    if (exceededCount) {
+      toast.warning("يمكن رفع 5 ملفات كحد أقصى في المرة الواحدة");
+    }
+    if (!acceptedFiles.length) return;
 
     setUploading(true);
     try {
-      await uploadPatientMedicalFiles(files);
-      await onUploaded?.(files);
-      toast.success("تمت إضافة الملف الطبي بنجاح");
+      await uploadPatientMedicalFiles(acceptedFiles);
+      await onUploaded?.(acceptedFiles);
+      toast.success("تمت إضافة الملفات الطبية بنجاح");
     } catch (error) {
       toast.error(error.message || "تعذر رفع الملف الطبي");
     } finally {
@@ -380,7 +392,7 @@ function UploadButton({ onUploaded }) {
   return (
     <>
       <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [])} />
-      <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white disabled:opacity-60"><Plus size={20} />{uploading ? "جاري الرفع..." : "أضف ملف جديد"}</button>
+      <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-b from-[#05ADE8] to-[#6CCCC8] px-5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"><Plus size={20} />{uploading ? "جاري الرفع..." : "أضف ملف جديد"}</button>
     </>
   );
 }

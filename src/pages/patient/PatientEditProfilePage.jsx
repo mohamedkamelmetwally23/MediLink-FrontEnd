@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import { validateStrongPassword } from "../../utils/passwordValidation";
+import { getPatientFileSizeError } from "../../utils/patientFileValidation";
 import { clearAuthSession } from "../../services/authApi";
 import {
   changePatientPassword,
@@ -106,6 +107,14 @@ export function PatientEditProfilePage() {
   const handleImage = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const sizeError = getPatientFileSizeError(file, "صورة البروفايل");
+
+    if (sizeError) {
+      toast.warning(sizeError);
+      event.target.value = "";
+      return;
+    }
+
     setPhotoFile(file);
     setImage(URL.createObjectURL(file));
   };

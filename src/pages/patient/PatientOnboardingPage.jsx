@@ -25,6 +25,9 @@ import {
 } from "../../services/medilinkApi";
 import { useSpecializations } from "../../hooks/useSpecializations";
 import { useClinicInfo } from "../../services/clinicInfoStore";
+import {
+  validatePatientMedicalFiles,
+} from "../../utils/patientFileValidation";
 
 const gradient = "bg-linear-to-b from-[#13B5DF] to-[#64CAC6]";
 
@@ -667,12 +670,26 @@ function FilesScreen({
     if (!nextFiles.length) return;
 
     setFiles((current) => {
-      const existingIds = new Set(current.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
+      const existingIds = new Set(
+        current.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
+      );
       const uniqueFiles = nextFiles.filter(
         (file) => !existingIds.has(`${file.name}-${file.size}-${file.lastModified}`),
       );
+      const {
+        acceptedFiles,
+        oversizedFiles,
+        exceededCount,
+      } = validatePatientMedicalFiles(uniqueFiles);
 
-      return [...current, ...uniqueFiles];
+      if (oversizedFiles.length > 0) {
+        toast.warning("حجم الملف الواحد يجب ألا يزيد عن 3 ميجابايت");
+      }
+      if (exceededCount) {
+        toast.warning("يمكن رفع 5 ملفات كحد أقصى في المرة الواحدة");
+      }
+
+      return [...current, ...acceptedFiles];
     });
 
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -681,12 +698,13 @@ function FilesScreen({
   const removeFile = (fileId) => {
     setFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== fileId));
   };
-
   return (
     <section className={`${cardClass} min-h-[440px] px-10 py-8 max-md:min-h-0 max-md:px-[18px] max-md:py-7`}>
       <div className="mb-8 text-right">
         <h1 className={headingClass}>هل ترغب في رفع ملفات طبية؟</h1>
-        <p className="m-0 mt-1 text-base font-semibold text-[#8A8A8A] dark:text-[#B8B8B8]">يمكنك رفع تحاليل، أشعة، تقارير طبية وصفات سابقة</p>
+        <p className="m-0 mt-1 text-base font-semibold text-[#8A8A8A] dark:text-[#B8B8B8]">
+          يمكنك رفع 5 ملفات في المرة الواحدة، بحد أقصى 3 ميجابايت لكل ملف
+        </p>
       </div>
 
       <div
@@ -761,7 +779,7 @@ function FilesScreen({
             <p className="m-0 text-base font-bold">
               <span className="text-[#23B8D8]">اضغط للاختيار</span> أو اسحب الملفات هنا
             </p>
-            <small className="mt-1 block text-[13px]">الحد الأقصى 10 ميجابايت لكل ملف PNG, JPG, PDF</small>
+            <small className="mt-1 block text-[13px]">5 ملفات لكل عملية رفع، و3 ميجابايت لكل ملف PNG, JPG, PDF</small>
           </button>
         )}
       </div>

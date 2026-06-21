@@ -1,4 +1,8 @@
 import { ApiError, apiRequest } from "./apiClient";
+import {
+  getPatientFileSizeError,
+  MAX_PATIENT_FILES_PER_UPLOAD,
+} from "../utils/patientFileValidation";
 
 const arabicWeekDays = {
   saturday: "\u0627\u0644\u0633\u0628\u062A",
@@ -1479,6 +1483,9 @@ export async function updateCurrentPatient(values) {
 }
 
 export async function updateCurrentUserPhoto(photo) {
+  const sizeError = getPatientFileSizeError(photo, "صورة البروفايل");
+  if (sizeError) throw new ApiError(sizeError);
+
   const formData = new FormData();
   formData.append("photo", photo);
 
@@ -2121,17 +2128,36 @@ export async function completePatientProfile(values) {
     body: payload,
   });
 
-  if (medicalFiles.length > 0) {
-    await uploadPatientMedicalFiles(medicalFiles);
+  for (
+    let index = 0;
+    index < medicalFiles.length;
+    index += MAX_PATIENT_FILES_PER_UPLOAD
+  ) {
+    await uploadPatientMedicalFiles(
+      medicalFiles.slice(index, index + MAX_PATIENT_FILES_PER_UPLOAD),
+    );
   }
 
   return profileResponse;
 }
 
 export async function uploadPatientMedicalFiles(files) {
+  const medicalFiles = Array.from(files || []);
+
+  if (medicalFiles.length > MAX_PATIENT_FILES_PER_UPLOAD) {
+    throw new ApiError("يمكن رفع 5 ملفات كحد أقصى في المرة الواحدة");
+  }
+
+  const oversizedFile = medicalFiles.find((file) =>
+    Boolean(getPatientFileSizeError(file)),
+  );
+  if (oversizedFile) {
+    throw new ApiError(getPatientFileSizeError(oversizedFile));
+  }
+
   const formData = new FormData();
 
-  Array.from(files || []).forEach((file) => {
+  medicalFiles.forEach((file) => {
     formData.append("medicalFiles", file);
   });
 
