@@ -16,6 +16,13 @@ const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const weekDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
+function dateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatTime(value) {
   const [hourText, minutes = "00"] = String(value || "09:00").split(":");
   const hour = Number(hourText);
@@ -56,7 +63,6 @@ export default function PatientBookingPage() {
       if (!mounted) return;
       setDoctor(doctorResult);
       setAvailableSlotDays(slotDays);
-      if (slotDays[0]?.date) setSelectedDate(slotDays[0].date);
     }).catch((error) => {
       if (mounted) toast.error(error.message || "تعذر تحميل بيانات الحجز");
     }).finally(() => {
@@ -178,15 +184,26 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
   const selectedDay = availableSlotDays.find(
     (slotDay) => slotDay.date === selectedDate,
   );
-  const dates = availableSlotDays
-    .map((slotDay) => ({
-      ...slotDay,
-      dateObject: new Date(`${slotDay.date}T12:00:00`),
-    }))
-    .filter((slotDay) => !Number.isNaN(slotDay.dateObject.getTime()));
+  const slotDaysByDate = new Map(
+    availableSlotDays.map((slotDay) => [slotDay.date, slotDay]),
+  );
+  const dates = Array.from({ length: 7 }, (_, offset) => {
+    const dateObject = new Date();
+    dateObject.setHours(12, 0, 0, 0);
+    dateObject.setDate(dateObject.getDate() + offset);
+    const date = dateKey(dateObject);
+    const slotDay = slotDaysByDate.get(date);
+
+    return {
+      date,
+      dateObject,
+      day: slotDay?.day || weekDays[dateObject.getDay()],
+      available: Boolean(slotDay),
+    };
+  });
   const headingDate =
     dates.find((slotDay) => slotDay.date === selectedDate)?.dateObject ||
-    dates[0]?.dateObject;
+    dates[0].dateObject;
 
   return (
     <div>
@@ -200,7 +217,7 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
             const value = slotDay.date;
             const date = slotDay.dateObject;
             const active = value === selectedDate;
-            return <button key={value} type="button" onClick={() => onDateChange(value)} className={`rounded-xl border-2 px-3 py-4 text-center transition ${active ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]" : "border-transparent bg-[#F8F8F8] hover:border-[#20B7D5]/50 dark:bg-[#444]"}`}><span className="block text-sm">{slotDay.day || weekDays[date.getDay()]}</span><strong className="mt-2 block text-3xl">{date.getDate()}</strong></button>;
+            return <button key={value} type="button" disabled={!slotDay.available} onClick={() => onDateChange(value)} className={`rounded-xl border-2 px-3 py-4 text-center transition ${active ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]" : "border-transparent bg-[#F8F8F8] hover:border-[#20B7D5]/50 dark:bg-[#444]"} disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[#F1F1F1] disabled:text-[#AAA] dark:disabled:bg-[#444]`}><span className="block text-sm">{slotDay.day}</span><strong className="mt-2 block text-3xl">{date.getDate()}</strong></button>;
           })}
           </div>
         ) : (
