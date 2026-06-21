@@ -8,7 +8,7 @@ import {
   createAppointment,
   createPaidDemoAppointment,
   getDoctor,
-  listDoctorAppointments,
+  listDoctorAvailableSlots,
 } from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
@@ -16,27 +16,18 @@ const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const weekDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
-function dateKey(date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function formatTime(value) {
   const [hourText, minutes = "00"] = String(value || "09:00").split(":");
   const hour = Number(hourText);
   return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? "م" : "ص"}`;
 }
 
-function generateSlots(start = "09:00", end = "15:00") {
-  const [startHour, startMinute] = start.split(":").map(Number);
-  const [endHour, endMinute] = end.split(":").map(Number);
-  let cursor = startHour * 60 + startMinute;
-  const limit = endHour * 60 + endMinute;
-  const result = [];
-  while (cursor < limit && result.length < 16) {
-    result.push(`${String(Math.floor(cursor / 60)).padStart(2, "0")}:${String(cursor % 60).padStart(2, "0")}`);
-    cursor += 30;
-  }
-  return result.length ? result : ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"];
+function isAvailableSlot(status) {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return ["متاح", "available", "open", "free"].includes(normalizedStatus);
 }
 
 export default function PatientBookingPage() {
@@ -45,7 +36,7 @@ export default function PatientBookingPage() {
   const navigate = useNavigate();
   const [doctor, setDoctor] = useState(location.state?.doctor || null);
   const [loading, setLoading] = useState(!location.state?.doctor);
-  const [appointments, setAppointments] = useState([]);
+  const [availableSlotDays, setAvailableSlotDays] = useState([]);
   const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
@@ -59,11 +50,12 @@ export default function PatientBookingPage() {
     let mounted = true;
     Promise.all([
       location.state?.doctor ? Promise.resolve(location.state.doctor) : getDoctor(doctorId),
-      listDoctorAppointments(doctorId).catch(() => []),
-    ]).then(([doctorResult, appointmentResult]) => {
+      listDoctorAvailableSlots(doctorId),
+    ]).then(([doctorResult, slotDays]) => {
       if (!mounted) return;
       setDoctor(doctorResult);
-      setAppointments(appointmentResult);
+      setAvailableSlotDays(slotDays);
+      if (slotDays[0]?.date) setSelectedDate(slotDays[0].date);
     }).catch((error) => {
       if (mounted) toast.error(error.message || "تعذر تحميل بيانات الحجز");
     }).finally(() => {
@@ -131,7 +123,7 @@ export default function PatientBookingPage() {
       <PatientHomeHeader />
       <main className="mx-auto w-full max-w-[1280px] px-4 py-10 sm:px-6 lg:px-10">
         <BookingStepper step={step} />
-        {step === 1 && <DateTimeStep doctor={doctor} appointments={appointments} selectedDate={selectedDate} selectedTime={selectedTime} onDateChange={(value) => { setSelectedDate(value); setSelectedTime(""); }} onTimeChange={setSelectedTime} onNext={() => selectedDate && selectedTime ? setStep(2) : toast.info("اختر التاريخ والوقت أولًا")} />}
+        {step === 1 && <DateTimeStep doctor={doctor} availableSlotDays={availableSlotDays} selectedDate={selectedDate} selectedTime={selectedTime} onDateChange={(value) => { setSelectedDate(value); setSelectedTime(""); }} onTimeChange={setSelectedTime} onNext={() => selectedDate && selectedTime ? setStep(2) : toast.info("اختر التاريخ والوقت أولًا")} />}
         {step === 2 && <ReasonStep reason={reason} setReason={setReason} files={files} setFiles={setFiles} onPrevious={() => setStep(1)} onNext={() => reason.trim() ? setStep(3) : toast.info("اكتب سبب الزيارة أولًا")} />}
         {step === 3 && <PaymentStep doctor={doctor} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} submitting={submitting} onPrevious={() => setStep(2)} onConfirm={submitAppointment} />}
         {step === 4 && <ConfirmationStep doctor={doctor} appointment={createdAppointment} date={selectedDate} time={selectedTime} paymentMethod={paymentMethod} onDone={() => navigate("/patient/doctors")} />}
@@ -180,41 +172,68 @@ function DoctorStrip({ doctor }) {
   );
 }
 
-function DateTimeStep({ doctor, appointments, selectedDate, selectedTime, onDateChange, onTimeChange, onNext }) {
-  const dates = useMemo(() => {
-    const allowed = new Set(doctor.workDays || []);
-    return Array.from({ length: 21 }, (_, offset) => {
-      const date = new Date();
-      date.setHours(12, 0, 0, 0);
-      date.setDate(date.getDate() + offset);
-      return date;
-    }).filter((date) => !allowed.size || allowed.has(weekDays[date.getDay()])).slice(0, 7);
-  }, [doctor.workDays]);
-  const slots = generateSlots(doctor.workStart, doctor.workEnd);
-  const booked = new Set(appointments.filter((item) => item.date === selectedDate && item.status !== "cancelled").map((item) => item.time));
+function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, onDateChange, onTimeChange, onNext }) {
+  const selectedDay = availableSlotDays.find(
+    (slotDay) => slotDay.date === selectedDate,
+  );
+  const dates = availableSlotDays
+    .map((slotDay) => ({
+      ...slotDay,
+      dateObject: new Date(`${slotDay.date}T12:00:00`),
+    }))
+    .filter((slotDay) => !Number.isNaN(slotDay.dateObject.getTime()));
+  const headingDate =
+    dates.find((slotDay) => slotDay.date === selectedDate)?.dateObject ||
+    dates[0]?.dateObject;
 
   return (
     <div>
       <header className="mb-8 text-right"><h1 className="text-3xl font-extrabold">اختر التاريخ والوقت</h1><p className="mt-2 text-[#777] dark:text-[#C8C8C8]">اختر التاريخ والوقت المناسب واحجز موعدك بسهولة</p></header>
       <DoctorStrip doctor={doctor} />
       <section className="mt-8 rounded-2xl bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:p-8">
-        <h3 className="mb-6 text-xl font-bold">{dates[0] ? `${monthNames[dates[0].getMonth()]} ${dates[0].getFullYear()}` : "المواعيد المتاحة"}</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-          {dates.map((date) => {
-            const value = dateKey(date);
+        <h3 className="mb-6 text-xl font-bold">{headingDate ? `${monthNames[headingDate.getMonth()]} ${headingDate.getFullYear()}` : "المواعيد المتاحة"}</h3>
+        {dates.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          {dates.map((slotDay) => {
+            const value = slotDay.date;
+            const date = slotDay.dateObject;
             const active = value === selectedDate;
-            return <button key={value} type="button" onClick={() => onDateChange(value)} className={`rounded-xl border-2 px-3 py-4 text-center transition ${active ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]" : "border-transparent bg-[#F8F8F8] hover:border-[#20B7D5]/50 dark:bg-[#444]"}`}><span className="block text-sm">{weekDays[date.getDay()]}</span><strong className="mt-2 block text-3xl">{date.getDate()}</strong></button>;
+            return <button key={value} type="button" onClick={() => onDateChange(value)} className={`rounded-xl border-2 px-3 py-4 text-center transition ${active ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]" : "border-transparent bg-[#F8F8F8] hover:border-[#20B7D5]/50 dark:bg-[#444]"}`}><span className="block text-sm">{slotDay.day || weekDays[date.getDay()]}</span><strong className="mt-2 block text-3xl">{date.getDate()}</strong></button>;
           })}
-        </div>
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[#888] dark:text-[#BBB]">لا توجد أيام متاحة للحجز حاليًا.</p>
+        )}
       </section>
       <section className="mt-8 rounded-2xl bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:p-8">
         <h3 className="mb-6 text-xl font-bold">الأوقات المتاحة</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {slots.map((slot) => {
-            const disabled = !selectedDate || booked.has(slot);
-            return <button key={slot} type="button" disabled={disabled} onClick={() => onTimeChange(slot)} className={`rounded-xl border-2 py-3 font-semibold ${selectedTime === slot ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]" : "border-transparent bg-[#EFFBFA] dark:bg-[#354746]"} disabled:bg-[#F4F4F4] disabled:text-[#AAA] dark:disabled:bg-[#444]`}>{formatTime(slot)}</button>;
-          })}
-        </div>
+        {!selectedDate ? (
+          <p className="py-8 text-center text-[#888] dark:text-[#BBB]">اختر يومًا لعرض مواعيده.</p>
+        ) : selectedDay?.slots?.length ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {selectedDay.slots.map((slot, index) => {
+              const available = isAvailableSlot(slot.status);
+              return (
+                <button
+                  key={`${slot.time}-${index}`}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => onTimeChange(slot.time)}
+                  className={`rounded-xl border-2 py-3 font-semibold ${
+                    selectedTime === slot.time
+                      ? "border-[#20B7D5] bg-[#EFFBFA] dark:bg-[#2D5552]"
+                      : "border-transparent bg-[#EFFBFA] dark:bg-[#354746]"
+                  } disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[#F1F1F1] disabled:text-[#AAA] dark:disabled:bg-[#444]`}
+                >
+                  {formatTime(slot.time)}
+                  {!available && <span className="mr-2 text-xs no-underline">(محجوز)</span>}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[#888] dark:text-[#BBB]">لا توجد أوقات لهذا اليوم.</p>
+        )}
       </section>
       <button type="button" onClick={onNext} className={`mt-10 w-full rounded-xl py-3.5 text-lg font-bold text-white ${gradient}`}>التالي</button>
     </div>
