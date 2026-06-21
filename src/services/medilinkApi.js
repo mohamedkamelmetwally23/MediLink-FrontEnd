@@ -2432,37 +2432,39 @@ export async function createAppointment(values) {
 }
 
 export async function bookAppointmentByReceptionist(values) {
-  const toOptionalNumber = (value) => {
-    if (value === undefined || value === null || value === "") return undefined;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : undefined;
+  const payload = {
+    doctorId: String(values.doctorId || ""),
+    date: String(values.date || ""),
+    slotTime: normalizeTime(values.slotTime),
+    reason: String(values.reason || "").trim(),
+    firstName: String(values.firstName || "").trim(),
+    lastName: String(values.lastName || "").trim(),
+    phone: String(values.phone || "").trim(),
+    gender: String(values.gender || ""),
+    day: Number(values.day),
+    month: Number(values.month),
+    year: Number(values.year),
   };
-  const payload = compactObject({
-    doctorId: values.doctorId || values.doctor,
-    date: values.date || values.appointmentDate,
-    slotTime: normalizeTime(
-      values.slotTime || values.time || values.appointmentTime || values.startTime,
-    ),
-    reason: values.reason || values.visitReason || values.notes,
-    firstName: values.firstName,
-    lastName: values.lastName,
-    phone: values.phone || values.patientPhone,
-    gender: values.gender,
-    day: toOptionalNumber(values.birthDay || values.dayOfBirth || values.day),
-    month: toOptionalNumber(
-      values.birthMonth || values.monthOfBirth || values.month,
-    ),
-    year: toOptionalNumber(values.birthYear || values.yearOfBirth || values.year),
-  });
 
-  if (!payload.phone) {
-    throw new ApiError("رقم الهاتف مطلوب");
+  if (
+    !payload.doctorId ||
+    !payload.date ||
+    !payload.slotTime ||
+    !payload.reason ||
+    !payload.firstName ||
+    !payload.lastName ||
+    !payload.phone ||
+    !payload.gender ||
+    !Number.isInteger(payload.day) ||
+    !Number.isInteger(payload.month) ||
+    !Number.isInteger(payload.year)
+  ) {
+    throw new ApiError("بيانات الحجز غير مكتملة");
   }
 
   const response = await apiRequest("/appointments/bookByReceptionist", {
     method: "POST",
     body: payload,
-    timeoutMs: 15000,
   });
 
   return normalizeAppointment(
