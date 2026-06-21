@@ -564,15 +564,29 @@ export function normalizeDoctor(item = {}) {
       user.photo ||
       user.avatar ||
       "",
-    rating: normalizeNumber(
-      profile.rating ??
+    ratingsAverage: normalizeNumber(
+      profile.ratingsAverage ??
+        item.ratingsAverage ??
+        profile.rating ??
         item.rating ??
         profile.averageRating ??
         item.averageRating ??
         profile.avgRating ??
         item.avgRating ??
-        profile.ratingsAverage ??
+        profile.reviewAverage ??
+        item.reviewAverage ??
+        0,
+      0,
+    ),
+    rating: normalizeNumber(
+      profile.ratingsAverage ??
         item.ratingsAverage ??
+        profile.rating ??
+        item.rating ??
+        profile.averageRating ??
+        item.averageRating ??
+        profile.avgRating ??
+        item.avgRating ??
         profile.reviewAverage ??
         item.reviewAverage ??
         0,
@@ -2163,7 +2177,7 @@ export async function getMyPrescriptions() {
   const response = await requestFirst([
     "/prescriptions/my-prescriptions",
     "/prescriptions",
-  ]).catch((err) => {
+  ]).catch(() => {
     // fallback to a direct request if requestFirst failed
     return apiRequest("/prescriptions/my-prescriptions").catch(() => null);
   });

@@ -40,6 +40,20 @@ function isAvailableSlot(status) {
   return ["متاح", "available", "open", "free"].includes(normalizedStatus);
 }
 
+function isPastSlot(date, time) {
+  const [year, month, day] = String(date || "").split("-").map(Number);
+  const [hours, minutes = 0] = String(time || "").split(":").map(Number);
+
+  if (![year, month, day, hours, minutes].every(Number.isFinite)) return false;
+
+  return new Date(year, month - 1, day, hours, minutes) <= new Date();
+}
+
+function isSelectableSlot(slot, fallbackDate = "") {
+  const slotDate = slot.date || fallbackDate;
+  return isAvailableSlot(slot.status) && !isPastSlot(slotDate, slot.time);
+}
+
 export default function PatientBookingPage() {
   const { doctorId } = useParams();
   const location = useLocation();
@@ -172,7 +186,9 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
       date,
       dateObject,
       day: slotDay?.day || weekDays[dateObject.getDay()],
-      available: Boolean(slotDay),
+      available: Boolean(
+        slotDay?.slots?.some((slot) => isSelectableSlot(slot, date)),
+      ),
     };
   });
   const headingDate =
@@ -205,7 +221,12 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
         ) : selectedDay?.slots?.length ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {selectedDay.slots.map((slot, index) => {
-              const available = isAvailableSlot(slot.status);
+              const statusAvailable = isAvailableSlot(slot.status);
+              const elapsed = statusAvailable && isPastSlot(
+                slot.date || selectedDay.date,
+                slot.time,
+              );
+              const available = statusAvailable && !elapsed;
               return (
                 <button
                   key={`${slot.time}-${index}`}
@@ -219,7 +240,11 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
                   } disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[#F1F1F1] disabled:text-[#AAA] dark:disabled:bg-[#444]`}
                 >
                   {formatTime(slot.time)}
-                  {!available && <span className="mr-2 text-xs no-underline">(محجوز)</span>}
+                  {!available && (
+                    <span className="mr-2 text-xs no-underline">
+                      ({elapsed ? "انتهى" : "محجوز"})
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -568,6 +568,38 @@ function SpecialtiesSection() {
   );
 }
 
+function RatingStars({ rating }) {
+  return (
+    <span
+      className="flex gap-1"
+      aria-label={`التقييم ${rating.toFixed(1)} من 5`}
+    >
+      {Array.from({ length: 5 }).map((_, starIndex) => {
+        const fillPercentage = Math.max(
+          0,
+          Math.min(1, rating - starIndex),
+        ) * 100;
+
+        return (
+          <span
+            key={starIndex}
+            className="relative block size-3 text-[#D7D7D7] dark:text-[#666666]"
+            aria-hidden="true"
+          >
+            <FaStar className="absolute inset-0 size-3" />
+            <span
+              className="absolute inset-y-0 right-0 overflow-hidden text-[#F8B400]"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <FaStar className="absolute right-0 top-0 size-3 max-w-none" />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function DoctorsSection({ search = "" }) {
   const { doctors, loading, error } = useDoctors();
   const filteredDoctors = useMemo(() => {
@@ -623,11 +655,7 @@ function DoctorsSection({ search = "" }) {
                 <p className="mt-1 text-xs text-[#777777] dark:text-[#C7C7C7]">{doctor.specialty || "طب عام"}</p>
                 <div className="mt-auto flex items-center gap-2 pt-3 text-xs text-[#555555] dark:text-[#E0E0E0]">
                   <span>{rating.toFixed(1)}</span>
-                  <span className="flex gap-1 text-[#F8B400]">
-                    {Array.from({ length: 5 }).map((_, starIndex) => (
-                      <FaStar key={starIndex} className={starIndex < Math.round(rating) ? "" : "opacity-25"} />
-                    ))}
-                  </span>
+                  <RatingStars rating={rating} />
                 </div>
               </Link>
             );

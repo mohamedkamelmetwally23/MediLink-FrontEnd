@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,7 +11,10 @@ import {
 import { FaStar } from "react-icons/fa";
 import CustomSelect from "../../components/admin/CustomSelect";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
-import { listSpecializations } from "../../services/medilinkApi";
+import {
+  listDoctorAvailableSlots,
+  listSpecializations,
+} from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const pageSize = 12;
@@ -19,7 +22,7 @@ const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const days = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
 
 function formatTime(value) {
-  if (!value) return "4:00 مساءً";
+  if (!value) return "";
 
   const [hoursText, minutes = "00"] = String(value).split(":");
   const hours = Number(hoursText);
@@ -28,6 +31,51 @@ function formatTime(value) {
   const period = hours >= 12 ? "مساءً" : "صباحاً";
   const displayHour = hours % 12 || 12;
   return `${displayHour}:${minutes} ${period}`;
+}
+
+function isAvailableSlot(status) {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return ["متاح", "available", "open", "free"].includes(normalizedStatus);
+}
+
+function getFirstAvailableSlot(slotDays) {
+  const now = new Date();
+
+  return slotDays
+    .flatMap((slotDay) =>
+      (slotDay.slots || [])
+        .filter((slot) => isAvailableSlot(slot.status))
+        .map((slot) => {
+          const date = slot.date || slotDay.date;
+          const dateTime = new Date(`${date}T${slot.time}:00`);
+
+          return {
+            date,
+            day: slotDay.day,
+            time: slot.time,
+            dateTime,
+          };
+        }),
+    )
+    .filter(
+      (slot) =>
+        slot.date &&
+        slot.time &&
+        !Number.isNaN(slot.dateTime.getTime()) &&
+        slot.dateTime >= now,
+    )
+    .sort((first, second) => first.dateTime - second.dateTime)[0] || null;
+}
+
+function formatSlotDay(slot) {
+  if (slot.day) return slot.day;
+
+  return new Intl.DateTimeFormat("ar-EG", { weekday: "long" }).format(
+    slot.dateTime,
+  );
 }
 
 function DoctorSelect({ label, value, options, onChange, disabled = false }) {
@@ -46,40 +94,101 @@ function DoctorSelect({ label, value, options, onChange, disabled = false }) {
   );
 }
 
+function RatingStars({ rating }) {
+  return (
+    <span
+      className="flex gap-1"
+      aria-label={`التقييم ${rating.toFixed(1)} من 5`}
+    >
+      {Array.from({ length: 5 }).map((_, starIndex) => {
+        const fillPercentage = Math.max(
+          0,
+          Math.min(1, rating - starIndex),
+        ) * 100;
+
+        return (
+          <span
+            key={starIndex}
+            className="relative block size-4 text-[#D7D7D7] dark:text-[#666666]"
+            aria-hidden="true"
+          >
+            <FaStar className="absolute inset-0 size-4" />
+            <span
+              className="absolute inset-y-0 right-0 overflow-hidden text-[#F8B400]"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <FaStar className="absolute right-0 top-0 size-4 max-w-none" />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function DoctorCard({ doctor, index }) {
   const navigate = useNavigate();
+  const doctorProfilePath = `/patient/doctors/${doctor.id}`;
   const available = doctor.available !== false && doctor.status !== "inactive";
+  const [firstAvailableSlot, setFirstAvailableSlot] = useState(null);
+  const [slotStatus, setSlotStatus] = useState("loading");
   const rating = getDoctorRating(doctor);
   const price = doctor.consultationFee || doctor.raw?.consultationFee || doctor.raw?.price || 100;
-  const firstDay = doctor.workDays?.[0] || days[new Date().getDay()] || "السبت";
-  const firstTime = formatTime(doctor.workStart);
+
+  useEffect(() => {
+    let mounted = true;
+
+    listDoctorAvailableSlots(doctor.id)
+      .then((slotDays) => {
+        if (!mounted) return;
+
+        setFirstAvailableSlot(getFirstAvailableSlot(slotDays));
+        setSlotStatus("loaded");
+      })
+      .catch(() => {
+        if (mounted) setSlotStatus("error");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [doctor.id]);
 
   return (
     <article className="relative flex min-h-[430px] flex-col overflow-hidden rounded-xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,0.12)] dark:bg-[#383838] dark:shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
-      <div className="relative flex h-[210px] items-end justify-center overflow-hidden rounded-lg bg-linear-to-b from-[#FAFAFA] to-white dark:from-[#444444] dark:to-[#383838]">
+      <Link
+        to={doctorProfilePath}
+        state={{ doctor }}
+        aria-label={`عرض صفحة ${getDoctorName(doctor)}`}
+        className="relative flex h-[210px] items-end justify-center overflow-hidden rounded-lg bg-linear-to-b from-[#FAFAFA] to-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#05ADE8] dark:from-[#444444] dark:to-[#383838]"
+      >
         <img
           src={getDoctorImage(doctor, index)}
           alt={getDoctorName(doctor)}
-          className={`h-full w-full object-contain object-bottom ${available ? "" : "grayscale"}`}
+          className={`h-full w-full object-contain object-bottom transition-transform duration-200 hover:scale-[1.03] ${available ? "" : "grayscale"}`}
         />
         {!available && (
           <div className="absolute inset-0 grid place-items-center bg-black/35 text-xl font-semibold text-white">
             غير متاح حالياً
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col text-center">
-        <h2 className="mt-3 text-xl font-bold text-[#333333] dark:text-[#F0F0F0]">{getDoctorName(doctor)}</h2>
+        <h2 className="mt-3 text-xl font-bold">
+          <Link
+            to={doctorProfilePath}
+            state={{ doctor }}
+            className="text-[#333333] transition-colors hover:text-[#05ADE8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#05ADE8] dark:text-[#F0F0F0] dark:hover:text-[#35BCD5]"
+          >
+            {getDoctorName(doctor)}
+          </Link>
+        </h2>
         <p className="mt-1 min-h-6 text-sm text-[#8A8A8A] dark:text-[#C7C7C7]">{doctor.specialty || "طب عام"}</p>
 
         <div className="mt-2 flex items-center justify-center gap-2">
           <span className="text-sm font-semibold text-[#444444] dark:text-[#E5E5E5]">{rating.toFixed(1)}</span>
-          <span className="flex gap-1 text-[#F8B400]">
-            {Array.from({ length: 5 }).map((_, starIndex) => (
-              <FaStar key={starIndex} className={starIndex < Math.round(rating) ? "" : "opacity-25"} />
-            ))}
-          </span>
+          <RatingStars rating={rating} />
         </div>
 
         <p className="mt-3 font-bold text-[#333333] dark:text-[#F0F0F0]">{price} جنيه</p>
@@ -88,7 +197,13 @@ function DoctorCard({ doctor, index }) {
           <p className="font-semibold">أول موعد متاح</p>
           <p className="mt-0.5 flex items-center justify-center gap-1 text-xs">
             <Clock3 size={14} />
-            {firstDay} - {firstTime}
+            {slotStatus === "loading"
+              ? "جاري تحميل المواعيد..."
+              : slotStatus === "error"
+                ? "تعذر تحميل المواعيد"
+                : firstAvailableSlot
+                  ? `${formatSlotDay(firstAvailableSlot)} - ${formatTime(firstAvailableSlot.time)}`
+                  : "لا توجد مواعيد متاحة"}
           </p>
         </div>
 

@@ -16,7 +16,6 @@ import {
   getCurrentAuthUser,
   getCurrentUser,
   getMyPatientProfile,
-  listAppointments,
   uploadPatientMedicalFiles,
   updateAppointmentStatus,
   getMyPrescriptions,
@@ -60,30 +59,6 @@ const records = [
     title: "حساسية شديدة",
     notes: "سعال شديد واحتقان في الأنف والحنجرة",
     date: "30 يناير 2026",
-  },
-];
-
-const prescriptions = [
-  {
-    date: "30 يناير 2026",
-    rows: [
-      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
-      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
-    ],
-  },
-  {
-    date: "3 يناير 2026",
-    rows: [
-      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
-      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
-    ],
-  },
-  {
-    date: "24 ديسمبر 2025",
-    rows: [
-      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
-      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
-    ],
   },
 ];
 
@@ -720,14 +695,37 @@ function Prescriptions({ search, prescriptions = [] }) {
   );
 }
 
+function getAppointmentTimestamp(appointment) {
+  const date = String(appointment.date || "").slice(0, 10);
+  const time = String(appointment.time || "00:00").slice(0, 5);
+  const timestamp = new Date(`${date}T${time}:00`).getTime();
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
 function Appointments({ appointments, doctorById, search, onCancel }) {
-  const filtered = appointments.filter((appointment) => {
-    const doctor = doctorById.get(String(appointment.doctorId));
-    return includesSearchText(
-      `${appointment.doctor} ${doctor?.specialty || appointment.specialty}`,
-      search,
-    );
-  });
+  const [now] = useState(() => Date.now());
+  const filtered = appointments
+    .filter((appointment) => {
+      const doctor = doctorById.get(String(appointment.doctorId));
+      return includesSearchText(
+        `${appointment.doctor} ${doctor?.specialty || appointment.specialty}`,
+        search,
+      );
+    })
+    .sort((first, second) => {
+      const firstTime = getAppointmentTimestamp(first);
+      const secondTime = getAppointmentTimestamp(second);
+      const firstIsUpcoming = firstTime >= now;
+      const secondIsUpcoming = secondTime >= now;
+
+      if (firstIsUpcoming !== secondIsUpcoming) {
+        return firstIsUpcoming ? -1 : 1;
+      }
+
+      return firstIsUpcoming
+        ? firstTime - secondTime
+        : secondTime - firstTime;
+    });
   return filtered.length ? (
     <div className="space-y-5">
       {filtered.map((appointment) => {
@@ -759,7 +757,7 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
             if (displayHour === 0) displayHour = 12;
 
             return `${day}/${month}/${year} - ${displayHour}:${minute} ${period}`;
-          } catch (e) {
+          } catch {
             return `${dateIso} - ${timeStr}`;
           }
         };
