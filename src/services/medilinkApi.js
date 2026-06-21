@@ -102,7 +102,9 @@ async function requestFastest(paths, options = {}) {
 
   const rejected = results.find((result) => {
     const error = result.reason;
-    return !(error instanceof ApiError) || !retryStatuses.includes(error.status);
+    return (
+      !(error instanceof ApiError) || !retryStatuses.includes(error.status)
+    );
   });
 
   throw rejected?.reason || results[0]?.reason;
@@ -744,11 +746,25 @@ export function normalizeAppointment(item = {}) {
     item.appointmentDate ||
     item.day ||
     item.startDate ||
+    // slot may contain its own date
+    item.slot?.date ||
     item.createdAt ||
     "";
-  const time = normalizeTime(
-    item.time || item.appointmentTime || item.startTime || "",
-  );
+
+  // Prefer slot/slotTime variants when available (slot object, slotTime, from, startTime)
+  const rawTimeCandidate =
+    item.slot?.time ||
+    item.slot?.slotTime ||
+    item.slot?.startTime ||
+    item.slot?.appointmentTime ||
+    item.slot?.from ||
+    item.time ||
+    item.appointmentTime ||
+    item.startTime ||
+    item.slotTime ||
+    "";
+
+  const time = normalizeTime(rawTimeCandidate);
 
   return {
     id: getId(item),
@@ -775,11 +791,24 @@ export function normalizeAppointment(item = {}) {
 }
 
 function normalizeAppointmentStatus(status = "") {
-  const value = String(status).toLowerCase();
+  const raw = String(status || "").trim();
+  const value = raw.toLowerCase();
 
+  // English variants
   if (["completed", "done", "finished"].includes(value)) return "completed";
   if (["cancelled", "canceled", "rejected"].includes(value)) return "cancelled";
   if (["pending", "waiting", "reserved"].includes(value)) return "pending";
+
+  // Arabic variants (DB may return Arabic statuses)
+  if (["مكتمل", "تم الانتهاء", "مكتملة"].includes(raw)) return "completed";
+  if (["ملغى", "ملغي", "ملغيًا"].some((v) => raw === v)) return "cancelled";
+  if (
+    ["قيد الانتظار", "قيد_الانتظار", "قيد الانتظار ", "قيدالانتظار"].some(
+      (v) => raw === v,
+    )
+  )
+    return "pending";
+
   return "confirmed";
 }
 
@@ -1012,10 +1041,17 @@ function normalizeAvailableSlotDay(item = {}) {
 
   return {
     date,
-    day: value.dayName || value.weekDay || value.weekday || value.day || value.name || "",
+    day:
+      value.dayName ||
+      value.weekDay ||
+      value.weekday ||
+      value.day ||
+      value.name ||
+      "",
     slots: slots
       .map((slot) => {
-        const slotValue = typeof slot === "string" ? { time: slot } : slot || {};
+        const slotValue =
+          typeof slot === "string" ? { time: slot } : slot || {};
 
         return {
           date: getAvailableSlotDate(slotValue, date),
@@ -1055,11 +1091,11 @@ function getAvailableSlotList(item = {}) {
 function hasAvailableSlotDate(item = {}) {
   return Boolean(
     item?.date ||
-      item?.dayDate ||
-      item?.appointmentDate ||
-      item?.slotDate ||
-      item?.availableDate ||
-      item?.dateIso,
+    item?.dayDate ||
+    item?.appointmentDate ||
+    item?.slotDate ||
+    item?.availableDate ||
+    item?.dateIso,
   );
 }
 
@@ -1136,14 +1172,12 @@ function findAvailableSlotItems(response) {
 export async function listDoctorAvailableSlots(doctorId) {
   if (!doctorId) return [];
 
-  const response = await requestFirst(
-    [
-      `/doctors/${doctorId}/available-slots`,
-      `/doctorprofiles/${doctorId}/available-slots`,
-      `/doctorProfiles/${doctorId}/available-slots`,
-      `/doctor-profiles/${doctorId}/available-slots`,
-    ],
-  );
+  const response = await requestFirst([
+    `/doctors/${doctorId}/available-slots`,
+    `/doctorprofiles/${doctorId}/available-slots`,
+    `/doctorProfiles/${doctorId}/available-slots`,
+    `/doctor-profiles/${doctorId}/available-slots`,
+  ]);
   const slots = findAvailableSlotItems(response);
 
   return slots.map(normalizeAvailableSlotDay);
@@ -1298,7 +1332,9 @@ export async function listPatients() {
     "patientProfiles",
     "profiles",
   ]);
-  const hydratedPatients = await withHydratedUsers(patients, { enabled: false });
+  const hydratedPatients = await withHydratedUsers(patients, {
+    enabled: false,
+  });
   return hydratedPatients.map(normalizePatient);
 }
 
@@ -1353,14 +1389,14 @@ function patientFromDoctorPatientItem(item = {}) {
 function isAppointmentPatientItem(item = {}) {
   return Boolean(
     item.appointmentDate ||
-      item.date ||
-      item.day ||
-      item.time ||
-      item.slotTime ||
-      item.doctor ||
-      item.doctorId ||
-      item.patient ||
-      item.patientId,
+    item.date ||
+    item.day ||
+    item.time ||
+    item.slotTime ||
+    item.doctor ||
+    item.doctorId ||
+    item.patient ||
+    item.patientId,
   );
 }
 
@@ -1379,20 +1415,26 @@ function normalizeDoctorPatients(items = []) {
       item.appointmentsCount !== undefined ||
       item.casesCount !== undefined ||
       item.caseCount !== undefined;
-    const appointmentIncrement = !isSummaryItem && isAppointmentPatientItem(item) ? 1 : 0;
-    const nextCasesCount = Math.max(
-      current?.casesCount || 0,
-      patient.casesCount || 0,
-      patient.appointmentsCount || 0,
-    ) + (current && appointmentIncrement ? appointmentIncrement : 0);
+    const appointmentIncrement =
+      !isSummaryItem && isAppointmentPatientItem(item) ? 1 : 0;
+    const nextCasesCount =
+      Math.max(
+        current?.casesCount || 0,
+        patient.casesCount || 0,
+        patient.appointmentsCount || 0,
+      ) + (current && appointmentIncrement ? appointmentIncrement : 0);
 
     patientsByKey.set(String(key), {
       ...(current || {}),
       ...patient,
-      casesCount: current ? nextCasesCount : nextCasesCount || appointmentIncrement,
+      casesCount: current
+        ? nextCasesCount
+        : nextCasesCount || appointmentIncrement,
       appointmentsCount: current
         ? nextCasesCount
-        : patient.appointmentsCount || patient.casesCount || appointmentIncrement,
+        : patient.appointmentsCount ||
+          patient.casesCount ||
+          appointmentIncrement,
     });
   });
 
@@ -1558,14 +1600,11 @@ export async function updateReceptionist(id, values, currentReceptionist) {
     ]),
   ];
 
-  const response = await requestFirst(
-    paths,
-    {
-      method: "PATCH",
-      body: receptionistPayload(values, "edit"),
-      retryStatuses: [404, 405],
-    },
-  );
+  const response = await requestFirst(paths, {
+    method: "PATCH",
+    body: receptionistPayload(values, "edit"),
+    retryStatuses: [404, 405],
+  });
   return normalizeReceptionist(
     findEntity(response, ["receptionist", "reseptionist"]),
   );
@@ -1613,7 +1652,8 @@ export async function updateUser(id, values, currentUser) {
   const role = values.role || currentUser?.role;
 
   if (role === "doctor") return updateDoctor(id, values, currentUser);
-  if (role === "receptionist") return updateReceptionist(id, values, currentUser);
+  if (role === "receptionist")
+    return updateReceptionist(id, values, currentUser);
   return updatePatient(id, values);
 }
 
@@ -2079,6 +2119,65 @@ export async function createPrescription(values = {}) {
     method: "POST",
     body: compactObject(payload),
   });
+}
+
+export async function getMyPrescriptions() {
+  const response = await requestFirst([
+    "/prescriptions/my-prescriptions",
+    "/prescriptions",
+  ]).catch((err) => {
+    // fallback to a direct request if requestFirst failed
+    return apiRequest("/prescriptions/my-prescriptions").catch(() => null);
+  });
+
+  const items = findArray(response, [
+    "prescriptions",
+    "docs",
+    "results",
+    "data",
+    "items",
+  ]);
+  return items;
+}
+
+export async function getMyMedicalReports() {
+  const response = await requestFirst([
+    "/medicalReports/myMedicalReports",
+    "/medicalReports/my-medical-reports",
+    "/medicalReports",
+  ]).catch(() =>
+    apiRequest("/medicalReports/myMedicalReports").catch(() => null),
+  );
+
+  return findArray(response, [
+    "medicalReports",
+    "reports",
+    "docs",
+    "results",
+    "data",
+    "items",
+  ]);
+}
+
+export async function getBookedAppointmentsForPatient() {
+  const response = await requestFirst([
+    "/appointments/bookedAppointmentsForPatient",
+    "/appointment/bookedAppointmentsForPatient",
+    "/appointments/myAppointments",
+    "/bookedAppointmentsForPatient",
+  ]).catch(() =>
+    apiRequest("/appointments/bookedAppointmentsForPatient").catch(() => null),
+  );
+
+  const items = findArray(response, [
+    "appointments",
+    "bookings",
+    "results",
+    "docs",
+    "data",
+    "items",
+  ]);
+  return (items || []).map(normalizeAppointment);
 }
 
 export async function createMedicalReport(values = {}) {
