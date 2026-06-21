@@ -26,8 +26,15 @@ export function getDoctorImage(doctor, index = 0) {
 }
 
 export function getDoctorRating(doctor) {
-  const rating = Number(doctor.rating);
-  return rating > 0 ? Math.min(5, rating) : 4.5;
+  const rating = Number(
+    doctor.ratingsAverage ??
+      doctor.rating ??
+      doctor.raw?.ratingsAverage ??
+      doctor.raw?.doctorProfile?.ratingsAverage ??
+      0,
+  );
+
+  return Number.isFinite(rating) ? Math.max(0, Math.min(5, rating)) : 0;
 }
 
 export function useDoctors() {

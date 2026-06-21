@@ -8,6 +8,32 @@ import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 
+function RatingStars({ rating }) {
+  return (
+    <span className="flex gap-1" aria-label={`التقييم ${rating.toFixed(1)} من 5`}>
+      {Array.from({ length: 5 }).map((_, index) => {
+        const fillPercentage = Math.max(0, Math.min(1, rating - index)) * 100;
+
+        return (
+          <span
+            key={index}
+            className="relative block size-4 text-[#D7D7D7] dark:text-[#666666]"
+            aria-hidden="true"
+          >
+            <FaStar className="absolute inset-0 size-4" />
+            <span
+              className="absolute inset-y-0 right-0 overflow-hidden text-[#FFB800]"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <FaStar className="absolute right-0 top-0 size-4 max-w-none" />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function formatTime(value) {
   if (!value) return "غير محدد";
   const [hoursText, minutes = "00"] = String(value).split(":");
@@ -112,11 +138,7 @@ function DoctorProfile({ doctor, canBook, onBook }) {
           <p className="mt-3 text-xl text-[#8A8A8A] dark:text-[#C8D5D4] sm:text-2xl">{doctor.specialty || "طب عام"}</p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <span className="font-bold">{rating.toFixed(1)} ({doctor.reviewsCount || 0} تقييم)</span>
-            <span className="flex gap-1 text-[#FFB800]">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <FaStar key={index} className={index < Math.round(rating) ? "" : "opacity-25"} />
-              ))}
-            </span>
+            <RatingStars rating={rating} />
           </div>
 
           <div className="mx-auto mt-8 grid max-w-xl grid-cols-1 gap-4 text-sm text-[#476967] sm:grid-cols-3 dark:text-[#D9F1EF]">
