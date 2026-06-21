@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Cigarette, FileText, Plus, Search, TestTube2, Ruler, Scale, X } from "lucide-react";
+import {
+  Cigarette,
+  FileText,
+  Plus,
+  Search,
+  TestTube2,
+  Ruler,
+  Scale,
+  X,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import {
@@ -10,6 +19,9 @@ import {
   listAppointments,
   uploadPatientMedicalFiles,
   updateAppointmentStatus,
+  getMyPrescriptions,
+  getMyMedicalReports,
+  getBookedAppointmentsForPatient,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 import { validatePatientMedicalFiles } from "../../utils/patientFileValidation";
@@ -25,20 +37,66 @@ const tabs = [
 ];
 
 const records = [
-  { id: 1, title: "حساسية شديدة", notes: "سعال شديد واحتقان في الأنف والحنجرة", date: "12 ديسمبر 2025" },
-  { id: 2, title: "حساسية موسمية", notes: "عطس متكرر واحتقان بالأنف", date: "24 فبراير 2026" },
-  { id: 3, title: "التهاب الجيوب الأنفية", notes: "احتقان متوسط مع صداع متقطع", date: "3 يناير 2026" },
-  { id: 4, title: "حساسية شديدة", notes: "سعال شديد واحتقان في الأنف والحنجرة", date: "30 يناير 2026" },
+  {
+    id: 1,
+    title: "حساسية شديدة",
+    notes: "سعال شديد واحتقان في الأنف والحنجرة",
+    date: "12 ديسمبر 2025",
+  },
+  {
+    id: 2,
+    title: "حساسية موسمية",
+    notes: "عطس متكرر واحتقان بالأنف",
+    date: "24 فبراير 2026",
+  },
+  {
+    id: 3,
+    title: "التهاب الجيوب الأنفية",
+    notes: "احتقان متوسط مع صداع متقطع",
+    date: "3 يناير 2026",
+  },
+  {
+    id: 4,
+    title: "حساسية شديدة",
+    notes: "سعال شديد واحتقان في الأنف والحنجرة",
+    date: "30 يناير 2026",
+  },
 ];
 
 const prescriptions = [
-  { date: "30 يناير 2026", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
-  { date: "3 يناير 2026", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
-  { date: "24 ديسمبر 2025", rows: [["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"], ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"]] },
+  {
+    date: "30 يناير 2026",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
+  {
+    date: "3 يناير 2026",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
+  {
+    date: "24 ديسمبر 2025",
+    rows: [
+      ["Vontolin", "حباية 1", "كل 6 ساعات", "3 أيام"],
+      ["Paracetamol", "حباية 1", "كل 8 ساعات", "7 أيام"],
+    ],
+  },
 ];
 
 function currentPatientId(user) {
-  return user?.patientId || user?.patient?._id || user?.patient?.id || user?.profile?._id || user?._id || user?.id || "";
+  return (
+    user?.patientId ||
+    user?.patient?._id ||
+    user?.patient?.id ||
+    user?.profile?._id ||
+    user?._id ||
+    user?.id ||
+    ""
+  );
 }
 
 function getMedicalFileId(file, index = 0) {
@@ -87,7 +145,10 @@ function buildPatient(user, apiPatient) {
   const source = apiPatient || user?.patient || user?.profile || user || {};
   return {
     id: source.id || source._id || currentPatientId(user),
-    name: source.name || [source.firstName, source.lastName].filter(Boolean).join(" ") || "خالد طارق",
+    name:
+      source.name ||
+      [source.firstName, source.lastName].filter(Boolean).join(" ") ||
+      "خالد طارق",
     phone: source.phone || source.phoneNumber || source.mobile || "0107338300",
     image:
       source.photo ||
@@ -119,9 +180,13 @@ export default function PatientProfilePage() {
   const { doctors } = useDoctors();
   const [patient, setPatient] = useState(() => buildPatient(authUser));
   const requestedTab = searchParams.get("tab");
-  const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "extra";
+  const activeTab = tabs.some((tab) => tab.id === requestedTab)
+    ? requestedTab
+    : "extra";
   const [search, setSearch] = useState("");
   const [appointments, setAppointments] = useState([]);
+  const [prescriptionsList, setPrescriptionsList] = useState([]);
+  const [medicalReportsList, setMedicalReportsList] = useState([]);
   const [files, setFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null);
 
@@ -132,32 +197,51 @@ export default function PatientProfilePage() {
     Promise.all([
       getMyPatientProfile().catch(() => null),
       getCurrentUser().catch(() => null),
-      listAppointments().catch(() => []),
-    ]).then(([patientResult, currentUser, appointmentResult]) => {
-      if (!mounted) return;
-      setPatient(
-        buildPatient(authUser, {
-          ...patientResult,
-          photo: currentUser?.photo || "",
-        }),
-      );
-      setFiles(
-        patientResult?.medicalFiles?.map((file, index) => ({
-          id: getMedicalFileId(file, index),
-          name: getMedicalFileName(
-            file,
-            index,
-            readMedicalFileNames(patientId),
+      getBookedAppointmentsForPatient().catch(() => []),
+      getMyPrescriptions().catch(() => []),
+      getMyMedicalReports().catch(() => []),
+    ]).then(
+      ([
+        patientResult,
+        currentUser,
+        appointmentResult,
+        prescriptionsResult,
+        medicalReportsResult,
+      ]) => {
+        if (!mounted) return;
+        setPatient(
+          buildPatient(authUser, {
+            ...patientResult,
+            photo: currentUser?.photo || "",
+          }),
+        );
+        setFiles(
+          patientResult?.medicalFiles?.map((file, index) => ({
+            id: getMedicalFileId(file, index),
+            name: getMedicalFileName(
+              file,
+              index,
+              readMedicalFileNames(patientId),
+            ),
+            src: file.url || file.src || "",
+          })) || [],
+        );
+        setAppointments(
+          appointmentResult.filter(
+            (appointment) =>
+              !patientId ||
+              !appointment.patientId ||
+              String(appointment.patientId) === String(patientId),
           ),
-          src: file.url || file.src || "",
-        })) || [],
-      );
-      setAppointments(
-        appointmentResult.filter((appointment) =>
-          !patientId || !appointment.patientId || String(appointment.patientId) === String(patientId),
-        ),
-      );
-    });
+        );
+        setPrescriptionsList(
+          Array.isArray(prescriptionsResult) ? prescriptionsResult : [],
+        );
+        setMedicalReportsList(
+          Array.isArray(medicalReportsResult) ? medicalReportsResult : [],
+        );
+      },
+    );
 
     return () => {
       mounted = false;
@@ -178,7 +262,9 @@ export default function PatientProfilePage() {
     try {
       await updateAppointmentStatus(appointment.id, "cancelled");
       setAppointments((current) =>
-        current.map((item) => item.id === appointment.id ? { ...item, status: "cancelled" } : item),
+        current.map((item) =>
+          item.id === appointment.id ? { ...item, status: "cancelled" } : item,
+        ),
       );
       toast.success("تم إلغاء الموعد");
     } catch (error) {
@@ -187,7 +273,10 @@ export default function PatientProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FCFCFC] text-[#333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
+    <div
+      className="min-h-screen bg-[#FCFCFC] text-[#333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]"
+      dir="rtl"
+    >
       <PatientHomeHeader />
       <main className="mx-auto w-full max-w-[1280px] px-4 py-12 sm:px-6 md:py-16 lg:px-10">
         <section className="rounded-2xl bg-white px-4 py-10 shadow-[0_4px_24px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:px-8 md:px-12">
@@ -227,17 +316,33 @@ export default function PatientProfilePage() {
                       );
                     }}
                   />
-                ) : <span />}
+                ) : (
+                  <span />
+                )}
                 <SearchBox value={search} onChange={setSearch} />
               </div>
             )}
 
             {activeTab === "extra" && <ExtraInfo patient={patient} />}
             {activeTab === "files" && (
-              <MedicalFiles files={files} search={search} onPreview={setPreviewFile} />
+              <MedicalFiles
+                files={files}
+                search={search}
+                onPreview={setPreviewFile}
+              />
             )}
-            {activeTab === "records" && <MedicalRecords search={search} />}
-            {activeTab === "prescriptions" && <Prescriptions search={search} />}
+            {activeTab === "records" && (
+              <MedicalRecords
+                search={search}
+                medicalReports={medicalReportsList}
+              />
+            )}
+            {activeTab === "prescriptions" && (
+              <Prescriptions
+                search={search}
+                prescriptions={prescriptionsList}
+              />
+            )}
             {activeTab === "appointments" && (
               <Appointments
                 appointments={appointments}
@@ -249,8 +354,26 @@ export default function PatientProfilePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <button type="button" onClick={() => navigate(`/patient/${routePatientId}/patientinformation?edit=true`)} className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]">تعديل البيانات</button>
-            <button type="button" onClick={() => toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")} className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600">حذف الحساب</button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/patient/${routePatientId}/patientinformation?edit=true`,
+                )
+              }
+              className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]"
+            >
+              تعديل البيانات
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")
+              }
+              className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600"
+            >
+              حذف الحساب
+            </button>
           </div>
         </section>
       </main>
@@ -283,11 +406,19 @@ export default function PatientProfilePage() {
 function PatientSummary({ patient }) {
   return (
     <header className="text-center">
-      <img src={patient.image} alt={patient.name} className="mx-auto size-36 rounded-full border-[6px] border-[#EFEFEF] object-cover sm:size-44 md:size-52" />
-      <h1 className="mt-5 text-2xl font-extrabold sm:text-3xl">{patient.name}</h1>
+      <img
+        src={patient.image}
+        alt={patient.name}
+        className="mx-auto size-36 rounded-full border-[6px] border-[#EFEFEF] object-cover sm:size-44 md:size-52"
+      />
+      <h1 className="mt-5 text-2xl font-extrabold sm:text-3xl">
+        {patient.name}
+      </h1>
       <div className="mt-2 flex items-center justify-center gap-3 text-[#777] dark:text-[#CCC]">
         <span>{patient.phone}</span>
-        <span className="rounded-md bg-green-50 px-2 py-1 text-xs text-green-700 dark:bg-green-950/30 dark:text-green-300">{patient.status}</span>
+        <span className="rounded-md bg-green-50 px-2 py-1 text-xs text-green-700 dark:bg-green-950/30 dark:text-green-300">
+          {patient.status}
+        </span>
       </div>
     </header>
   );
@@ -303,7 +434,10 @@ function PatientStats({ patient }) {
   return (
     <section className="mx-auto mt-8 grid max-w-[1050px] grid-cols-2 gap-4 lg:grid-cols-4">
       {stats.map(({ label, value, icon: Icon }) => (
-        <article key={label} className="flex min-h-36 flex-col items-center justify-center rounded-2xl bg-white p-4 text-center shadow-[0_5px_20px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:min-h-44">
+        <article
+          key={label}
+          className="flex min-h-36 flex-col items-center justify-center rounded-2xl bg-white p-4 text-center shadow-[0_5px_20px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:min-h-44"
+        >
           <Icon size={42} strokeWidth={1.8} className="text-[#20B7D5]" />
           <p className="mt-3 text-[#20B7D5]">{label}</p>
           <strong className="mt-2 text-xl text-[#20B7D5]">{value}</strong>
@@ -315,9 +449,19 @@ function PatientStats({ patient }) {
 
 function ProfileTabs({ activeTab, onChange }) {
   return (
-    <nav className="mt-8 flex overflow-x-auto border-b border-[#D2D2D2]" aria-label="أقسام الملف الشخصي">
+    <nav
+      className="mt-8 flex overflow-x-auto border-b border-[#D2D2D2]"
+      aria-label="أقسام الملف الشخصي"
+    >
       {tabs.map((tab) => (
-        <button key={tab.id} type="button" onClick={() => onChange(tab.id)} className={`min-w-[155px] flex-1 border-b-[3px] px-3 py-3 font-bold transition ${activeTab === tab.id ? "border-[#20B7D5] text-[#20B7D5]" : "border-transparent text-[#B7B7B7] hover:text-[#20B7D5]"}`}>{tab.label}</button>
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`min-w-[155px] flex-1 border-b-[3px] px-3 py-3 font-bold transition ${activeTab === tab.id ? "border-[#20B7D5] text-[#20B7D5]" : "border-transparent text-[#B7B7B7] hover:text-[#20B7D5]"}`}
+        >
+          {tab.label}
+        </button>
       ))}
     </nav>
   );
@@ -327,8 +471,17 @@ function SearchBox({ value, onChange }) {
   return (
     <label className="flex h-12 w-full items-center gap-2 rounded-xl border border-[#DADADA] px-4 text-[#999] dark:border-[#555] sm:w-72">
       <Search size={20} />
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="ابحث هنا..." className="min-w-0 flex-1 bg-transparent outline-none" />
-      {value && <button type="button" onClick={() => onChange("")}><X size={17} /></button>}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="ابحث هنا..."
+        className="min-w-0 flex-1 bg-transparent outline-none"
+      />
+      {value && (
+        <button type="button" onClick={() => onChange("")}>
+          <X size={17} />
+        </button>
+      )}
     </label>
   );
 }
@@ -349,9 +502,18 @@ function TagGroup({ title, values }) {
       <h2 className="mb-3 font-bold">{title}</h2>
       <div className="flex flex-wrap gap-3">
         {values.length > 0 ? (
-          values.map((value) => <span key={value} className="rounded-xl bg-[#EAF9FB] px-5 py-2 text-[#20B7D5] dark:bg-[#31504E] dark:text-[#B9F0EC]">{value}</span>)
+          values.map((value) => (
+            <span
+              key={value}
+              className="rounded-xl bg-[#EAF9FB] px-5 py-2 text-[#20B7D5] dark:bg-[#31504E] dark:text-[#B9F0EC]"
+            >
+              {value}
+            </span>
+          ))
         ) : (
-          <span className="text-sm text-[#999] dark:text-[#BBB]">لا توجد بيانات</span>
+          <span className="text-sm text-[#999] dark:text-[#BBB]">
+            لا توجد بيانات
+          </span>
         )}
       </div>
     </section>
@@ -398,58 +560,164 @@ function UploadButton({ onUploaded }) {
 }
 
 function MedicalFiles({ files, search, onPreview }) {
-  const filtered = files.filter((file) => includesSearchText(file.name, search));
+  const filtered = files.filter((file) =>
+    includesSearchText(file.name, search),
+  );
   return filtered.length ? (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {filtered.map((file) => (
-        <article key={file.id} className="flex min-h-44 items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242]">
+        <article
+          key={file.id}
+          className="flex min-h-44 items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242]"
+        >
           <strong className="break-all text-left">{file.name}</strong>
           {file.src ? (
             <button type="button" onClick={() => onPreview(file)}>
-              <img src={file.src} alt={file.name} className="h-36 w-28 cursor-zoom-in rounded-xl object-cover" />
+              <img
+                src={file.src}
+                alt={file.name}
+                className="h-36 w-28 cursor-zoom-in rounded-xl object-cover"
+              />
             </button>
-          ) : <FileText size={54} className="text-[#20B7D5]" />}
+          ) : (
+            <FileText size={54} className="text-[#20B7D5]" />
+          )}
         </article>
       ))}
     </div>
-  ) : <EmptyState />;
+  ) : (
+    <EmptyState />
+  );
 }
 
-function MedicalRecords({ search }) {
-  const filtered = records.filter((record) =>
-    includesSearchText(`${record.title} ${record.notes}`, search),
-  );
+function MedicalRecords({ search, medicalReports = [] }) {
+  const items =
+    Array.isArray(medicalReports) && medicalReports.length > 0
+      ? medicalReports
+      : records;
+
+  const filtered = items.filter((rec) => {
+    const title = rec.diagnosis || rec.title || "";
+    const notes = rec.notes || rec.summary || rec.report || "";
+    return includesSearchText(`${title} ${notes}`, search);
+  });
+
+  const formatDate = (iso) => {
+    try {
+      if (!iso) return "";
+      return new Date(iso).toLocaleDateString("ar-EG", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return String(iso || "");
+    }
+  };
+
   return filtered.length ? (
     <div className="space-y-4">
       {filtered.map((record) => (
-        <article key={record.id} className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="font-bold">{record.title}</h3><p className="mt-1 text-sm text-[#666] dark:text-[#CCC]">ملاحظات: {record.notes}</p></div>
-          <time className="rounded-lg bg-[#EFFBFA] px-3 py-1 text-xs text-[#537673] dark:bg-[#31504E]">{record.date}</time>
+        <article
+          key={record._id || record.id || record.date}
+          className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h3 className="font-bold">{record.diagnosis || record.title}</h3>
+            <p className="mt-1 text-sm text-[#666] dark:text-[#CCC]">
+              ملاحظات: {record.notes || record.summary || record.report}
+            </p>
+          </div>
+          <time
+            className="rounded-lg bg-[#EFFBFA] px-3 py-1 text-xs text-[#537673] dark:bg-[#31504E]"
+            style={{ fontFamily: "Cairo, sans-serif" }}
+          >
+            {formatDate(record.createdAt || record.date)}
+          </time>
         </article>
       ))}
     </div>
-  ) : <EmptyState />;
+  ) : (
+    <EmptyState />
+  );
 }
 
-function Prescriptions({ search }) {
-  const filtered = prescriptions.filter((prescription) =>
-    prescription.rows.some((row) => includesSearchText(row.join(" "), search)),
-  );
+function Prescriptions({ search, prescriptions = [] }) {
+  const formatDate = (iso) => {
+    try {
+      if (!iso) return "";
+      return new Date(iso).toLocaleDateString("ar-EG", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return String(iso || "");
+    }
+  };
+
+  const filtered = (prescriptions || []).filter((prescription) => {
+    const medsText = (prescription.medicines || [])
+      .map(
+        (m) =>
+          `${m.name} ${m.dose || ""} ${m.frequency || ""} ${m.duration || ""}`,
+      )
+      .join(" ");
+    const doctorText = `${prescription.doctor?.firstName || ""} ${prescription.doctor?.lastName || ""} ${prescription.specialization?.name || ""}`;
+    return includesSearchText(`${medsText} ${doctorText}`, search);
+  });
+
   return filtered.length ? (
     <div className="space-y-8">
       {filtered.map((prescription) => (
-        <section key={prescription.date}>
-          <h3 className="mb-3 text-[#20B7D5]">{prescription.date}</h3>
+        <section key={prescription._id || prescription.createdAt}>
+          <h3
+            className="mb-3 text-[#20B7D5] text-right"
+            style={{ fontFamily: "Cairo, sans-serif" }}
+          >
+            {formatDate(prescription.createdAt || prescription.date)}
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] border-separate border-spacing-x-3 border-spacing-y-2 text-right sm:border-spacing-x-4">
-              <thead><tr>{["اسم الدواء", "الجرعة", "ميعاد الجرعة", "المدة"].map((title) => <th key={title} className="px-4 py-2">{title}</th>)}</tr></thead>
-              <tbody>{prescription.rows.map((row) => <tr key={row.join("-")}>{row.map((cell) => <td key={cell} className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">{cell}</td>)}</tr>)}</tbody>
+              <thead>
+                <tr>
+                  {["اسم الدواء", "الجرعة", "ميعاد الجرعة", "المدة"].map(
+                    (title) => (
+                      <th key={title} className="px-4 py-2">
+                        {title}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {(prescription.medicines || []).map((med, idx) => (
+                  <tr
+                    key={`${prescription._id || prescription.createdAt}-${med.name}-${idx}`}
+                  >
+                    <td className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">
+                      {med.name}
+                    </td>
+                    <td className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">
+                      {med.dose}
+                    </td>
+                    <td className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">
+                      {med.frequency}
+                    </td>
+                    <td className="rounded-xl bg-[#F8F8F8] px-4 py-3 dark:bg-[#454545]">
+                      {med.duration}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </section>
       ))}
     </div>
-  ) : <EmptyState />;
+  ) : (
+    <EmptyState />
+  );
 }
 
 function Appointments({ appointments, doctorById, search, onCancel }) {
@@ -465,22 +733,95 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
       {filtered.map((appointment) => {
         const doctor = doctorById.get(String(appointment.doctorId));
         const status = appointment.status || "pending";
+        const formatAppointmentDisplay = (dateIso, timeStr) => {
+          try {
+            // dateIso expected like '2026-01-08' or ISO string
+            const d = new Date(dateIso);
+            if (Number.isNaN(d.getTime())) return `${dateIso} - ${timeStr}`;
+            const day = d.getDate();
+            const month = d.getMonth() + 1;
+            const year = d.getFullYear();
+
+            // timeStr expected like '09:25' or '14:30'
+            let hour = 0;
+            let minute = "00";
+            if (typeof timeStr === "string" && timeStr.includes(":")) {
+              const parts = timeStr.split(":");
+              hour = Number(parts[0]);
+              minute = parts[1] || "00";
+            } else {
+              hour = d.getHours();
+              minute = String(d.getMinutes()).padStart(2, "0");
+            }
+
+            const period = hour >= 12 ? "مساءا" : "صباحا";
+            let displayHour = hour % 12;
+            if (displayHour === 0) displayHour = 12;
+
+            return `${day}/${month}/${year} - ${displayHour}:${minute} ${period}`;
+          } catch (e) {
+            return `${dateIso} - ${timeStr}`;
+          }
+        };
         return (
-          <article key={appointment.id} className={`grid gap-5 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] sm:grid-cols-[120px_1fr_auto] sm:items-center ${status === "pending" ? "bg-[#EFFBFA] dark:bg-[#354746]" : "bg-white dark:bg-[#424242]"}`}>
-            <img src={doctor ? getDoctorImage(doctor) : avatar} alt={doctor ? getDoctorName(doctor) : appointment.doctor} className="mx-auto h-28 w-28 rounded-xl object-contain" />
-            <div className="text-center sm:text-right"><h3 className="text-xl font-bold">{doctor ? getDoctorName(doctor) : appointment.doctor || "طبيب ميديلينك"}</h3><p className="mt-1 text-[#666] dark:text-[#CCC]">{doctor?.specialty || appointment.specialty}</p></div>
+          <article
+            key={appointment.id}
+            className={`grid gap-5 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] sm:grid-cols-[120px_1fr_auto] sm:items-center ${status === "pending" ? "bg-[#EFFBFA] dark:bg-[#354746]" : "bg-white dark:bg-[#424242]"}`}
+          >
+            <img
+              src={doctor ? getDoctorImage(doctor) : avatar}
+              alt={doctor ? getDoctorName(doctor) : appointment.doctor}
+              className="mx-auto h-28 w-28 rounded-xl object-contain"
+            />
+            <div className="text-center sm:text-right">
+              <h3 className="text-xl font-bold">
+                {doctor
+                  ? getDoctorName(doctor)
+                  : appointment.doctor || "طبيب ميديلينك"}
+              </h3>
+              <p className="mt-1 text-[#666] dark:text-[#CCC]">
+                {doctor?.specialty || appointment.specialty}
+              </p>
+            </div>
             <div className="text-center sm:text-left">
-              <span className={`rounded-lg px-3 py-1 text-xs ${status === "cancelled" ? "bg-red-50 text-red-600 dark:bg-red-950/30" : status === "completed" ? "bg-green-50 text-green-700 dark:bg-green-950/30" : "bg-[#DFF4F1] text-[#47716F] dark:bg-[#31504E]"}`}>{status === "cancelled" ? "ملغي" : status === "completed" ? "تم الانتهاء" : "قيد الانتظار"}</span>
-              <p className="mt-3 text-sm">{appointment.date} - {appointment.time}</p>
-              {status !== "cancelled" && status !== "completed" && <button type="button" onClick={() => onCancel(appointment)} className="mt-3 rounded-lg border border-red-500 px-5 py-2 text-sm text-red-600">إلغاء الحجز</button>}
+              <span
+                className={`rounded-lg px-3 py-1 text-xs ${status === "cancelled" ? "bg-red-50 text-red-600 dark:bg-red-950/30" : status === "completed" ? "bg-green-50 text-green-700 dark:bg-green-950/30" : "bg-[#DFF4F1] text-[#47716F] dark:bg-[#31504E]"}`}
+              >
+                {status === "cancelled"
+                  ? "ملغى"
+                  : status === "completed"
+                    ? "تم الانتهاء"
+                    : "قيد الانتظار"}
+              </span>
+              <p
+                className="mt-3 text-sm"
+                style={{ fontFamily: "Cairo, sans-serif" }}
+              >
+                {formatAppointmentDisplay(appointment.date, appointment.time)}
+              </p>
+              {status === "pending" && (
+                <button
+                  type="button"
+                  onClick={() => onCancel(appointment)}
+                  className="mt-3 rounded-lg border border-red-500 px-5 py-2 text-sm text-red-600"
+                >
+                  إلغاء الحجز
+                </button>
+              )}
             </div>
           </article>
         );
       })}
     </div>
-  ) : <EmptyState />;
+  ) : (
+    <EmptyState />
+  );
 }
 
 function EmptyState() {
-  return <div className="rounded-2xl bg-[#F8F8F8] p-12 text-center text-[#888] dark:bg-[#424242] dark:text-[#CCC]">لا توجد بيانات مطابقة حاليًا.</div>;
+  return (
+    <div className="rounded-2xl bg-[#F8F8F8] p-12 text-center text-[#888] dark:bg-[#424242] dark:text-[#CCC]">
+      لا توجد بيانات مطابقة حاليًا.
+    </div>
+  );
 }
