@@ -11,7 +11,10 @@ import {
 import { FaStar } from "react-icons/fa";
 import CustomSelect from "../../components/admin/CustomSelect";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
-import { listSpecializations } from "../../services/medilinkApi";
+import {
+  listDoctorAvailableSlots,
+  listSpecializations,
+} from "../../services/medilinkApi";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const pageSize = 12;
@@ -19,7 +22,7 @@ const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
 const days = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
 
 function formatTime(value) {
-  if (!value) return "4:00 مساءً";
+  if (!value) return "";
 
   const [hoursText, minutes = "00"] = String(value).split(":");
   const hours = Number(hoursText);
@@ -28,6 +31,51 @@ function formatTime(value) {
   const period = hours >= 12 ? "مساءً" : "صباحاً";
   const displayHour = hours % 12 || 12;
   return `${displayHour}:${minutes} ${period}`;
+}
+
+function isAvailableSlot(status) {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return ["متاح", "available", "open", "free"].includes(normalizedStatus);
+}
+
+function getFirstAvailableSlot(slotDays) {
+  const now = new Date();
+
+  return slotDays
+    .flatMap((slotDay) =>
+      (slotDay.slots || [])
+        .filter((slot) => isAvailableSlot(slot.status))
+        .map((slot) => {
+          const date = slot.date || slotDay.date;
+          const dateTime = new Date(`${date}T${slot.time}:00`);
+
+          return {
+            date,
+            day: slotDay.day,
+            time: slot.time,
+            dateTime,
+          };
+        }),
+    )
+    .filter(
+      (slot) =>
+        slot.date &&
+        slot.time &&
+        !Number.isNaN(slot.dateTime.getTime()) &&
+        slot.dateTime >= now,
+    )
+    .sort((first, second) => first.dateTime - second.dateTime)[0] || null;
+}
+
+function formatSlotDay(slot) {
+  if (slot.day) return slot.day;
+
+  return new Intl.DateTimeFormat("ar-EG", { weekday: "long" }).format(
+    slot.dateTime,
+  );
 }
 
 function DoctorSelect({ label, value, options, onChange, disabled = false }) {
@@ -82,10 +130,29 @@ function DoctorCard({ doctor, index }) {
   const navigate = useNavigate();
   const doctorProfilePath = `/patient/doctors/${doctor.id}`;
   const available = doctor.available !== false && doctor.status !== "inactive";
+  const [firstAvailableSlot, setFirstAvailableSlot] = useState(null);
+  const [slotStatus, setSlotStatus] = useState("loading");
   const rating = getDoctorRating(doctor);
   const price = doctor.consultationFee || doctor.raw?.consultationFee || doctor.raw?.price || 100;
-  const firstDay = doctor.workDays?.[0] || days[new Date().getDay()] || "السبت";
-  const firstTime = formatTime(doctor.workStart);
+
+  useEffect(() => {
+    let mounted = true;
+
+    listDoctorAvailableSlots(doctor.id)
+      .then((slotDays) => {
+        if (!mounted) return;
+
+        setFirstAvailableSlot(getFirstAvailableSlot(slotDays));
+        setSlotStatus("loaded");
+      })
+      .catch(() => {
+        if (mounted) setSlotStatus("error");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [doctor.id]);
 
   return (
     <article className="relative flex min-h-[430px] flex-col overflow-hidden rounded-xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,0.12)] dark:bg-[#383838] dark:shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
@@ -130,7 +197,13 @@ function DoctorCard({ doctor, index }) {
           <p className="font-semibold">أول موعد متاح</p>
           <p className="mt-0.5 flex items-center justify-center gap-1 text-xs">
             <Clock3 size={14} />
-            {firstDay} - {firstTime}
+            {slotStatus === "loading"
+              ? "جاري تحميل المواعيد..."
+              : slotStatus === "error"
+                ? "تعذر تحميل المواعيد"
+                : firstAvailableSlot
+                  ? `${formatSlotDay(firstAvailableSlot)} - ${formatTime(firstAvailableSlot.time)}`
+                  : "لا توجد مواعيد متاحة"}
           </p>
         </div>
 
