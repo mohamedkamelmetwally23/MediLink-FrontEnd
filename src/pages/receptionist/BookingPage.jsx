@@ -201,6 +201,17 @@ function isSlotAvailable(slot) {
   ].includes(status);
 }
 
+function isSlotAvailableForDate(slot, date, now = new Date()) {
+  if (!isSlotAvailable(slot)) return false;
+  if (!date || getIsoDate(parseDate(date)) !== getIsoDate(now)) return true;
+
+  const slotMinutes = parseTimeMinutes(slot?.time);
+  if (slotMinutes === null) return false;
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return slotMinutes >= currentMinutes;
+}
+
 function normalizePhone(value = "") {
   return String(value).replace(/\D/g, "");
 }
@@ -478,6 +489,7 @@ export default function ReceptionistBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [createdAppointment, setCreatedAppointment] = useState(null);
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   useEffect(() => {
     let mounted = true;
@@ -499,6 +511,14 @@ export default function ReceptionistBookingPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -529,7 +549,9 @@ export default function ReceptionistBookingPage() {
         setAvailableSlotDays(nextSlots);
 
         const firstAvailableDay = nextSlots.find((day) =>
-          day.slots?.some(isSlotAvailable),
+          day.slots?.some((slot) =>
+            isSlotAvailableForDate(slot, day.date, new Date()),
+          ),
         );
 
         if (firstAvailableDay?.date) {
@@ -548,7 +570,9 @@ export default function ReceptionistBookingPage() {
         setAvailableSlotDays(fallbackDays);
 
         const firstAvailableDay = fallbackDays.find((day) =>
-          day.slots?.some(isSlotAvailable),
+          day.slots?.some((slot) =>
+            isSlotAvailableForDate(slot, day.date, new Date()),
+          ),
         );
 
         if (firstAvailableDay?.date) {
@@ -614,7 +638,9 @@ export default function ReceptionistBookingPage() {
     selectedDate &&
     selectedTime &&
     selectedDaySlots.some(
-      (slot) => slot.time === selectedTime && isSlotAvailable(slot),
+      (slot) =>
+        slot.time === selectedTime &&
+        isSlotAvailableForDate(slot, selectedDate, currentDateTime),
     );
   const canContinuePayment = Boolean(paymentMethod);
 
@@ -807,6 +833,7 @@ export default function ReceptionistBookingPage() {
                 selectedTime={selectedTime}
                 reason={bookingReason}
                 selectedDaySlots={selectedDaySlots}
+                currentDateTime={currentDateTime}
                 slotsLoading={slotsLoading}
                 slotsError={slotsError}
                 canContinue={canContinueBooking}
@@ -1008,6 +1035,7 @@ function BookingDetailsStep({
   selectedTime,
   reason,
   selectedDaySlots,
+  currentDateTime,
   slotsLoading,
   slotsError,
   canContinue,
@@ -1154,7 +1182,11 @@ function BookingDetailsStep({
               ) : selectedDaySlots.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {selectedDaySlots.map((slot, index) => {
-                    const available = isSlotAvailable(slot);
+                    const available = isSlotAvailableForDate(
+                      slot,
+                      selectedDate,
+                      currentDateTime,
+                    );
                     const selected = selectedTime === slot.time && available;
 
                     return (
