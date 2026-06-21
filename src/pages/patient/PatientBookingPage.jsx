@@ -41,6 +41,7 @@ export default function PatientBookingPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [reason, setReason] = useState("");
+  const [reasonSubmitted, setReasonSubmitted] = useState(false);
   const [files, setFiles] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("clinic");
   const [submitting, setSubmitting] = useState(false);
@@ -123,8 +124,8 @@ export default function PatientBookingPage() {
       <PatientHomeHeader />
       <main className="mx-auto w-full max-w-[1280px] px-4 py-10 sm:px-6 lg:px-10">
         <BookingStepper step={step} />
-        {step === 1 && <DateTimeStep doctor={doctor} availableSlotDays={availableSlotDays} selectedDate={selectedDate} selectedTime={selectedTime} onDateChange={(value) => { setSelectedDate(value); setSelectedTime(""); }} onTimeChange={setSelectedTime} onNext={() => selectedDate && selectedTime ? setStep(2) : toast.info("اختر التاريخ والوقت أولًا")} />}
-        {step === 2 && <ReasonStep reason={reason} setReason={setReason} files={files} setFiles={setFiles} onPrevious={() => setStep(1)} onNext={() => reason.trim() ? setStep(3) : toast.info("اكتب سبب الزيارة أولًا")} />}
+        {step === 1 && <DateTimeStep doctor={doctor} availableSlotDays={availableSlotDays} selectedDate={selectedDate} selectedTime={selectedTime} onDateChange={(value) => { setSelectedDate(value); setSelectedTime(""); }} onTimeChange={setSelectedTime} onNext={() => setStep(2)} />}
+        {step === 2 && <ReasonStep reason={reason} setReason={setReason} submitted={reasonSubmitted} files={files} setFiles={setFiles} onPrevious={() => setStep(1)} onNext={() => { setReasonSubmitted(true); if (reason.trim().length >= 3 && reason.trim().length <= 150) setStep(3); }} />}
         {step === 3 && <PaymentStep doctor={doctor} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} submitting={submitting} onPrevious={() => setStep(2)} onConfirm={submitAppointment} />}
         {step === 4 && <ConfirmationStep doctor={doctor} appointment={createdAppointment} date={selectedDate} time={selectedTime} paymentMethod={paymentMethod} onDone={() => navigate("/patient/doctors")} />}
       </main>
@@ -173,6 +174,7 @@ function DoctorStrip({ doctor }) {
 }
 
 function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, onDateChange, onTimeChange, onNext }) {
+  const canContinue = Boolean(selectedDate && selectedTime);
   const selectedDay = availableSlotDays.find(
     (slotDay) => slotDay.date === selectedDate,
   );
@@ -235,13 +237,23 @@ function DateTimeStep({ doctor, availableSlotDays, selectedDate, selectedTime, o
           <p className="py-8 text-center text-[#888] dark:text-[#BBB]">لا توجد أوقات لهذا اليوم.</p>
         )}
       </section>
-      <button type="button" onClick={onNext} className={`mt-10 w-full rounded-xl py-3.5 text-lg font-bold text-white ${gradient}`}>التالي</button>
+      <button type="button" disabled={!canContinue} onClick={onNext} className={`mt-10 w-full rounded-xl py-3.5 text-lg font-bold text-white disabled:cursor-not-allowed disabled:bg-[#BDBDBD] ${canContinue ? gradient : ""}`}>التالي</button>
     </div>
   );
 }
 
-function ReasonStep({ reason, setReason, files, setFiles, onPrevious, onNext }) {
+function ReasonStep({ reason, setReason, submitted, files, setFiles, onPrevious, onNext }) {
   const inputRef = useRef(null);
+  const reasonLength = reason.trim().length;
+  const reasonIsValid = reasonLength >= 3 && reasonLength <= 150;
+  const reasonError =
+    submitted && reasonLength === 0
+      ? "من فضلك أدخل سبب الزيارة"
+      : submitted && reasonLength < 3
+      ? "سبب الزيارة يجب ألا يقل عن 3 أحرف"
+      : submitted && reasonLength > 150
+        ? "سبب الزيارة يجب ألا يزيد عن 150 حرفًا"
+        : "";
   const previews = useMemo(() => files.map((file) => ({ file, id: `${file.name}-${file.size}-${file.lastModified}`, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : "" })), [files]);
   useEffect(() => () => previews.forEach((item) => item.url && URL.revokeObjectURL(item.url)), [previews]);
   const addFiles = (list) => {
@@ -255,8 +267,32 @@ function ReasonStep({ reason, setReason, files, setFiles, onPrevious, onNext }) 
   return (
     <div>
       <header className="mb-8 text-right"><h1 className="text-3xl font-extrabold">سبب الزيارة والملفات الطبية</h1><p className="mt-2 text-[#777] dark:text-[#C8C8C8]">ساعد طبيبك على فهم حالتك بشكل أفضل وإرفاق أي ملفات طبية متعلقة بحالتك.</p></header>
-      <label className="mb-2 block font-bold">سبب الزيارة</label>
-      <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} placeholder="اكتب الأعراض أو المشكلة التي ترغب في استشارة الطبيب بشأنها..." className="w-full resize-none rounded-2xl border border-[#E6E6E6] bg-[#FAFAFA] p-4 outline-none transition focus:border-[#20B7D5] dark:border-[#555] dark:bg-[#383838]" />
+      <label className={`mb-2 block font-bold ${reasonError ? "text-red-600" : ""}`}>سبب الزيارة</label>
+      <textarea
+        value={reason}
+        minLength={3}
+        maxLength={150}
+        aria-invalid={Boolean(reasonError)}
+        aria-describedby={reasonError ? "visit-reason-error" : undefined}
+        onChange={(event) => setReason(event.target.value)}
+        rows={4}
+        placeholder="اكتب الأعراض أو المشكلة التي ترغب في استشارة الطبيب بشأنها..."
+        className={`w-full resize-none rounded-2xl border bg-[#FAFAFA] p-4 outline-none transition dark:bg-[#383838] ${
+          reasonError
+            ? "border-red-500 focus:border-red-500 dark:border-red-500"
+            : "border-[#E6E6E6] focus:border-[#20B7D5] dark:border-[#555]"
+        }`}
+      />
+      <div className="mt-2 flex items-center justify-between text-sm">
+        {reasonError ? (
+          <p id="visit-reason-error" className="font-semibold text-red-600 dark:text-red-400">
+            {reasonError}
+          </p>
+        ) : (
+          <span className="text-[#888] dark:text-[#BBB]">من 3 إلى 150 حرفًا</span>
+        )}
+        <span className="text-[#888] dark:text-[#BBB]">{reason.length}/150</span>
+      </div>
       <label className="mb-2 mt-8 block font-bold">الملفات الطبية (اختياري)</label>
       <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }} className="rounded-2xl border-2 border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-6 dark:border-[#555] dark:bg-[#383838]">
         <input ref={inputRef} type="file" multiple accept=".png,.jpg,.jpeg,.pdf" className="hidden" onChange={(e) => addFiles(e.target.files || [])} />
@@ -265,7 +301,7 @@ function ReasonStep({ reason, setReason, files, setFiles, onPrevious, onNext }) 
           {previews.map((item) => <div key={item.id} className="group relative min-h-32 overflow-hidden rounded-xl bg-[#EEE] dark:bg-[#444]">{item.url ? <img src={item.url} alt={item.file.name} className="h-32 w-full object-cover" /> : <div className="grid h-32 place-items-center p-3 text-center"><FileText size={34} /><span className="line-clamp-2 text-xs">{item.file.name}</span></div>}<button type="button" onClick={() => setFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== item.id))} className="absolute left-2 top-2 grid size-8 place-items-center rounded-full bg-black/60 text-white"><Trash2 size={16} /></button></div>)}
         </div> : <button type="button" onClick={() => inputRef.current?.click()} className="w-full py-8 text-center text-[#999]"><ImageIcon size={40} className="mx-auto mb-3" /><strong><span className="text-[#20B7D5]">اضغط للاختيار</span> أو اسحب الملفات هنا</strong><small className="mt-2 block">الحد الأقصى 10 ميجابايت لكل ملف — PNG, JPG, PDF</small></button>}
       </div>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2"><button type="button" onClick={onPrevious} className="rounded-xl border-2 border-[#20B7D5] py-3.5 font-bold text-[#20B7D5]">السابق</button><button type="button" onClick={onNext} className={`rounded-xl py-3.5 font-bold text-white ${gradient}`}>تخطي/متابعة</button></div>
+      <div className="mt-10 grid gap-4 sm:grid-cols-2"><button type="button" onClick={onPrevious} className="rounded-xl border-2 border-[#20B7D5] py-3.5 font-bold text-[#20B7D5]">السابق</button><button type="button" disabled={!reasonIsValid} onClick={onNext} className={`rounded-xl py-3.5 font-bold text-white disabled:cursor-not-allowed disabled:bg-[#BDBDBD] ${reasonIsValid ? gradient : ""}`}>تخطي/متابعة</button></div>
     </div>
   );
 }
