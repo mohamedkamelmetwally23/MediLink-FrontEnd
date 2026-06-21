@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import { validateStrongPassword } from "../../utils/passwordValidation";
+import { getPatientFileSizeError } from "../../utils/patientFileValidation";
 import { clearAuthSession } from "../../services/authApi";
 import {
   changePatientPassword,
@@ -106,6 +107,14 @@ export function PatientEditProfilePage() {
   const handleImage = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const sizeError = getPatientFileSizeError(file, "صورة البروفايل");
+
+    if (sizeError) {
+      toast.warning(sizeError);
+      event.target.value = "";
+      return;
+    }
+
     setPhotoFile(file);
     setImage(URL.createObjectURL(file));
   };
@@ -115,12 +124,8 @@ export function PatientEditProfilePage() {
     setSaving(true);
     try {
       const patient = await updateCurrentPatient({
-        ...form,
-        birthDate: new Date(
-          Number(form.year),
-          Number(form.month) - 1,
-          Number(form.day),
-        ).toISOString(),
+        firstName: form.firstName,
+        lastName: form.lastName,
       });
       let photo = "";
 
@@ -154,21 +159,21 @@ export function PatientEditProfilePage() {
 
           <label className="mt-6 block font-bold">تاريخ الميلاد</label>
           <div className="mt-2 grid grid-cols-3 gap-3">
-            <SelectField value={form.day} onChange={(value) => setForm((current) => ({ ...current, day: value }))} options={Array.from({ length: 31 }, (_, index) => String(index + 1))} placeholder="اليوم" />
-            <SelectField value={form.month} onChange={(value) => setForm((current) => ({ ...current, month: value }))} options={Array.from({ length: 12 }, (_, index) => String(index + 1))} placeholder="الشهر" />
-            <SelectField value={form.year} onChange={(value) => setForm((current) => ({ ...current, year: value }))} options={years} placeholder="السنة" />
+            <SelectField value={form.day} onChange={(value) => setForm((current) => ({ ...current, day: value }))} options={Array.from({ length: 31 }, (_, index) => String(index + 1))} placeholder="اليوم" disabled />
+            <SelectField value={form.month} onChange={(value) => setForm((current) => ({ ...current, month: value }))} options={Array.from({ length: 12 }, (_, index) => String(index + 1))} placeholder="الشهر" disabled />
+            <SelectField value={form.year} onChange={(value) => setForm((current) => ({ ...current, year: value }))} options={years} placeholder="السنة" disabled />
           </div>
 
           <fieldset className="mt-6">
             <legend className="mb-2 font-bold">الجنس</legend>
             <div className="grid grid-cols-2 gap-3">
               {[["male", "ذكر"], ["female", "أنثى"]].map(([value, label]) => (
-                <button key={value} type="button" onClick={() => setForm((current) => ({ ...current, gender: value }))} className={`h-13 rounded-xl border-2 ${form.gender === value ? "border-[#20B7D5] text-[#20B7D5]" : "border-[#D5D5D5] dark:border-[#555]"}`}>{label}</button>
+                <button key={value} type="button" disabled className={`h-13 cursor-not-allowed rounded-xl border-2 opacity-60 ${form.gender === value ? "border-[#20B7D5] text-[#20B7D5]" : "border-[#D5D5D5] dark:border-[#555]"}`}>{label}</button>
               ))}
             </div>
           </fieldset>
 
-          <div className="mt-6"><EditField label="رقم الهاتف" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value.replace(/\D/g, "") }))} inputMode="tel" /></div>
+          <div className="mt-6"><EditField label="رقم الهاتف" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value.replace(/\D/g, "") }))} inputMode="tel" disabled /></div>
 
           <button type="button" onClick={() => navigate(`/patient/${encodeURIComponent(patientId)}/profile/change-password`)} className={`mt-8 h-13 w-full rounded-xl font-bold text-white ${gradient}`}>تغيير كلمة المرور</button>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -240,7 +245,7 @@ export function PatientChangePasswordPage() {
 function PatientSettingsShell({ children, compact = false }) {
   return (
     <div className="min-h-screen bg-[#FCFCFC] text-[#333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
-      <PatientHomeHeader />
+      <PatientHomeHeader disabled />
       <main className="mx-auto w-full max-w-[1120px] px-4 py-12 sm:px-6 md:py-20 lg:px-8">
         <section className={`rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:p-8 md:p-12 ${compact ? "lg:px-24" : ""}`}>{children}</section>
       </main>
@@ -249,18 +254,18 @@ function PatientSettingsShell({ children, compact = false }) {
   );
 }
 
-function EditField({ label, value, onChange, inputMode }) {
+function EditField({ label, value, onChange, inputMode, disabled = false }) {
   return (
     <label className="block">
       <span className="mb-2 block font-bold">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} className="h-13 w-full rounded-xl border border-transparent bg-[#F1F1F1] px-4 outline-none focus:border-[#20B7D5] dark:bg-[#454545]" />
+      <input value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} disabled={disabled} className="h-13 w-full rounded-xl border border-transparent bg-[#F1F1F1] px-4 outline-none focus:border-[#20B7D5] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#454545]" />
     </label>
   );
 }
 
-function SelectField({ value, onChange, options, placeholder }) {
+function SelectField({ value, onChange, options, placeholder, disabled = false }) {
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-13 min-w-0 rounded-xl border border-transparent bg-[#F1F1F1] px-3 outline-none focus:border-[#20B7D5] dark:bg-[#454545]">
+    <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className="h-13 min-w-0 rounded-xl border border-transparent bg-[#F1F1F1] px-3 outline-none focus:border-[#20B7D5] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#454545]">
       <option value="">{placeholder}</option>
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>

@@ -1,4 +1,8 @@
 import { ApiError, apiRequest } from "./apiClient";
+import {
+  getPatientFileSizeError,
+  MAX_PATIENT_FILES_PER_UPLOAD,
+} from "../utils/patientFileValidation";
 
 const arabicWeekDays = {
   saturday: "\u0627\u0644\u0633\u0628\u062A",
@@ -1521,6 +1525,9 @@ export async function updateCurrentPatient(values) {
 }
 
 export async function updateCurrentUserPhoto(photo) {
+  const sizeError = getPatientFileSizeError(photo, "صورة البروفايل");
+  if (sizeError) throw new ApiError(sizeError);
+
   const formData = new FormData();
   formData.append("photo", photo);
 
@@ -2058,6 +2065,37 @@ export async function createAppointment(values) {
   );
 }
 
+export async function bookAppointmentByPatient(values) {
+  const medicalFiles = Array.from(values.medicalFiles || values.files || []);
+
+  if (medicalFiles.length > 5) {
+    throw new ApiError("الحد الأقصى المسموح هو 5 ملفات طبية");
+  }
+
+  const oversizedFile = medicalFiles.find((file) =>
+    Boolean(getPatientFileSizeError(file)),
+  );
+  if (oversizedFile) {
+    throw new ApiError(getPatientFileSizeError(oversizedFile));
+  }
+
+  const formData = new FormData();
+  formData.append("doctorId", String(values.doctorId || ""));
+  formData.append("date", normalizeDate(values.date));
+  formData.append("slotTime", normalizeTime(values.slotTime || values.time));
+  formData.append("reason", String(values.reason || "").trim());
+  medicalFiles.forEach((file) => formData.append("medicalFiles", file));
+
+  const response = await apiRequest("/appointments/bookByPatient", {
+    method: "POST",
+    body: formData,
+  });
+
+  return normalizeAppointment(
+    findEntity(response, ["appointment", "booking", "reservation"]),
+  );
+}
+
 function normalizePrescriptionMedicines(medicines = []) {
   return medicines
     .map((medicine) =>
@@ -2220,17 +2258,36 @@ export async function completePatientProfile(values) {
     body: payload,
   });
 
-  if (medicalFiles.length > 0) {
-    await uploadPatientMedicalFiles(medicalFiles);
+  for (
+    let index = 0;
+    index < medicalFiles.length;
+    index += MAX_PATIENT_FILES_PER_UPLOAD
+  ) {
+    await uploadPatientMedicalFiles(
+      medicalFiles.slice(index, index + MAX_PATIENT_FILES_PER_UPLOAD),
+    );
   }
 
   return profileResponse;
 }
 
 export async function uploadPatientMedicalFiles(files) {
+  const medicalFiles = Array.from(files || []);
+
+  if (medicalFiles.length > MAX_PATIENT_FILES_PER_UPLOAD) {
+    throw new ApiError("يمكن رفع 5 ملفات كحد أقصى في المرة الواحدة");
+  }
+
+  const oversizedFile = medicalFiles.find((file) =>
+    Boolean(getPatientFileSizeError(file)),
+  );
+  if (oversizedFile) {
+    throw new ApiError(getPatientFileSizeError(oversizedFile));
+  }
+
   const formData = new FormData();
 
-  Array.from(files || []).forEach((file) => {
+  medicalFiles.forEach((file) => {
     formData.append("medicalFiles", file);
   });
 

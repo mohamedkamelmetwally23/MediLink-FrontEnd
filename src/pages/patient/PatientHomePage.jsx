@@ -106,7 +106,11 @@ const faqs = [
   },
 ];
 
-export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
+export function PatientHomeHeader({
+  doctorSearch = "",
+  onDoctorSearch,
+  disabled = false,
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { patientId } = useParams();
@@ -212,11 +216,17 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
   return (
     <>
       <header className="fixed left-1/2 top-0 z-40 mx-auto grid min-h-[76px] w-[calc(100%_-_24px)] max-w-[1280px] -translate-x-1/2 grid-cols-[auto_1fr_auto] items-center gap-4 rounded-b-2xl bg-white/95 px-4 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:bg-[#343434]/95 sm:w-[calc(100%_-_48px)] sm:px-6 lg:min-h-[88px] lg:px-8">
-        <Link to={patientHomePath} className="justify-self-start" aria-label="MediLink">
+        <Link
+          to={patientHomePath}
+          className={`justify-self-start ${disabled ? "pointer-events-none opacity-45" : ""}`}
+          aria-label="MediLink"
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : undefined}
+        >
           <ThemeLogo className="w-28 object-contain sm:w-36" />
         </Link>
 
-        <nav className="hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg">
+        <nav className={`hidden items-center justify-center gap-8 text-sm font-semibold text-[#343434] dark:text-[#F0F0F0] md:flex lg:gap-12 lg:text-lg ${disabled ? "pointer-events-none opacity-45" : ""}`}>
           <Link
             to={patientHomePath}
             aria-current={isHomePage ? "page" : undefined}
@@ -241,6 +251,7 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
         <div className="flex items-center justify-self-end gap-3">
           <button
             type="button"
+            disabled={disabled}
             className="grid size-10 place-items-center rounded-full text-[#343434] transition hover:bg-[#05ADE8]/10 dark:text-white md:hidden"
             onClick={() => {
               setMenuOpen((open) => !open);
@@ -255,6 +266,7 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
           <div ref={searchMenuRef} className="relative">
             <button
               type="button"
+              disabled={disabled}
               className={`grid size-10 place-items-center rounded-full transition hover:bg-[#05ADE8]/10 ${
                 searchOpen
                   ? "bg-[#05ADE8]/10 text-[#05ADE8] dark:text-[#05ADE8]"
@@ -317,6 +329,7 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
           <div ref={profileMenuRef} className="relative">
             <button
               type="button"
+              disabled={disabled}
               className="block rounded-full ring-[#05ADE8] transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2"
               onClick={() => {
                 setProfileOpen((open) => !open);
@@ -412,7 +425,7 @@ export function PatientHomeHeader({ doctorSearch = "", onDoctorSearch }) {
           id="patient-mobile-navigation"
           className={`absolute inset-x-0 top-[calc(100%_+_8px)] overflow-hidden rounded-xl bg-white shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition-all duration-200 dark:bg-[#383838] md:hidden ${
             menuOpen ? "visible translate-y-0 opacity-100" : "invisible -translate-y-2 opacity-0"
-          }`}
+          } ${disabled ? "pointer-events-none opacity-45" : ""}`}
         >
           <nav className="flex flex-col p-2" aria-label="قائمة التنقل للموبايل">
             {mobileLinks.map((link) =>
