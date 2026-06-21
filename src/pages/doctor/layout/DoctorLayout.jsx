@@ -84,6 +84,39 @@ function getPatientPhone(appointment) {
   return appointment.phone || appointment.raw?.patientPhone || patient.phone || user.phone || "";
 }
 
+function getEntityId(value) {
+  if (typeof value === "string") return value;
+  return value?._id || value?.id || "";
+}
+
+function getAppointmentPatientCandidates(appointment) {
+  const raw = appointment.raw || {};
+  return [raw.patient, raw.patientId, raw.patientProfile].filter(Boolean);
+}
+
+function getAppointmentPatientProfileId(appointment) {
+  const patient =
+    getAppointmentPatientCandidates(appointment).find(
+      (candidate) => typeof candidate === "object",
+    ) || getAppointmentPatientCandidates(appointment)[0];
+
+  return getEntityId(patient) || appointment.patientId || "";
+}
+
+function getAppointmentPatientUserId(appointment) {
+  const raw = appointment.raw || {};
+  const patientUser = getAppointmentPatientCandidates(appointment)
+    .map((patient) =>
+      typeof patient === "object"
+        ? patient.user || patient.account || patient.userId
+        : "",
+    )
+    .find(Boolean);
+  const user = patientUser || raw.patientUser || raw.patientUserId || raw.user || raw.userId;
+
+  return getEntityId(user);
+}
+
 function buildWaitingList(appointments) {
   const todayIso = getIsoDate(new Date());
 
@@ -95,25 +128,38 @@ function buildWaitingList(appointments) {
     )
     .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time))
     .slice(0, 3)
-    .map((appointment, index) => ({
+    .map((appointment, index) => {
+      const patientProfileId = getAppointmentPatientProfileId(appointment);
+      const patientUserId = getAppointmentPatientUserId(appointment);
+      const patientId = patientProfileId || patientUserId;
+      const patientName = getPatientName(appointment);
+      const patientPhone = getPatientPhone(appointment);
+      const patientImage = getPatientImage(appointment);
+
+      return {
       id: appointment.id || `${appointment.date}-${appointment.time}`,
-      patientId: appointment.patientId,
-      name: getPatientName(appointment),
-      phone: getPatientPhone(appointment),
+      patientId,
+      patientUserId,
+      profileId: patientProfileId,
+      name: patientName,
+      phone: patientPhone,
       time: formatTime(appointment.time),
       status: index === 0 ? "الآن" : "التالي",
       statusTone: index === 0 ? "now" : "soon",
-      image: getPatientImage(appointment),
+      image: patientImage,
       patient: {
-        id: appointment.patientId,
-        _id: appointment.patientId,
-        name: getPatientName(appointment),
-        phone: getPatientPhone(appointment),
-        image: getPatientImage(appointment),
-        profileImage: getPatientImage(appointment),
+        id: patientProfileId || patientUserId,
+        _id: patientProfileId || patientUserId,
+        userId: patientUserId,
+        profileId: patientProfileId,
+        name: patientName,
+        phone: patientPhone,
+        image: patientImage,
+        profileImage: patientImage,
       },
       current: index === 0,
-    }));
+      };
+    });
 }
 
 export default function DoctorLayout() {
@@ -345,12 +391,24 @@ function WaitingList({ waitingList, onClose }) {
 function WaitingItem({ item, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const patientProfileId = item.patientId || item.id;
+  const patientRequestId =
+    item.patientUserId || item.patient?.userId || item.patientId || item.profileId || item.id;
+  const routePatientId = item.patientId || item.profileId || patientRequestId;
+  const examPatientIds = useMemo(
+    () =>
+      [routePatientId, patientRequestId, item.patientUserId, item.patientId, item.profileId]
+        .filter(Boolean)
+        .map(String),
+    [routePatientId, patientRequestId, item.patientUserId, item.patientId, item.profileId],
+  );
   const isInExamination = useMemo(
     () =>
-      location.pathname.startsWith(`/doctor/patients/${patientProfileId}/profile`) &&
-      location.state?.startExam === true,
-    [patientProfileId, location.pathname, location.state],
+      examPatientIds.some((id) =>
+        location.pathname.startsWith(
+          `/doctor/patients/${encodeURIComponent(id)}/profile`,
+        ),
+      ) && location.state?.startExam === true,
+    [examPatientIds, location.pathname, location.state],
   );
   const toneClass =
     item.statusTone === "now"
@@ -358,12 +416,13 @@ function WaitingItem({ item, onClose }) {
       : "bg-[#fff1cd] text-[#d79a16] dark:bg-[#5a4515] dark:text-[#ffd36f]";
 
   const openExamination = () => {
-    if (!patientProfileId) return;
+    if (!routePatientId) return;
 
-    navigate(`/doctor/patients/${patientProfileId}/profile`, {
+    navigate(`/doctor/patients/${encodeURIComponent(routePatientId)}/profile`, {
       state: {
         startExam: true,
         appointmentId: item.id,
+        currentPatientUserId: patientRequestId,
         patient: item.patient,
       },
     });

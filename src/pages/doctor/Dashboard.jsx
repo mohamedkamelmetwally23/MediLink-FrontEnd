@@ -5,7 +5,6 @@ import {
   CalendarDays,
   ChevronLeft,
   Clock3,
-  Search,
   UserRound,
 } from "lucide-react";
 import {
@@ -24,6 +23,7 @@ import patientAvatar from "../../assets/landingPage/admin.png";
 import {
   getCurrentDoctorId,
   getCurrentDoctorProfile,
+  getDoctorPatientsPlanCount,
   listCurrentDoctorAvailableSlots,
   listDoctorAppointments,
   listMyDoctorAppointments,
@@ -32,18 +32,18 @@ import {
 const statusMeta = {
   confirmed: {
     label: "مؤكد",
-    tone: "waiting",
+    tone: "confirmed",
     color: "#1976d2",
   },
   pending: {
     label: "قيد الانتظار",
     tone: "waiting",
-    color: "#38bfd7",
+    color: "#35c0d8",
   },
   completed: {
     label: "تم الكشف",
     tone: "done",
-    color: "#4aae1b",
+    color: "#4bb543",
   },
   cancelled: {
     label: "ملغي",
@@ -54,24 +54,24 @@ const statusMeta = {
 
 const statStyles = [
   {
-    icon: CalendarCheck,
-    color: "text-[#287dd8]",
-    bg: "bg-[#edf6ff]",
-  },
-  {
     icon: UserRound,
     color: "text-[#4fc5b9]",
-    bg: "bg-[#eefcfa]",
+    bg: "bg-[#effcfa]",
+  },
+  {
+    icon: CalendarCheck,
+    color: "text-[#1976d2]",
+    bg: "bg-[#eef6ff]",
   },
   {
     icon: CalendarDays,
     color: "text-[#ffb21d]",
-    bg: "bg-[#fff3d8]",
+    bg: "bg-[#fff4dc]",
   },
   {
     icon: Clock3,
-    color: "text-[#5bbf22]",
-    bg: "bg-[#edf9e6]",
+    color: "text-[#4bb543]",
+    bg: "bg-[#effbe9]",
   },
 ];
 
@@ -332,12 +332,22 @@ async function loadDoctorAppointments(doctor) {
   return [];
 }
 
+function withFallback(promise, fallback, timeoutMs = 7000) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      window.setTimeout(() => resolve(fallback), timeoutMs);
+    }),
+  ]).catch(() => fallback);
+}
+
 export default function DoctorDashboard() {
   const isDark = useDarkTheme();
   const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
+  const [doctorPatientsCount, setDoctorPatientsCount] = useState(null);
   const [availableSlotDays, setAvailableSlotDays] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [error, setError] = useState("");
   const axisColor = isDark ? "#f3f4f6" : "#777";
   const axisLineColor = isDark ? "#d1d5db" : "#cad6dd";
@@ -369,14 +379,14 @@ export default function DoctorDashboard() {
   const maxChartValue = Math.max(4, ...monthlyBookings.map((item) => item.value));
   const dashboardStats = [
     {
+      title: "إجمالي المرضى",
+      value: doctorPatientsCount ?? getUniquePatientsCount(appointments),
+      subtitle: "من رقم البلان",
+    },
+    {
       title: "مواعيد اليوم",
       value: todayAppointments.length,
       subtitle: "من حجوزات اليوم",
-    },
-    {
-      title: "إجمالي المرضى",
-      value: getUniquePatientsCount(appointments),
-      subtitle: "حسب حجوزات الدكتور",
     },
     {
       title: "إجمالي الحجوزات",
@@ -394,44 +404,87 @@ export default function DoctorDashboard() {
     let mounted = true;
 
     async function loadDashboard() {
-      setLoading(true);
       setError("");
 
-      try {
-        const currentDoctor = await getCurrentDoctorProfile();
-        const todayIso = getIsoDate(new Date());
-        const [appointmentsResult, todayAppointmentsResult, slotsResult] =
-          await Promise.allSettled([
-            loadDoctorAppointments(currentDoctor),
-            listMyDoctorAppointments(todayIso),
-            listCurrentDoctorAvailableSlots(currentDoctor),
-          ]);
+      const todayIso = getIsoDate(new Date());
+      const doctorPromise = withFallback(getCurrentDoctorProfile(), null, 5000);
+      const todayAppointmentsPromise = withFallback(
+        listMyDoctorAppointments(todayIso),
+        [],
+        7000,
+      );
+      const currentIdAppointmentsPromise = withFallback(
+        loadDoctorAppointments(null),
+        [],
+        8000,
+      );
+      const doctorPatientsPromise = withFallback(
+        getDoctorPatientsPlanCount(),
+        null,
+        8000,
+      );
 
+      doctorPromise.then((currentDoctor) => {
+        if (mounted) setDoctor(currentDoctor);
+      });
+
+      doctorPatientsPromise.then((count) => {
+        if (mounted && Number.isFinite(Number(count))) {
+          setDoctorPatientsCount(Number(count));
+        }
+      });
+
+      todayAppointmentsPromise.then((todayAppointments) => {
         if (!mounted) return;
-
-        const allAppointments =
-          appointmentsResult.status === "fulfilled"
-            ? appointmentsResult.value
-            : [];
-        const todayAppointments =
-          todayAppointmentsResult.status === "fulfilled"
-            ? todayAppointmentsResult.value
-            : [];
-
-        setDoctor(currentDoctor);
-        setAppointments(mergeDashboardAppointments(allAppointments, todayAppointments));
-        setAvailableSlotDays(
-          slotsResult.status === "fulfilled" ? slotsResult.value : [],
+        setAppointments((current) =>
+          mergeDashboardAppointments(current, todayAppointments),
         );
-      } catch (requestError) {
-        if (mounted) {
-          setError(requestError.message || "تعذر تحميل بيانات لوحة التحكم");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+      });
+
+      Promise.all([currentIdAppointmentsPromise, todayAppointmentsPromise]).then(
+        ([allAppointments, todayAppointments]) => {
+          if (!mounted) return;
+
+          setAppointments(
+            mergeDashboardAppointments(allAppointments, todayAppointments),
+          );
+        },
+      );
+
+      doctorPromise
+        .then((currentDoctor) =>
+          currentDoctor
+            ? withFallback(loadDoctorAppointments(currentDoctor), [], 8000)
+            : [],
+        )
+        .then((profileAppointments) => {
+          if (!mounted) return;
+
+          setAppointments((current) =>
+            mergeDashboardAppointments(current, profileAppointments),
+          );
+        });
+
+      doctorPromise
+        .then((currentDoctor) =>
+          withFallback(
+            listCurrentDoctorAvailableSlots(currentDoctor),
+            [],
+            7000,
+          ),
+        )
+        .then((slots) => {
+          if (mounted) setAvailableSlotDays(slots);
+        });
+
+      Promise.all([doctorPromise, todayAppointmentsPromise]).then(
+        ([currentDoctor, todayAppointments]) => {
+          if (!mounted) return;
+          if (!currentDoctor && todayAppointments.length === 0) {
+            setError("تعذر تحميل بعض بيانات لوحة التحكم من قاعدة البيانات");
+          }
+        },
+      );
     }
 
     loadDashboard();
@@ -464,9 +517,9 @@ export default function DoctorDashboard() {
           <DashboardCard
             title="عدد الحجوزات"
             action={<RangeTabs options={["يوم", "أسبوع", "شهر", "سنة"]} />}
-            className="min-h-[238px]"
+            className="min-h-[270px]"
           >
-            <div className="h-[170px] w-full text-[#6e767b] dark:text-gray-200">
+            <div className="h-[202px] w-full text-[#6e767b] dark:text-gray-200">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={monthlyBookings}
@@ -480,8 +533,8 @@ export default function DoctorDashboard() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="0%" stopColor="#28bfe1" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#28bfe1" stopOpacity={0.06} />
+                      <stop offset="0%" stopColor="#35c0d8" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#35c0d8" stopOpacity={0.06} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -515,10 +568,10 @@ export default function DoctorDashboard() {
                     type="monotone"
                     dataKey="value"
                     fill="url(#doctorBookingsFill)"
-                    stroke="#31b9db"
+                    stroke="#35c0d8"
                     strokeWidth={2.5}
-                    dot={{ r: 3, fill: "#31b9db", strokeWidth: 0 }}
-                    activeDot={{ r: 4, fill: "#31b9db", strokeWidth: 0 }}
+                    dot={{ r: 3, fill: "#35c0d8", strokeWidth: 0 }}
+                    activeDot={{ r: 4, fill: "#35c0d8", strokeWidth: 0 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -538,7 +591,7 @@ export default function DoctorDashboard() {
 function Header({ doctorName }) {
   return (
     <header className="flex min-h-[100px] flex-col gap-5 bg-white px-4 py-[22px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[24px]">
-      <div className="text-right">
+      <div className="ml-auto text-right">
         <h1 className="text-[20px] font-bold leading-7 text-[#333] dark:text-white">
           مرحبا {doctorName} 👋
         </h1>
@@ -546,49 +599,29 @@ function Header({ doctorName }) {
           إليك ملخص مواعيدك اليوم
         </p>
       </div>
-
-      <SearchBox />
     </header>
-  );
-}
-
-function SearchBox() {
-  return (
-    <label
-      className="flex h-[44px] w-full items-center gap-[10px] rounded-[8px] border border-[#d7d7d7] bg-[#fbfbfb] px-[13px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[280px]"
-      dir="ltr"
-    >
-      <input
-        className="min-w-0 flex-1 bg-transparent text-right text-[12px] outline-none placeholder:text-[#9a9a9a]"
-        placeholder="ابحث هنا..."
-        dir="rtl"
-      />
-      <Search size={17} strokeWidth={1.7} />
-    </label>
   );
 }
 
 function StatCard({ title, value, subtitle, icon: Icon, color, bg, loading }) {
   return (
-    <article className="h-[118px] rounded-[8px] bg-white px-[20px] pb-[13px] pt-[18px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <div className="flex items-start justify-between" dir="ltr">
-        <span
-          className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[8px] ${bg} ${color}`}
-        >
-          <Icon size={21} strokeWidth={2} />
-        </span>
+    <article className="relative h-[132px] rounded-[8px] bg-white pb-[15px] pl-[30px] pr-[20px] pt-[20px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+      <span
+        className={`absolute left-[30px] top-1/2 grid h-[46px] w-[46px] -translate-y-1/2 place-items-center rounded-[8px] ${bg} ${color}`}
+      >
+        <Icon size={24} strokeWidth={2} />
+      </span>
 
-        <div className="text-right" dir="rtl">
-          <p className="text-[13px] leading-5 text-[#333] dark:text-gray-100">
-            {title}
-          </p>
-          <h3 className="text-[17px] font-bold leading-6 text-[#2e2e2e] dark:text-white">
-            {loading ? "..." : value}
-          </h3>
-        </div>
+      <div className="text-right" dir="rtl">
+        <p className="text-[13px] leading-5 text-[#333] dark:text-gray-100">
+          {title}
+        </p>
+        <h3 className="text-[17px] font-bold leading-6 text-[#2e2e2e] dark:text-white">
+          {loading ? "..." : value}
+        </h3>
       </div>
 
-      <p className="mt-[20px] text-right text-[10px] leading-4 text-[#777] dark:text-gray-300">
+      <p className="mt-[28px] text-right text-[10px] leading-4 text-[#777] dark:text-gray-300">
         {subtitle}
       </p>
     </article>
@@ -633,7 +666,7 @@ function AppointmentsToday({ appointments, loading }) {
     <DashboardCard
       title="مواعيد اليوم"
       action={<CardLink to="/doctor/appointments" />}
-      className="min-h-[238px] overflow-hidden"
+      className="min-h-[270px] overflow-hidden"
     >
       {loading ? (
         <LoadingRows />
@@ -679,6 +712,7 @@ function AppointmentRow({ appointment }) {
 
 function StatusBadge({ tone, children }) {
   const toneClasses = {
+    confirmed: "bg-[#eaf2ff] text-[#1976d2]",
     waiting: "bg-[#fff1cd] text-[#d79a16]",
     done: "bg-[#e8fff4] text-[#129a55]",
     cancelled: "bg-[#fff0f0] text-[#ff2020]",
@@ -699,14 +733,14 @@ function WeeklyBookings({ states, loading }) {
   return (
     <DashboardCard
       title="حالات حجز المواعيد هذا الأسبوع"
-      className="min-h-[238px]"
+      className="min-h-[270px]"
     >
       {loading ? (
         <LoadingRows />
       ) : states.length === 0 ? (
         <EmptyState text="لا توجد حجوزات هذا الأسبوع" />
       ) : (
-        <div className="flex h-[176px] items-center justify-center gap-[24px]" dir="ltr">
+        <div className="flex h-[208px] items-center justify-center gap-[24px]" dir="ltr">
           <div className="h-[146px] w-[146px] shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -752,9 +786,9 @@ function WeeklyBookings({ states, loading }) {
 function AvailableSlots({ slots, loading }) {
   return (
     <DashboardCard
-      title="أقرب المواعيد المتاحة"
+      title= "النشاط الأخير"
       action={<CardLink to="/doctor/appointments" />}
-      className="min-h-[238px] overflow-hidden"
+      className="min-h-[270px] overflow-hidden"
     >
       {loading ? (
         <LoadingRows />
@@ -765,9 +799,9 @@ function AvailableSlots({ slots, loading }) {
           {slots.slice(0, 5).map((slot) => (
             <div
               key={`${slot.date}-${slot.time}`}
-              className="grid min-h-[34px] grid-cols-[82px_1fr] items-center rounded-[7px] bg-[#f7fcfd] px-[10px] text-[11px] dark:bg-white/10"
+              className="grid min-h-[34px] grid-cols-[82px_1fr] items-center rounded-[7px] bg-[#f2fbfd] px-[10px] text-[11px] dark:bg-white/10"
             >
-              <span className="text-left font-bold text-[#28b8d4]">
+              <span className="text-left font-bold text-[#35c0d8]">
                 {formatTime(slot.time)}
               </span>
               <span className="truncate text-right text-[#444] dark:text-white">
@@ -796,7 +830,7 @@ function CardLink({ to }) {
 
 function EmptyState({ text }) {
   return (
-    <div className="grid min-h-[155px] place-items-center text-center text-[12px] font-bold text-[#7d7d7d] dark:text-gray-200">
+    <div className="grid min-h-[188px] place-items-center text-center text-[12px] font-bold text-[#7d7d7d] dark:text-gray-200">
       {text}
     </div>
   );

@@ -20,6 +20,7 @@ import {
   createPrescription,
   getCurrentDoctorId,
   getCurrentDoctorProfile,
+  getCurrentPatientForDoctor,
   listMyDoctorAppointments,
   listPatientsForDoctor,
 } from "../../services/medilinkApi";
@@ -156,9 +157,41 @@ function sameId(left, right) {
   return Boolean(left && right && String(left) === String(right));
 }
 
-function findAppointmentForPatient(appointments, targetPatientId) {
-  return appointments.find((appointment) =>
-    sameId(appointment.patientId, targetPatientId),
+function getAppointmentPatientIds(appointment) {
+  const raw = appointment.raw || {};
+  const patient = raw.patient || raw.patientId || raw.patientProfile || {};
+  const user =
+    patient && typeof patient === "object"
+      ? patient.user || patient.account || patient.userId
+      : "";
+
+  return [
+    appointment.patientId,
+    raw.patientId,
+    raw.patient,
+    raw.patientProfile,
+    raw.patientUserId,
+    raw.userId,
+    patient?._id,
+    patient?.id,
+    user?._id,
+    user?.id,
+    typeof user === "string" ? user : "",
+  ].filter(Boolean);
+}
+
+function findAppointmentForPatient(appointments, targetPatientIds, appointmentId = "") {
+  const targets = (Array.isArray(targetPatientIds)
+    ? targetPatientIds
+    : [targetPatientIds]
+  ).filter(Boolean);
+
+  return appointments.find(
+    (appointment) =>
+      sameId(appointment.id, appointmentId) ||
+      getAppointmentPatientIds(appointment).some((id) =>
+        targets.some((target) => sameId(id, target)),
+      ),
   );
 }
 
@@ -290,7 +323,9 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     [selectedRecordId],
   );
   const routedPatient = location.state?.patient;
-  const storedPatient = routedPatient || loadedPatient || getUser(patientId);
+  const currentPatientUserId = location.state?.currentPatientUserId;
+  const stateAppointmentId = location.state?.appointmentId || "";
+  const storedPatient = loadedPatient || routedPatient || getUser(patientId);
   const patient =
     buildPatientFromUser(storedPatient) ||
     (!startExam ? fallbackPatients[patientId] : null) ||
@@ -322,9 +357,19 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
       }
 
       if (appointmentsResult.status === "fulfilled") {
+        const patientTargets = [
+          patientId,
+          currentPatientUserId,
+          routedPatient?.id,
+          routedPatient?._id,
+          routedPatient?.userId,
+          routedPatient?.profileId,
+          getPatientRecordId(routedPatient),
+        ];
         const appointment = findAppointmentForPatient(
           appointmentsResult.value,
-          patientId,
+          patientTargets,
+          stateAppointmentId,
         );
 
         if (appointment) setCurrentAppointment(appointment);
@@ -344,7 +389,26 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     return () => {
       mounted = false;
     };
-  }, [patientId, routedPatient]);
+  }, [patientId, routedPatient, currentPatientUserId, stateAppointmentId]);
+
+  useEffect(() => {
+    if (!startExam || !currentPatientUserId) return undefined;
+
+    let mounted = true;
+
+    getCurrentPatientForDoctor(currentPatientUserId)
+      .then((result) => {
+        if (!mounted) return;
+
+        if (result.patient) setLoadedPatient(result.patient);
+        if (result.appointment) setCurrentAppointment(result.appointment);
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [startExam, currentPatientUserId]);
 
   const handleFinishVisit = async () => {
     const targetPatientId = getPatientRecordId(storedPatient, patientId);
@@ -439,7 +503,9 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
                 )}
 
                 <div className="mt-[18px] min-h-[360px] sm:mt-[31px] lg:min-h-[560px]">
-                  {activeSection === "booking" && <BookingDetails />}
+                  {activeSection === "booking" && (
+                    <BookingDetails appointment={currentAppointment} />
+                  )}
                   {activeSection === "info" && <PatientInformation patient={patient} />}
                   {activeSection === "files" && <MedicalFiles large />}
                   {activeSection === "records" && !selectedRecord && (
@@ -2080,10 +2146,65 @@ function PreviousMedicines() {
   );
 }
 
-function BookingDetails() {
+function getAppointmentStatusText(status) {
+  const labels = {
+    confirmed: "مؤكد",
+    pending: "قيد الانتظار",
+    completed: "مكتمل",
+    cancelled: "ملغي",
+  };
+
+  return labels[status] || status || "غير مسجل";
+}
+
+function getPaymentStatusText(status) {
+  const labels = {
+    paid: "مدفوع",
+    waiting: "بانتظار الدفع",
+    pending: "بانتظار الدفع",
+    unpaid: "غير مدفوع",
+  };
+
+  return labels[status] || status || "غير مسجل";
+}
+
+function BookingDetails({ appointment }) {
+  if (!appointment) {
+    return (
+      <section className="text-right">
+        <PatientEmptyState text="لا توجد تفاصيل حجز مسجلة حتى الآن" />
+      </section>
+    );
+  }
+
+  const raw = appointment.raw || {};
+  const items = [
+    { label: "تاريخ الحجز", value: formatProfileDate(appointment.date || raw.date) },
+    { label: "وقت الحجز", value: formatTime(appointment.time || raw.time) },
+    { label: "حالة الحجز", value: getAppointmentStatusText(appointment.status) },
+    { label: "حالة الدفع", value: getPaymentStatusText(appointment.payment) },
+    { label: "الطبيب", value: appointment.doctor || raw.doctorName },
+    { label: "التخصص", value: appointment.specialty || raw.specialty },
+    { label: "رقم الهاتف", value: appointment.phone || raw.phone || raw.patientPhone },
+  ].filter((item) => item.value);
+
   return (
     <section className="text-right">
-      <PatientEmptyState text="لا توجد تفاصيل حجز مسجلة حتى الآن" />
+      <div className="grid gap-[12px] sm:grid-cols-2">
+        {items.map((item) => (
+          <article
+            key={item.label}
+            className="rounded-[10px] bg-white px-[20px] py-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.06)] dark:bg-[#3d3d3d]"
+          >
+            <p className="text-[13px] font-semibold text-[#8a8a8a] dark:text-gray-300">
+              {item.label}
+            </p>
+            <p className="mt-[8px] text-[18px] font-bold text-[#333] dark:text-white">
+              {item.value}
+            </p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }

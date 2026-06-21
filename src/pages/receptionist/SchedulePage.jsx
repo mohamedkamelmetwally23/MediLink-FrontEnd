@@ -33,6 +33,11 @@ const hours = Array.from({ length: 13 }, (_, index) => {
   };
 });
 
+const compactEventHeight = 27;
+const compactEventPadding = 10;
+const wideEventHeight = 36;
+const wideEventPadding = 12;
+
 const statusMeta = {
   pending: {
     label: "في الانتظار",
@@ -49,7 +54,7 @@ const statusMeta = {
     border: "border-[#4bb543]",
   },
   completed: {
-    label: "مؤكد",
+    label: "مكتمل",
     dot: "bg-[#4bb543]",
     text: "text-[#38932f]",
     bg: "bg-[#eaf8e8]",
@@ -208,10 +213,40 @@ function getCalendarHour(time) {
   return match ? Number(match[1]) : 9;
 }
 
+function getCalendarMinutes(time) {
+  const match = /^(\d{1,2}):(\d{2})/.exec(time || "");
+  if (!match) return getCalendarHour(time) * 60;
+
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
 function getCalendarStatus(status) {
-  if (status === "cancelled") return "cancelled";
-  if (status === "completed") return "completed";
-  if (status === "pending") return "pending";
+  const raw = String(status || "").trim();
+  const value = raw.toLowerCase();
+
+  if (
+    ["completed", "complete", "done", "finished", "finish", "attended", "closed"].includes(
+      value,
+    ) ||
+    ["مكتمل", "مكتملة", "تم الانتهاء", "تم الكشف", "تم الكشف عليه", "منتهي", "منتهية"].includes(
+      raw,
+    )
+  )
+    return "completed";
+  if (
+    ["cancelled", "canceled", "cancel", "rejected", "reject", "refused"].includes(
+      value,
+    ) ||
+    ["ملغى", "ملغي", "ملغية", "ملغيًا", "تم الإلغاء", "تم الالغاء", "إلغاء", "الغاء"].includes(
+      raw,
+    )
+  )
+    return "cancelled";
+  if (
+    ["pending", "waiting", "reserved"].includes(value) ||
+    ["قيد الانتظار", "قيد_الانتظار", "قيدالانتظار", "في الانتظار"].includes(raw)
+  )
+    return "pending";
   return "confirmed";
 }
 
@@ -243,11 +278,41 @@ function toCalendarAppointment(appointment, index, baseDate = new Date()) {
     dateIso: getIsoDate(appointmentDate),
     day: appointmentDate.getDate(),
     hour: getCalendarHour(time),
+    sortMinutes: getCalendarMinutes(time),
     patient: appointment.patient || "مريض",
     doctor: appointment.doctor || "طبيب",
     time: formatAppointmentTime(time),
     status: getCalendarStatus(appointment.status),
   };
+}
+
+function sortCalendarEvents(events) {
+  return [...events].sort((first, second) => {
+    if (first.sortMinutes !== second.sortMinutes) {
+      return first.sortMinutes - second.sortMinutes;
+    }
+
+    return String(first.patient).localeCompare(String(second.patient), "ar");
+  });
+}
+
+function getWeekHourRowHeight(appointments, weekDays, hour) {
+  const maxEventsInCell = Math.max(
+    0,
+    ...weekDays.map(
+      (day) =>
+        appointments.filter(
+          (appointment) =>
+            appointment.dateIso === day.dateIso && appointment.hour === hour,
+        ).length,
+    ),
+  );
+
+  return Math.max(56, maxEventsInCell * compactEventHeight + compactEventPadding);
+}
+
+function getDayHourRowHeight(eventCount) {
+  return Math.max(46, eventCount * wideEventHeight + wideEventPadding);
 }
 
 function getDoctorOptions(doctors, appointments) {
@@ -562,7 +627,7 @@ function MonthCell({ day, appointments }) {
   );
 
   return (
-    <div className="h-[102px] border-l border-t border-[#edf2f4] bg-white p-[6px] last:border-l-0 dark:border-white/15 dark:bg-[#505050]">
+    <div className="min-h-[132px] border-l border-t border-[#edf2f4] bg-white p-[6px] last:border-l-0 dark:border-white/15 dark:bg-[#505050]">
       <div
         className={`ml-auto grid h-[18px] w-[18px] place-items-center rounded-full text-[9px] ${
           day.dateIso === getIsoDate(startOfDay(new Date()))
@@ -576,8 +641,8 @@ function MonthCell({ day, appointments }) {
       </div>
 
       <div className="mt-[10px] space-y-[3px]">
-        {events.slice(0, 3).map((event) => (
-          <CompactEvent key={`${event.id}-${event.status}`} event={event} />
+        {sortCalendarEvents(events).slice(0, 3).map((event) => (
+          <CompactEvent key={`${event.id}-${event.time}-${event.status}`} event={event} />
         ))}
         {events.length > 3 && (
           <div className="text-[8px] font-bold leading-3 text-[#777] dark:text-gray-300">
@@ -615,13 +680,19 @@ function WeekView({ appointments, weekDays, currentHour }) {
 
       {hours.map((hour) => {
         const current = hour.value === currentHour;
+        const rowHeight = getWeekHourRowHeight(
+          appointments,
+          weekDays,
+          hour.value,
+        );
 
         return (
           <div
             key={hour.value}
-            className={`grid h-[44px] grid-cols-[42px_repeat(7,minmax(0,1fr))] ${
+            className={`grid grid-cols-[42px_repeat(7,minmax(0,1fr))] ${
               current ? "border-t border-[#37bed9]" : ""
             }`}
+            style={{ minHeight: `${rowHeight}px` }}
           >
             <HourLabel current={current} hour={hour} />
             {weekDays.map((day) => (
@@ -641,17 +712,20 @@ function WeekView({ appointments, weekDays, currentHour }) {
 }
 
 function WeekCell({ dateIso, hour, highlighted, appointments }) {
-  const cellEvents = appointments.filter(
-    (appointment) => appointment.dateIso === dateIso && appointment.hour === hour,
+  const cellEvents = sortCalendarEvents(
+    appointments.filter(
+      (appointment) =>
+        appointment.dateIso === dateIso && appointment.hour === hour,
+    ),
   );
 
   return (
     <div
-      className={`border-l border-t border-[#edf2f4] px-[3px] py-[2px] last:border-l-0 dark:border-white/15 ${
+      className={`min-h-0 border-l border-t border-[#edf2f4] px-[4px] py-[4px] last:border-l-0 dark:border-white/15 ${
         highlighted ? "bg-[#f7fbfc] dark:bg-white/5" : "bg-white dark:bg-[#505050]"
       }`}
     >
-      <div className="space-y-[2px]">
+      <div className="flex h-full min-h-0 flex-col gap-[3px]">
         {cellEvents.map((event) => (
           <CompactEvent key={`${event.id}-${event.time}`} event={event} />
         ))}
@@ -662,8 +736,10 @@ function WeekCell({ dateIso, hour, highlighted, appointments }) {
 
 function DayView({ appointments, selectedDate, currentHour }) {
   const selectedDateIso = getIsoDate(selectedDate);
-  const dayEvents = appointments.filter(
-    (appointment) => appointment.dateIso === selectedDateIso,
+  const dayEvents = sortCalendarEvents(
+    appointments.filter(
+      (appointment) => appointment.dateIso === selectedDateIso,
+    ),
   );
 
   return (
@@ -671,17 +747,19 @@ function DayView({ appointments, selectedDate, currentHour }) {
       {hours.map((hour) => {
         const current = hour.value === currentHour;
         const events = dayEvents.filter((appointment) => appointment.hour === hour.value);
+        const rowHeight = getDayHourRowHeight(events.length);
 
         return (
           <div
             key={hour.value}
-            className={`grid h-[42px] grid-cols-[42px_minmax(0,1fr)] ${
+            className={`grid grid-cols-[42px_minmax(0,1fr)] ${
               current ? "border-t border-[#37bed9]" : ""
             }`}
+            style={{ minHeight: `${rowHeight}px` }}
           >
             <HourLabel current={current} hour={hour} />
-            <div className="border-t border-[#edf2f4] bg-white px-[5px] py-[4px] dark:border-white/15 dark:bg-[#505050]">
-              <div className="grid h-full gap-[3px]">
+            <div className="border-t border-[#edf2f4] bg-white px-[5px] py-[5px] dark:border-white/15 dark:bg-[#505050]">
+              <div className="grid h-full gap-[4px]">
                 {events.map((event) => (
                   <WideEvent key={`${event.id}-${event.time}`} event={event} />
                 ))}
@@ -713,7 +791,7 @@ function CompactEvent({ event }) {
 
   return (
     <div
-      className={`border-r-[3px] ${meta.border} ${meta.bg} ${meta.text} min-h-[22px] rounded-[3px] px-[5px] py-[2px] text-right`}
+      className={`min-h-[24px] overflow-hidden border-r-[3px] ${meta.border} ${meta.bg} ${meta.text} rounded-[3px] px-[5px] py-[2px] text-right`}
     >
       <p className="truncate text-[8px] font-bold leading-3">{event.patient}</p>
       <p className="truncate text-[7px] leading-3 opacity-90">{event.time}</p>
@@ -726,7 +804,7 @@ function WideEvent({ event }) {
 
   return (
     <div
-      className={`flex h-full min-h-[30px] items-center justify-between rounded-[3px] border-r-[3px] ${meta.border} ${meta.bg} px-[12px] ${meta.text}`}
+      className={`flex h-full min-h-[32px] items-center justify-between overflow-hidden rounded-[3px] border-r-[3px] ${meta.border} ${meta.bg} px-[12px] ${meta.text}`}
     >
       <div className="text-right">
         <p className="text-[10px] font-bold leading-4">{event.patient}</p>

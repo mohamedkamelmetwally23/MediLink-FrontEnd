@@ -5,7 +5,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  CircleSlash,
   Search,
   Trash2,
   X,
@@ -120,20 +119,25 @@ export default function DoctorPatientsPage() {
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
-      <Header search={search} onSearchChange={setSearch} />
+      <Header />
 
-      <main className="px-4 pb-[28px] pt-[24px] sm:px-6 lg:px-[24px]">
-        {selectedCount > 0 && (
-          <SelectionBar
-            count={selectedCount}
-            onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
-          />
-        )}
+      <main className="w-full px-4 pb-[28px] pt-[16px] sm:px-6 lg:px-[24px]">
+        <div className="w-full space-y-[6px]">
+          <div className="flex justify-end" dir="ltr">
+            <SearchBox value={search} onChange={setSearch} />
+          </div>
 
-        <section className="overflow-hidden rounded-[8px] bg-white shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+          {selectedCount > 0 && (
+            <SelectionBar
+              count={selectedCount}
+              onClear={() => setSelectedIds([])}
+              onDelete={() => setPendingDelete(selectedIds)}
+            />
+          )}
+
+        <section className="w-full overflow-hidden rounded-[4px] border border-[#e8eef1] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#505050]">
           <div className="overflow-x-auto">
-            <div className="min-w-[820px]">
+            <div className="min-w-[620px] w-full">
               <TableHeader
                 allVisibleSelected={allVisibleSelected}
                 onToggleAll={toggleAllVisible}
@@ -156,7 +160,6 @@ export default function DoctorPatientsPage() {
                     patient={patient}
                     selected={selectedIds.includes(patient.id)}
                     onToggle={() => togglePatient(patient.id)}
-                    onDelete={() => setPendingDelete([patient.id])}
                   />
                 ))
               )}
@@ -171,6 +174,7 @@ export default function DoctorPatientsPage() {
             />
           )}
         </section>
+        </div>
       </main>
 
       {pendingDelete && (
@@ -183,10 +187,10 @@ export default function DoctorPatientsPage() {
   );
 }
 
-function Header({ search, onSearchChange }) {
+function Header() {
   return (
     <header className="flex min-h-[100px] flex-col gap-5 bg-white px-4 py-[20px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[24px]">
-      <div className="text-right">
+      <div className="ml-auto text-right">
         <h1 className="text-[20px] font-bold leading-7 text-[#333] dark:text-white">
           المرضى
         </h1>
@@ -194,8 +198,6 @@ function Header({ search, onSearchChange }) {
           عرض وإدارة جميع المرضى الخاصة بالعيادة.
         </p>
       </div>
-
-      <SearchBox value={search} onChange={onSearchChange} />
     </header>
   );
 }
@@ -203,7 +205,7 @@ function Header({ search, onSearchChange }) {
 function SearchBox({ value, onChange }) {
   return (
     <label
-      className="flex h-[44px] w-full items-center gap-[10px] rounded-[8px] border border-[#d7d7d7] bg-[#fbfbfb] px-[13px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[280px]"
+      className="flex h-[34px] w-full items-center gap-[8px] rounded-[6px] border border-[#d7d7d7] bg-white px-[10px] text-[#9a9a9a] dark:border-white/20 dark:bg-[#454545] dark:text-gray-200 sm:w-[190px]"
       dir="ltr"
     >
       {value && (
@@ -219,18 +221,18 @@ function SearchBox({ value, onChange }) {
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-right text-[12px] outline-none placeholder:text-[#9a9a9a]"
+        className="min-w-0 flex-1 bg-transparent text-right text-[11px] outline-none placeholder:text-[#9a9a9a]"
         placeholder="إبحث هنا..."
         dir="rtl"
       />
-      <Search size={17} strokeWidth={1.7} />
+      <Search size={14} strokeWidth={1.7} />
     </label>
   );
 }
 
 function SelectionBar({ count, onClear, onDelete }) {
   return (
-    <div className="mb-[16px] flex min-h-[48px] items-center justify-between gap-4 rounded-[7px] border border-[#d8eef5] bg-[#f8fdff] px-[18px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
+    <div className="flex min-h-[42px] items-center justify-between gap-4 rounded-[4px] border border-[#d8eef5] bg-[#f8fdff] px-[12px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
       <button
         type="button"
         aria-label="إلغاء التحديد"
@@ -243,14 +245,13 @@ function SelectionBar({ count, onClear, onDelete }) {
       <div className="flex items-center gap-[16px]">
         <button
           type="button"
-          className="flex h-[33px] items-center gap-[9px] rounded-[7px] border border-[#ff2626] px-[12px] text-[11px] font-semibold text-[#ff2626]"
+          className="flex h-[28px] items-center rounded-[4px] border border-[#ff2626] px-[10px] text-[10px] font-semibold text-[#ff2626]"
           onClick={onDelete}
         >
-          <Trash2 size={16} strokeWidth={1.8} />
           <span>حذف المحدد</span>
         </button>
 
-        <p className="text-[12px] font-semibold text-[#333] dark:text-white">
+        <p className="text-[11px] font-semibold text-[#333] dark:text-white">
           تم تحديد {count} من العناصر
         </p>
       </div>
@@ -265,68 +266,75 @@ function TableHeader({
   onStatusChange,
 }) {
   return (
-    <div className="grid h-[48px] grid-cols-[46px_1.3fr_1.15fr_0.8fr_0.8fr_84px_36px] items-center bg-[#f7f7f7] text-[12px] font-bold text-[#333] dark:bg-[#444] dark:text-white">
-      <div className="flex justify-center">
+    <div
+      className="grid h-[36px] grid-cols-[34px_minmax(150px,1fr)_140px_74px_78px_36px] items-center bg-[#f7f7f7] px-[8px] text-[10px] font-bold text-[#333] dark:bg-[#444] dark:text-white"
+      dir="rtl"
+    >
+      <div className="flex justify-end">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
-      <span className="text-center">الاسم</span>
+      <span className="text-right">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
       <span className="text-center">عدد الزيارات</span>
       <select
         value={statusFilter}
         onChange={(event) => onStatusChange(event.target.value)}
-        className="mx-auto h-[30px] w-[88px] rounded-[7px] bg-transparent text-center text-[12px] font-bold outline-none dark:bg-[#444]"
+        className="mx-auto h-[26px] w-[78px] rounded-[5px] bg-transparent text-center text-[10px] font-bold outline-none dark:bg-[#444]"
       >
         <option value="">الحالة</option>
         <option value="active">نشط</option>
         <option value="inactive">غير نشط</option>
       </select>
       <span />
-      <span />
     </div>
   );
 }
 
-function PatientRow({ patient, selected, onToggle, onDelete }) {
+function PatientRow({ patient, selected, onToggle }) {
   return (
     <div
-      className={`grid h-[42px] grid-cols-[46px_1.3fr_1.15fr_0.8fr_0.8fr_84px_36px] items-center border-b border-[#eeeeee] text-[12px] text-[#333] transition dark:border-white/15 dark:text-white ${
-        selected ? "bg-[#eefcff] dark:bg-cyan-400/10" : "bg-white dark:bg-[#505050]"
+      className={`grid h-[36px] grid-cols-[34px_minmax(150px,1fr)_140px_74px_78px_36px] items-center border-b border-[#e9e9e9] px-[8px] text-[10px] text-[#333] transition hover:bg-[#f6f6f6] dark:border-white/10 dark:text-white dark:hover:bg-white/5 ${
+        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
+      dir="rtl"
     >
-      <div className="flex justify-center">
+      <div className="flex justify-end">
         <Checkbox checked={selected} onClick={onToggle} />
       </div>
-      <span className="truncate text-center font-medium">{patient.name}</span>
-      <span className="truncate text-center" dir="ltr">
+      <span className="truncate text-right font-medium text-[#2f2f2f] dark:text-white">
+        {patient.name}
+      </span>
+      <span className="truncate text-center font-medium text-[#333] dark:text-gray-200" dir="ltr">
         {patient.phone}
       </span>
-      <span className="text-center">{patient.casesCount}</span>
+      <span className="text-center font-medium text-[#333] dark:text-gray-200">
+        {patient.casesCount}
+      </span>
       <StatusBadge status={patient.status} />
-      <div className="flex items-center justify-center gap-[14px]">
+      <div className="hidden" aria-hidden="true">
         <button
           type="button"
           aria-label={`تعطيل ${patient.name}`}
           className="text-[#a4a4a4] transition hover:text-[#35c0d8]"
         >
-          <CircleSlash size={15} strokeWidth={1.8} />
+          {null}
         </button>
         <button
           type="button"
           aria-label={`حذف ${patient.name}`}
           className="text-[#a4a4a4] transition hover:text-[#ff2626]"
-          onClick={onDelete}
+          disabled
         >
           <Trash2 size={15} strokeWidth={1.8} />
         </button>
       </div>
       <Link
-        to={`/doctor/patients/${patient.id}/profile`}
+        to={`/doctor/patients/${encodeURIComponent(patient.id)}/profile`}
         state={{ patient: patient.raw || patient }}
         aria-label={`عرض ملف ${patient.name}`}
-        className="grid h-full place-items-center text-[#333] dark:text-white"
+        className="mx-auto grid h-[28px] w-[28px] place-items-center rounded-full text-[#35c0d8] transition hover:bg-[#edfafd] dark:text-[#35c0d8] dark:hover:bg-white/10"
       >
-        <ChevronLeft size={17} strokeWidth={1.7} />
+        <ChevronLeft size={17} strokeWidth={1.9} />
       </Link>
     </div>
   );
@@ -337,7 +345,7 @@ function Checkbox({ checked, onClick }) {
     <button
       type="button"
       aria-pressed={checked}
-      className={`grid h-[16px] w-[16px] place-items-center rounded-[3px] border text-[11px] font-bold leading-none ${
+      className={`grid h-[13px] w-[13px] place-items-center rounded-[2px] border text-[9px] font-bold leading-none ${
         checked
           ? "border-[#43bfd1] bg-[#43bfd1] text-white"
           : "border-[#c2c2c2] bg-transparent"
@@ -354,8 +362,10 @@ function StatusBadge({ status }) {
 
   return (
     <span
-      className={`mx-auto text-[10px] font-bold ${
-        isActive ? "text-[#36b320]" : "text-[#ff2020]"
+      className={`mx-auto inline-flex h-[18px] min-w-[46px] items-center justify-center rounded-full px-[8px] text-[8px] font-bold ${
+        isActive
+          ? "bg-[#eaf8e9] text-[#36a820] dark:bg-[#36a820]/15 dark:text-[#75dd62]"
+          : "bg-[#fff0f0] text-[#ff2020] dark:bg-[#ff2020]/15 dark:text-[#ff7d7d]"
       }`}
     >
       {statusLabels[status]}
@@ -365,7 +375,7 @@ function StatusBadge({ status }) {
 
 function TableState({ text }) {
   return (
-    <div className="grid min-h-[470px] place-items-center text-[14px] font-bold text-[#333] dark:text-white">
+    <div className="grid min-h-[250px] place-items-center border-t border-[#edf1f3] text-[13px] font-bold text-[#333] dark:border-white/10 dark:text-white">
       {text}
     </div>
   );
@@ -375,7 +385,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   const pages = getPaginationPages(currentPage, totalPages);
 
   return (
-    <div className="flex h-[62px] items-center justify-center gap-[18px] text-[11px] font-bold text-[#333] dark:text-white">
+    <div className="flex h-[42px] items-center justify-center gap-[14px] border-t border-[#edf1f3] text-[10px] font-bold text-[#333] dark:border-white/10 dark:text-white">
       <button
         type="button"
         aria-label="الصفحة الأولى"

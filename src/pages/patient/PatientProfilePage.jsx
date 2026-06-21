@@ -566,51 +566,83 @@ function MedicalFiles({ files, search, onPreview }) {
 }
 
 function MedicalRecords({ search, medicalReports = [] }) {
-  const items =
-    Array.isArray(medicalReports) && medicalReports.length > 0
-      ? medicalReports
-      : records;
+  const items = Array.isArray(medicalReports) ? medicalReports : [];
 
   const filtered = items.filter((rec) => {
-    const title = rec.diagnosis || rec.title || "";
-    const notes = rec.notes || rec.summary || rec.report || "";
+    const title =
+      rec.diagnosis ||
+      rec.title ||
+      rec.medicalReportTitle ||
+      rec.reportTitle ||
+      "";
+    const notes =
+      rec.notes ||
+      rec.summary ||
+      rec.report ||
+      rec.description ||
+      rec.doctorNotes ||
+      "";
     return includesSearchText(`${title} ${notes}`, search);
   });
 
   const formatDate = (iso) => {
-    try {
-      if (!iso) return "";
-      return new Date(iso).toLocaleDateString("ar-EG", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      return String(iso || "");
-    }
+    if (!iso) return "";
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return String(iso);
+
+    return date.toLocaleDateString("ar-EG", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   return filtered.length ? (
     <div className="space-y-4">
-      {filtered.map((record) => (
-        <article
-          key={record._id || record.id || record.date}
-          className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <h3 className="font-bold">{record.diagnosis || record.title}</h3>
-            <p className="mt-1 text-sm text-[#666] dark:text-[#CCC]">
-              ملاحظات: {record.notes || record.summary || record.report}
-            </p>
-          </div>
-          <time
-            className="rounded-lg bg-[#EFFBFA] px-3 py-1 text-xs text-[#537673] dark:bg-[#31504E]"
-            style={{ fontFamily: "Cairo, sans-serif" }}
+      {filtered.map((record) => {
+        const title =
+          record.diagnosis ||
+          record.title ||
+          record.medicalReportTitle ||
+          record.reportTitle ||
+          "تقرير طبي";
+        const notes =
+          record.notes ||
+          record.summary ||
+          record.report ||
+          record.description ||
+          record.doctorNotes ||
+          "";
+        const date =
+          record.reportDate ||
+          record.medicalReportDate ||
+          record.visitDate ||
+          record.date ||
+          record.createdAt;
+
+        return (
+          <article
+            key={record._id || record.id || date || title}
+            className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] dark:bg-[#424242] sm:flex-row sm:items-center sm:justify-between"
           >
-            {formatDate(record.createdAt || record.date)}
-          </time>
-        </article>
-      ))}
+            <div>
+              <h3 className="font-bold">{title}</h3>
+              {notes && (
+                <p className="mt-1 text-sm text-[#666] dark:text-[#CCC]">
+                  ملاحظات: {notes}
+                </p>
+              )}
+            </div>
+            <time
+              className="rounded-lg bg-[#EFFBFA] px-3 py-1 text-xs text-[#537673] dark:bg-[#31504E]"
+              style={{ fontFamily: "Cairo, sans-serif" }}
+            >
+              {formatDate(date)}
+            </time>
+          </article>
+        );
+      })}
     </div>
   ) : (
     <EmptyState />

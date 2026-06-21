@@ -327,13 +327,27 @@ function normalizeUserRole(role) {
   return value;
 }
 
+function getBirthDateValue(value = {}) {
+  if (!value || typeof value !== "object") return "";
+
+  return (
+    value.birthDate ||
+    value.dateOfBirth ||
+    value.birthdate ||
+    value.birth_date ||
+    value.dob ||
+    value.DOB ||
+    ""
+  );
+}
+
 function normalizeBaseUser(item = {}) {
   return {
     id: getId(item),
     firstName: item.firstName || splitName(item.name).firstName,
     lastName: item.lastName || splitName(item.name).lastName,
     gender: item.gender || "",
-    birthDate: item.birthDate || "",
+    birthDate: getBirthDateValue(item),
     createdAt: getCreatedAt(item),
     phone: item.phone || item.phoneNumber || item.mobile || "",
     role: normalizeUserRole(item.role || item.userRole),
@@ -659,6 +673,8 @@ export function normalizeReceptionist(item = {}) {
 
 export function normalizePatient(item = {}) {
   const user = item.user || item.account || item;
+  const profile =
+    item.patientProfile || item.patientprofile || item.profile || item.patient || {};
   const name = item.name || joinName(user) || joinName(item);
   const nameParts = splitName(name);
   const status = normalizeStatus(
@@ -677,7 +693,10 @@ export function normalizePatient(item = {}) {
     lastName: user.lastName || item.lastName || nameParts.lastName,
     name,
     gender: user.gender || item.gender || "",
-    birthDate: user.birthDate || item.birthDate || "",
+    birthDate:
+      getBirthDateValue(user) ||
+      getBirthDateValue(profile) ||
+      getBirthDateValue(item),
     phone: user.phone || item.phone || "",
     height: item.tall ?? user.tall ?? item.height ?? user.height ?? "",
     weight: item.weight ?? user.weight ?? "",
@@ -813,13 +832,33 @@ function normalizeAppointmentStatus(status = "") {
   const value = raw.toLowerCase();
 
   // English variants
-  if (["completed", "done", "finished"].includes(value)) return "completed";
-  if (["cancelled", "canceled", "rejected"].includes(value)) return "cancelled";
+  if (
+    ["completed", "complete", "done", "finished", "finish", "attended", "closed"].includes(
+      value,
+    )
+  )
+    return "completed";
+  if (
+    ["cancelled", "canceled", "cancel", "rejected", "reject", "refused"].includes(
+      value,
+    )
+  )
+    return "cancelled";
   if (["pending", "waiting", "reserved"].includes(value)) return "pending";
 
   // Arabic variants (DB may return Arabic statuses)
-  if (["مكتمل", "تم الانتهاء", "مكتملة"].includes(raw)) return "completed";
-  if (["ملغى", "ملغي", "ملغيًا"].some((v) => raw === v)) return "cancelled";
+  if (
+    ["مكتمل", "مكتملة", "تم الانتهاء", "تم الكشف", "تم الكشف عليه", "منتهي", "منتهية"].includes(
+      raw,
+    )
+  )
+    return "completed";
+  if (
+    ["ملغى", "ملغي", "ملغية", "ملغيًا", "تم الإلغاء", "تم الالغاء", "إلغاء", "الغاء"].some(
+      (v) => raw === v,
+    )
+  )
+    return "cancelled";
   if (
     ["قيد الانتظار", "قيد_الانتظار", "قيد الانتظار ", "قيدالانتظار"].some(
       (v) => raw === v,
@@ -1379,6 +1418,12 @@ function patientFromDoctorPatientItem(item = {}) {
       item.name ||
       [item.firstName, item.lastName].filter(Boolean).join(" ").trim(),
     phone: item.patientPhone || item.phone,
+    birthDate:
+      item.patientBirthDate ||
+      item.patientDateOfBirth ||
+      item.birthDate ||
+      item.dateOfBirth ||
+      item.dob,
     appointmentsCount:
       item.appointmentsCount ?? item.visitCount ?? item.appointments?.length,
     casesCount: item.casesCount ?? item.caseCount ?? item.visitCount,
@@ -1477,6 +1522,156 @@ export async function listPatientsForDoctor() {
   ]);
 
   return normalizeDoctorPatients(patients);
+}
+
+function findNumericField(source, keys) {
+  if (!source || typeof source !== "object") return null;
+
+  for (const key of keys) {
+    const value = source[key];
+    const numberValue = Number(value);
+
+    if (value !== undefined && value !== null && Number.isFinite(numberValue)) {
+      return numberValue;
+    }
+  }
+
+  return null;
+}
+
+export async function getDoctorPatientsPlanCount() {
+  const response = await apiRequest("/appointments/getPatientsForDoctor");
+  const data = unwrapData(response);
+  const explicitCount =
+    findNumericField(response, [
+      "planCount",
+      "plansCount",
+      "totalPlan",
+      "totalPlans",
+      "patientsPlanCount",
+      "patientsCount",
+      "totalPatients",
+      "count",
+      "total",
+    ]) ??
+    findNumericField(data, [
+      "planCount",
+      "plansCount",
+      "totalPlan",
+      "totalPlans",
+      "patientsPlanCount",
+      "patientsCount",
+      "totalPatients",
+      "count",
+      "total",
+    ]) ??
+    findNumericField(data?.meta, ["total", "count", "planCount"]) ??
+    findNumericField(data?.pagination, ["total", "count", "planCount"]);
+
+  if (explicitCount !== null) return explicitCount;
+
+  return findArray(response, [
+    "plan",
+    "plans",
+    "patients",
+    "patient",
+    "allPatients",
+    "allPatient",
+    "patientProfiles",
+    "patientprofiles",
+    "profiles",
+    "appointments",
+    "allAppointments",
+    "appointment",
+    "bookings",
+    "bookedAppointments",
+  ]).length;
+}
+
+export async function getCurrentPatientForDoctor(patientUserId) {
+  if (!patientUserId) {
+    throw new ApiError("تعذر تحديد المريض");
+  }
+
+  const response = await apiRequest(
+    `/appointments/getCurrentPatientForDoctor/${encodeURIComponent(patientUserId)}`,
+  );
+  const appointmentSource = findEntity(response, [
+    "currentAppointment",
+    "appointment",
+    "booking",
+    "currentBooking",
+    "reservation",
+    "visit",
+  ]);
+  const responseData = unwrapData(response);
+  const patientSource = findEntity(response, [
+    "currentPatient",
+    "patient",
+    "patientProfile",
+    "patientprofile",
+    "profile",
+  ]);
+  const patient =
+    hasPatientShape(patientSource)
+      ? patientSource
+      : appointmentSource?.patient ||
+        appointmentSource?.patientId ||
+        responseData?.appointment?.patient ||
+        responseData?.appointment?.patientId ||
+        patientSource;
+  const appointment =
+    hasAppointmentShape(appointmentSource) || hasAppointmentShape(responseData)
+      ? normalizeAppointment(
+          hasAppointmentShape(appointmentSource)
+            ? appointmentSource
+            : responseData,
+        )
+      : null;
+
+  return {
+    patient: normalizePatient(patient),
+    appointment,
+    raw: response,
+  };
+}
+
+function hasAppointmentShape(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  return Boolean(
+    value.date ||
+      value.appointmentDate ||
+      value.day ||
+      value.time ||
+      value.appointmentTime ||
+      value.slot ||
+      value.slotTime ||
+      value.startTime ||
+      value.status ||
+      value.bookingStatus ||
+      value.payment ||
+      value.paymentStatus ||
+      value.doctor ||
+      value.doctorId,
+  );
+}
+
+function hasPatientShape(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  return Boolean(
+    getId(value) ||
+      getProfileUserId(value) ||
+      value.name ||
+      value.firstName ||
+      value.lastName ||
+      value.phone ||
+      value.birthDate ||
+      value.bloodType ||
+      value.height ||
+      value.weight,
+  );
 }
 
 export async function getPatient(id) {
