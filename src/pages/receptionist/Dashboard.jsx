@@ -502,15 +502,15 @@ function CurrentPatient({ appointment }) {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
-          className="h-[34px] rounded-[7px] bg-[#b9c1c5] text-[12px] font-bold text-white transition hover:bg-[#a9b2b7]"
+          className="h-[34px] rounded-[7px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-bold text-white transition hover:brightness-105"
         >
-          تخطي
+          تأكيد
         </button>
         <button
           type="button"
-          className="h-[34px] rounded-[7px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-bold text-white transition hover:brightness-105"
+          className="h-[34px] rounded-[7px] bg-[#b9c1c5] text-[12px] font-bold text-white transition hover:bg-[#a9b2b7]"
         >
-          دخول
+          تخطي
         </button>
       </div>
     </article>

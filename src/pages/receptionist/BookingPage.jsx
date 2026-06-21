@@ -13,7 +13,6 @@ import {
 import {
   bookAppointmentByReceptionist,
   listDoctorAvailableSlots,
-  listAppointments,
   listDoctors,
   listPatients,
 } from "../../services/medilinkApi";
@@ -96,37 +95,6 @@ function formatApiDate(value) {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-function normalizeDateKey(value) {
-  const date = parseDate(value);
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
-
-function normalizeTimeKey(value = "") {
-  const [hour = "0", minute = "00"] = String(value || "").split(":");
-  const hourNumber = Number(hour);
-
-  if (!Number.isFinite(hourNumber)) return String(value || "");
-  return `${String(hourNumber).padStart(2, "0")}:${minute.padStart(2, "0")}`;
-}
-
-function appointmentMatchesPayload(appointment = {}, payload = {}) {
-  const appointmentPhone = normalizePhone(
-    appointment.phone || appointment.raw?.phone || appointment.raw?.patientPhone,
-  );
-  const payloadPhone = normalizePhone(payload.phone || payload.patientPhone);
-  const appointmentTime = normalizeTimeKey(
-    appointment.slotTime || appointment.time || appointment.raw?.slotTime,
-  );
-  const payloadTime = normalizeTimeKey(payload.slotTime || payload.time);
-
-  return (
-    normalizeDateKey(appointment.date || appointment.raw?.date) ===
-      normalizeDateKey(payload.date) &&
-    appointmentTime === payloadTime &&
-    (!payloadPhone || appointmentPhone === payloadPhone)
-  );
-}
-
 function addDays(date, days) {
   const nextDate = new Date(date);
   nextDate.setDate(nextDate.getDate() + days);
@@ -199,6 +167,17 @@ function isSlotAvailable(slot) {
     "ممتلئ",
     "غير متاح",
   ].includes(status);
+}
+
+function isSlotAvailableForDate(slot, date, now = new Date()) {
+  if (!isSlotAvailable(slot)) return false;
+  if (!date || getIsoDate(parseDate(date)) !== getIsoDate(now)) return true;
+
+  const slotMinutes = parseTimeMinutes(slot?.time);
+  if (slotMinutes === null) return false;
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return slotMinutes >= currentMinutes;
 }
 
 function normalizePhone(value = "") {
@@ -478,6 +457,7 @@ export default function ReceptionistBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [createdAppointment, setCreatedAppointment] = useState(null);
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   useEffect(() => {
     let mounted = true;
@@ -499,6 +479,14 @@ export default function ReceptionistBookingPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -529,7 +517,9 @@ export default function ReceptionistBookingPage() {
         setAvailableSlotDays(nextSlots);
 
         const firstAvailableDay = nextSlots.find((day) =>
-          day.slots?.some(isSlotAvailable),
+          day.slots?.some((slot) =>
+            isSlotAvailableForDate(slot, day.date, new Date()),
+          ),
         );
 
         if (firstAvailableDay?.date) {
@@ -548,7 +538,9 @@ export default function ReceptionistBookingPage() {
         setAvailableSlotDays(fallbackDays);
 
         const firstAvailableDay = fallbackDays.find((day) =>
-          day.slots?.some(isSlotAvailable),
+          day.slots?.some((slot) =>
+            isSlotAvailableForDate(slot, day.date, new Date()),
+          ),
         );
 
         if (firstAvailableDay?.date) {
@@ -608,13 +600,25 @@ export default function ReceptionistBookingPage() {
   }, [displayedDays, selectedDate, selectedDoctor]);
 
   const consultationFee = Number(selectedDoctor?.consultationFee) || 100;
-  const canContinuePatient = Boolean(patientPhone.trim());
+  const patientNameParts = splitPatientName(patientName);
+  const canContinuePatient = Boolean(
+    patientNameParts.firstName &&
+      patientNameParts.lastName &&
+      patientPhone.trim() &&
+      patientGender &&
+      birthDay &&
+      birthMonth &&
+      birthYear,
+  );
   const canContinueBooking =
     selectedDoctor &&
     selectedDate &&
     selectedTime &&
+    bookingReason.trim() &&
     selectedDaySlots.some(
-      (slot) => slot.time === selectedTime && isSlotAvailable(slot),
+      (slot) =>
+        slot.time === selectedTime &&
+        isSlotAvailableForDate(slot, selectedDate, currentDateTime),
     );
   const canContinuePayment = Boolean(paymentMethod);
 
@@ -679,31 +683,18 @@ export default function ReceptionistBookingPage() {
     setSubmitting(true);
     setSubmitError("");
 
-    const matchedPatient =
-      selectedPatient || findPatientByPhone(patients, patientPhone);
-    const patientNameParts = splitPatientName(patientName);
     const payload = {
-      patientId: matchedPatient?.id,
-      patientName,
-      patientPhone,
-      phone: patientPhone,
       firstName: patientNameParts.firstName,
       lastName: patientNameParts.lastName,
+      phone: patientPhone.trim(),
       gender: patientGender,
-      day: birthDay,
-      month: birthMonth,
-      year: birthYear,
+      day: Number(birthDay),
+      month: Number(birthMonth),
+      year: Number(birthYear),
       doctorId: getDoctorBookingId(selectedDoctor),
-      doctorName: getPersonName(selectedDoctor),
-      specialty: selectedDoctor?.specialty,
       date: formatApiDate(selectedDate),
       slotTime: selectedTime,
-      time: selectedTime,
-      reason: bookingReason,
-      status: "confirmed",
-      paymentMethod,
-      paymentStatus: "paid",
-      amount: consultationFee,
+      reason: bookingReason.trim(),
     };
 
     const completeBooking = (created = {}) => {
@@ -711,9 +702,12 @@ export default function ReceptionistBookingPage() {
         ...created,
         ...payload,
         id: created.id || created._id || payload.id,
-        doctorName: created.doctor || payload.doctorName,
-        patientName: created.patient || payload.patientName,
+        doctorName: created.doctor || getPersonName(selectedDoctor),
+        patientName: created.patient || patientName,
         slotTime: created.time || created.slotTime || payload.slotTime,
+        paymentMethod,
+        paymentStatus: "paid",
+        amount: consultationFee,
       });
       setCurrentStep(4);
     };
@@ -722,27 +716,7 @@ export default function ReceptionistBookingPage() {
       const created = await bookAppointmentByReceptionist(payload);
       completeBooking(created);
     } catch (error) {
-      if (error.status === 408) {
-        try {
-          const appointments = await listAppointments();
-          const existingAppointment = appointments.find((appointment) =>
-            appointmentMatchesPayload(appointment, payload),
-          );
-
-          if (existingAppointment) {
-            completeBooking(existingAppointment);
-            return;
-          }
-        } catch {
-          // Keep the timeout message below if verification also fails.
-        }
-      }
-
-      setSubmitError(
-        error.status === 408
-          ? "الخادم استغرق وقتا أطول من المتوقع، تحقق من قائمة الحجوزات"
-          : error.message || "تعذر تأكيد الحجز",
-      );
+      setSubmitError(error.message || "تعذر تأكيد الحجز");
     } finally {
       setSubmitting(false);
     }
@@ -807,6 +781,7 @@ export default function ReceptionistBookingPage() {
                 selectedTime={selectedTime}
                 reason={bookingReason}
                 selectedDaySlots={selectedDaySlots}
+                currentDateTime={currentDateTime}
                 slotsLoading={slotsLoading}
                 slotsError={slotsError}
                 canContinue={canContinueBooking}
@@ -1008,6 +983,7 @@ function BookingDetailsStep({
   selectedTime,
   reason,
   selectedDaySlots,
+  currentDateTime,
   slotsLoading,
   slotsError,
   canContinue,
@@ -1154,7 +1130,11 @@ function BookingDetailsStep({
               ) : selectedDaySlots.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {selectedDaySlots.map((slot, index) => {
-                    const available = isSlotAvailable(slot);
+                    const available = isSlotAvailableForDate(
+                      slot,
+                      selectedDate,
+                      currentDateTime,
+                    );
                     const selected = selectedTime === slot.time && available;
 
                     return (

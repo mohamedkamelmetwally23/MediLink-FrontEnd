@@ -5,16 +5,12 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Pencil,
-  Plus,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
-  deleteDoctor,
   listDoctors,
   updateDoctor,
 } from "../../services/medilinkApi";
@@ -39,19 +35,11 @@ function getAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
 }
 
-function isDemoDoctor(doctorOrId) {
-  const id = typeof doctorOrId === "string" ? doctorOrId : doctorOrId?.id;
-  return String(id || "").startsWith("demo-doctor-");
-}
-
 export default function ReceptionistDoctorsPage() {
   const [doctors, setDoctors] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pendingDelete, setPendingDelete] = useState(null);
-  const [editingDoctor, setEditingDoctor] = useState(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -107,89 +95,18 @@ export default function ReceptionistDoctorsPage() {
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
-  const visibleIds = pageDoctors.map((doctor) => doctor.id);
-  const selectedCount = selectedIds.length;
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
-
   const resetToFirstPage = (updateValue) => {
     updateValue();
     setCurrentPage(1);
-  };
-
-  const toggleDoctor = (id) => {
-    setSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
-
-  const toggleAllVisible = () => {
-    setSelectedIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !visibleIds.includes(id));
-      }
-
-      return Array.from(new Set([...current, ...visibleIds]));
-    });
-  };
-
-  const removeDoctors = (ids) => {
-    setDoctors((current) => current.filter((doctor) => !ids.includes(doctor.id)));
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
-  };
-
-  const deleteDoctors = (ids) => {
-    const apiIds = ids.filter((id) => !isDemoDoctor(id));
-
-    if (apiIds.length === 0) {
-      removeDoctors(ids);
-      return;
-    }
-
-    Promise.all(apiIds.map(deleteDoctor))
-      .then(() => removeDoctors(ids))
-      .catch(() => setPendingDelete(null));
-  };
-
-  const saveDoctor = (values) => {
-    const currentDoctor = editingDoctor || null;
-    const nextDoctor = {
-      ...(currentDoctor || {
-        id: `demo-doctor-${Date.now()}`,
-        role: "doctor",
-        appointmentsCount: 0,
-        status: "active",
-      }),
-      ...values,
-      specializationId: values.specialty,
-    };
-
-    setDoctors((current) => {
-      if (!currentDoctor) return [nextDoctor, ...current];
-
-      return current.map((doctor) =>
-        doctor.id === currentDoctor.id ? nextDoctor : doctor,
-      );
-    });
-    setEditingDoctor(undefined);
-
-    if (!currentDoctor || isDemoDoctor(currentDoctor)) return;
-
-    updateDoctor(currentDoctor.id, values, currentDoctor).catch(() => {});
   };
 
   const toggleStatus = (doctor) => {
     const nextStatus = doctor.status === "active" ? "inactive" : "active";
     saveStatusLocally(doctor.id, nextStatus);
 
-    if (!isDemoDoctor(doctor)) {
-      updateDoctor(doctor.id, { ...doctor, status: nextStatus }, doctor).catch(
-        () => {},
-      );
-    }
+    updateDoctor(doctor.id, { ...doctor, status: nextStatus }, doctor).catch(
+      () => {},
+    );
   };
 
   const saveStatusLocally = (id, status) => {
@@ -204,38 +121,19 @@ export default function ReceptionistDoctorsPage() {
 
       <main className="px-4 pb-8 pt-[24px] sm:px-6 lg:px-[38px]">
         <div
-          className="mb-[16px] flex items-center justify-between gap-4"
+          className="mb-[16px] flex items-center justify-end gap-4"
           dir="ltr"
         >
-          <button
-            type="button"
-            className="flex h-[38px] items-center gap-2 rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] px-[15px] text-[12px] font-bold text-white"
-            onClick={() => setEditingDoctor(null)}
-          >
-            <Plus size={16} strokeWidth={2} />
-            <span>أضف طبيب</span>
-          </button>
-
           <SearchBox
             value={search}
             onChange={(value) => resetToFirstPage(() => setSearch(value))}
           />
         </div>
 
-        {selectedCount > 0 && (
-          <SelectionBar
-            count={selectedCount}
-            onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
-          />
-        )}
-
         <section className="overflow-hidden bg-white dark:bg-[#505050]">
           <div className="overflow-x-auto">
             <div className="min-w-[980px]">
               <TableHeader
-                allVisibleSelected={allVisibleSelected}
-                onToggleAll={toggleAllVisible}
                 specialtyFilter={specialtyFilter}
                 statusFilter={statusFilter}
                 specialties={specialties}
@@ -256,10 +154,6 @@ export default function ReceptionistDoctorsPage() {
                   <DoctorRow
                     key={doctor.id}
                     doctor={doctor}
-                    selected={selectedIds.includes(doctor.id)}
-                    onDelete={() => setPendingDelete([doctor.id])}
-                    onEdit={() => setEditingDoctor(doctor)}
-                    onToggle={() => toggleDoctor(doctor.id)}
                     onToggleStatus={() => toggleStatus(doctor)}
                   />
                 ))
@@ -277,21 +171,6 @@ export default function ReceptionistDoctorsPage() {
         </section>
       </main>
 
-      {pendingDelete && (
-        <ConfirmDeleteModal
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deleteDoctors(pendingDelete)}
-        />
-      )}
-
-      {editingDoctor !== undefined && (
-        <DoctorEditModal
-          doctor={editingDoctor}
-          specialties={specialties}
-          onCancel={() => setEditingDoctor(undefined)}
-          onSave={saveDoctor}
-        />
-      )}
     </section>
   );
 }
@@ -337,38 +216,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
-  return (
-    <div className="mb-[16px] flex h-[54px] items-center justify-between rounded-[8px] border border-[#d8eef5] bg-[#f5fcff] px-[18px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
-      <p className="text-[12px] font-semibold text-[#333] dark:text-white">
-        تم تحديد {count} من العناصر
-      </p>
-
-      <div className="flex items-center gap-[18px]" dir="ltr">
-        <button
-          type="button"
-          aria-label="إلغاء التحديد"
-          className="grid h-[30px] w-[30px] place-items-center text-[#222] dark:text-white"
-          onClick={onClear}
-        >
-          <X size={19} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
-          className="flex h-[31px] items-center gap-[10px] rounded-[8px] border border-[#ff2626] px-[13px] text-[11px] font-semibold text-[#ff2626]"
-          onClick={onDelete}
-        >
-          <span>حذف المحدد</span>
-          <Trash2 size={15} strokeWidth={1.8} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function TableHeader({
-  allVisibleSelected,
-  onToggleAll,
   specialtyFilter,
   statusFilter,
   specialties,
@@ -377,12 +225,9 @@ function TableHeader({
 }) {
   return (
     <div
-      className="grid h-[42px] grid-cols-[48px_1.25fr_1.15fr_0.75fr_0.85fr_108px_46px] items-center bg-[#f7f7f7] text-[12px] font-medium text-[#333] dark:bg-[#444] dark:text-white"
+      className="grid h-[42px] grid-cols-[1.25fr_1.15fr_0.75fr_0.85fr_46px_46px] items-center bg-[#f7f7f7] text-[12px] font-medium text-[#333] dark:bg-[#444] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-center">
-        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
-      </div>
       <span className="text-center">الاسم</span>
       <FilterSelect
         value={specialtyFilter}
@@ -428,24 +273,15 @@ function FilterSelect({ value, onChange, label, children }) {
 
 function DoctorRow({
   doctor,
-  selected,
-  onDelete,
-  onEdit,
-  onToggle,
   onToggleStatus,
 }) {
   const appointmentsCount = getAppointmentsCount(doctor);
 
   return (
     <div
-      className={`grid h-[40px] grid-cols-[48px_1.25fr_1.15fr_0.75fr_0.85fr_108px_46px] items-center border-b border-[#e8e8e8] text-[11px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
-        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
-      }`}
+      className="grid h-[40px] grid-cols-[1.25fr_1.15fr_0.75fr_0.85fr_46px_46px] items-center border-b border-[#e8e8e8] bg-white text-[11px] text-[#2f2f2f] transition dark:border-white/15 dark:bg-[#505050] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-center">
-        <Checkbox checked={selected} onClick={onToggle} />
-      </div>
       <span className="truncate px-2 text-center">{getDoctorName(doctor)}</span>
       <span className="truncate px-2 text-center">
         {doctor.specialty || "غير محدد"}
@@ -454,23 +290,7 @@ function DoctorRow({
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>
-      <div className="flex items-center justify-center gap-3" dir="ltr">
-        <button
-          type="button"
-          aria-label="حذف"
-          className="text-[#333] transition hover:text-[#ff2626] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={15} strokeWidth={1.7} />
-        </button>
-        <button
-          type="button"
-          aria-label="تعديل"
-          className="text-[#333] transition hover:text-[#24b9d6] dark:text-white"
-          onClick={onEdit}
-        >
-          <Pencil size={15} strokeWidth={1.7} />
-        </button>
+      <div className="flex items-center justify-center" dir="ltr">
         <button
           type="button"
           aria-label="تغيير الحالة"
@@ -492,23 +312,6 @@ function DoctorRow({
         <ChevronLeft size={16} strokeWidth={1.7} />
       </Link>
     </div>
-  );
-}
-
-function Checkbox({ checked, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      className={`grid h-[16px] w-[16px] place-items-center rounded-[3px] border text-[10px] font-bold leading-none ${
-        checked
-          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
-          : "border-[#999] bg-transparent"
-      }`}
-      onClick={onClick}
-    >
-      {checked ? "✓" : ""}
-    </button>
   );
 }
 
@@ -609,139 +412,4 @@ function getPaginationPages(currentPage, totalPages) {
   return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, totalPages]
     .filter((page) => page === "ellipsis" || (page >= 1 && page <= totalPages))
     .filter((page, index, items) => page === "ellipsis" || items.indexOf(page) === index);
-}
-
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
-  return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/20 p-4">
-      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
-        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
-          !
-        </div>
-        <h2 className="mt-[23px] text-[18px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
-        </h2>
-        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
-          <button
-            type="button"
-            className="h-[38px] rounded-[8px] border border-[#ff3030] text-[12px] font-semibold text-[#ff3030]"
-            onClick={onConfirm}
-          >
-            نعم
-          </button>
-          <button
-            type="button"
-            className="h-[38px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-semibold text-white"
-            onClick={onCancel}
-          >
-            لا
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DoctorEditModal({ doctor, specialties, onCancel, onSave }) {
-  const [firstName, setFirstName] = useState(doctor?.firstName || "");
-  const [lastName, setLastName] = useState(doctor?.lastName || "");
-  const [specialty, setSpecialty] = useState(doctor?.specialty || specialties[0] || "");
-  const [workStart, setWorkStart] = useState(doctor?.workStart || "08:00");
-  const [workEnd, setWorkEnd] = useState(doctor?.workEnd || "16:00");
-
-  const handleSave = () => {
-    onSave({
-      firstName: firstName.trim() || "طبيب",
-      lastName: lastName.trim(),
-      specialty,
-      specializationId: specialty,
-      gender: doctor?.gender || "male",
-      birthDate: doctor?.birthDate || "1990-01-01",
-      workStart,
-      workEnd,
-      workDays: doctor?.workDays || ["السبت", "الأحد"],
-      experienceYears: doctor?.experienceYears || 0,
-      status: doctor?.status || "active",
-      appointmentsCount: doctor?.appointmentsCount || 0,
-      image: doctor?.image || "",
-      phone: doctor?.phone || "",
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/20 p-4">
-      <div
-        className="w-full max-w-[382px] rounded-[8px] bg-white p-[22px] shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]"
-        dir="rtl"
-      >
-        <h2 className="text-center text-[16px] font-bold text-[#333] dark:text-white">
-          {doctor ? "تعديل بيانات الطبيب" : "إضافة طبيب"}
-        </h2>
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <Field label="الاسم الأول" value={firstName} onChange={setFirstName} />
-          <Field label="الاسم الأخير" value={lastName} onChange={setLastName} />
-        </div>
-
-        <label className="mt-4 block">
-          <span className="mb-2 block text-[12px] font-bold text-[#333] dark:text-white">
-            التخصص
-          </span>
-          <CustomSelect
-            value={specialty}
-            onChange={setSpecialty}
-            displayLabel={specialty || "اختر التخصص"}
-            buttonClassName="flex h-[42px] w-full items-center gap-2 rounded-[8px] border border-transparent bg-[#f0f0f0] px-3 text-[12px] font-bold text-[#333] outline-none transition focus:border-[#25b9d6] dark:bg-[#454545] dark:text-white"
-            menuClassName="rounded-[9px] p-1.5 text-[12px]"
-          >
-            {specialties.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-            {!specialties.includes(specialty) && specialty && (
-              <option value={specialty}>{specialty}</option>
-            )}
-          </CustomSelect>
-        </label>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <Field label="بداية العمل" value={workStart} onChange={setWorkStart} />
-          <Field label="نهاية العمل" value={workEnd} onChange={setWorkEnd} />
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-[10px]" dir="ltr">
-          <button
-            type="button"
-            className="h-[36px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-semibold text-white"
-            onClick={handleSave}
-          >
-            حفظ التعديلات
-          </button>
-          <button
-            type="button"
-            className="h-[36px] rounded-[8px] border border-[#0fb8e8] text-[12px] font-semibold text-[#12aee0]"
-            onClick={onCancel}
-          >
-            إلغاء
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[12px] font-bold text-[#333] dark:text-white">
-        {label}
-      </span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-[42px] w-full rounded-[8px] bg-[#f0f0f0] px-3 text-right text-[12px] font-bold text-[#333] outline-none transition focus:ring-1 focus:ring-[#25b9d6] dark:bg-[#454545] dark:text-white"
-      />
-    </label>
-  );
 }
