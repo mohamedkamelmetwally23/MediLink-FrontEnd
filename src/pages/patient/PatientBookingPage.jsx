@@ -5,11 +5,14 @@ import { FaStar } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getDoctorImage, getDoctorName, getDoctorRating } from "../../hooks/useDoctors";
 import {
-  createAppointment,
-  createPaidDemoAppointment,
+  bookAppointmentByPatient,
   getDoctor,
   listDoctorAvailableSlots,
 } from "../../services/medilinkApi";
+import {
+  MAX_PATIENT_FILES_PER_UPLOAD,
+  validatePatientMedicalFiles,
+} from "../../utils/patientFileValidation";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
@@ -71,50 +74,21 @@ export default function PatientBookingPage() {
     return () => { mounted = false; };
   }, [doctorId, location.state]);
 
-  const submitAppointment = async (paymentDetails = {}) => {
+  const submitAppointment = async () => {
     setSubmitting(true);
-    const appointmentValues = {
-      doctorId: doctor.id,
-      doctorName: getDoctorName(doctor),
-      specialization: doctor.specializationId || doctor.specialty,
-      specialty: doctor.specialty,
-      date: selectedDate,
-      time: selectedTime,
-      reason,
-      files,
-      paymentMethod,
-      paymentDetails,
-      paymentStatus: paymentMethod === "card" ? "paid" : "pay_at_clinic",
-      status: "pending",
-    };
 
     try {
-      const appointment = await createAppointment(appointmentValues);
+      const appointment = await bookAppointmentByPatient({
+        doctorId,
+        date: selectedDate,
+        slotTime: selectedTime,
+        reason,
+        medicalFiles: files,
+      });
       setCreatedAppointment(appointment);
       setStep(4);
-      toast.success("تم تأكيد طلب الحجز بنجاح");
+      toast.success("تم تأكيد الحجز بنجاح");
     } catch (error) {
-      if ([401, 403, 404, 405].includes(error?.status)) {
-        try {
-          const appointment = await createPaidDemoAppointment({
-            ...appointmentValues,
-            payment: {
-              amount: doctor.consultationFee || 100,
-              currency: "EGP",
-              method: paymentMethod,
-              status: paymentMethod === "card" ? "paid_demo" : "pay_at_clinic",
-            },
-          });
-          setCreatedAppointment(appointment);
-          setStep(4);
-          toast.success("تم تأكيد الحجز بنجاح");
-          return;
-        } catch (fallbackError) {
-          toast.error(fallbackError.message || "تعذر إتمام الحجز");
-          return;
-        }
-      }
-
       toast.error(error.message || "تعذر إتمام الحجز");
     } finally {
       setSubmitting(false);
@@ -274,11 +248,41 @@ function ReasonStep({ reason, setReason, submitted, files, setFiles, onPrevious,
   const previews = useMemo(() => files.map((file) => ({ file, id: `${file.name}-${file.size}-${file.lastModified}`, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : "" })), [files]);
   useEffect(() => () => previews.forEach((item) => item.url && URL.revokeObjectURL(item.url)), [previews]);
   const addFiles = (list) => {
-    const valid = Array.from(list).filter((file) => {
-      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name}: الحد الأقصى 10 ميجابايت`); return false; }
-      return ["image/png", "image/jpeg", "application/pdf"].includes(file.type);
+    const selectedFiles = Array.from(list).filter((file) =>
+      ["image/png", "image/jpeg", "application/pdf"].includes(file.type),
+    );
+    const { acceptedFiles, oversizedFiles } =
+      validatePatientMedicalFiles(selectedFiles);
+
+    if (oversizedFiles.length > 0) {
+      toast.warning("حجم الملف الواحد يجب ألا يزيد عن 3 ميجابايت");
+    }
+
+    setFiles((current) => {
+      const availableSlots = Math.max(
+        0,
+        MAX_PATIENT_FILES_PER_UPLOAD - current.length,
+      );
+      const uniqueFiles = acceptedFiles.filter(
+        (file) =>
+          !current.some(
+            (old) =>
+              old.name === file.name &&
+              old.size === file.size &&
+              old.lastModified === file.lastModified,
+          ),
+      );
+
+      if (availableSlots === 0 && uniqueFiles.length > 0) {
+        toast.warning("الحد الأقصى المسموح هو 5 ملفات طبية");
+        return current;
+      }
+      if (uniqueFiles.length > availableSlots) {
+        toast.warning("تم قبول الملفات حتى الحد الأقصى وهو 5 ملفات");
+      }
+
+      return [...current, ...uniqueFiles.slice(0, availableSlots)];
     });
-    setFiles((current) => [...current, ...valid.filter((file) => !current.some((old) => old.name === file.name && old.size === file.size && old.lastModified === file.lastModified))]);
     if (inputRef.current) inputRef.current.value = "";
   };
   return (
@@ -314,9 +318,9 @@ function ReasonStep({ reason, setReason, submitted, files, setFiles, onPrevious,
       <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }} className="rounded-2xl border-2 border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-6 dark:border-[#555] dark:bg-[#383838]">
         <input ref={inputRef} type="file" multiple accept=".png,.jpg,.jpeg,.pdf" className="hidden" onChange={(e) => addFiles(e.target.files || [])} />
         {previews.length ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <button type="button" onClick={() => inputRef.current?.click()} className="grid min-h-32 place-items-center rounded-xl border-2 border-dashed border-[#CCC] text-[#999]"><Plus size={40} /></button>
+          {files.length < MAX_PATIENT_FILES_PER_UPLOAD && <button type="button" onClick={() => inputRef.current?.click()} className="grid min-h-32 place-items-center rounded-xl border-2 border-dashed border-[#CCC] text-[#999]"><Plus size={40} /></button>}
           {previews.map((item) => <div key={item.id} className="group relative min-h-32 overflow-hidden rounded-xl bg-[#EEE] dark:bg-[#444]">{item.url ? <img src={item.url} alt={item.file.name} className="h-32 w-full object-cover" /> : <div className="grid h-32 place-items-center p-3 text-center"><FileText size={34} /><span className="line-clamp-2 text-xs">{item.file.name}</span></div>}<button type="button" onClick={() => setFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== item.id))} className="absolute left-2 top-2 grid size-8 place-items-center rounded-full bg-black/60 text-white"><Trash2 size={16} /></button></div>)}
-        </div> : <button type="button" onClick={() => inputRef.current?.click()} className="w-full py-8 text-center text-[#999]"><ImageIcon size={40} className="mx-auto mb-3" /><strong><span className="text-[#20B7D5]">اضغط للاختيار</span> أو اسحب الملفات هنا</strong><small className="mt-2 block">الحد الأقصى 10 ميجابايت لكل ملف — PNG, JPG, PDF</small></button>}
+        </div> : <button type="button" onClick={() => inputRef.current?.click()} className="w-full py-8 text-center text-[#999]"><ImageIcon size={40} className="mx-auto mb-3" /><strong><span className="text-[#20B7D5]">اضغط للاختيار</span> أو اسحب الملفات هنا</strong><small className="mt-2 block">5 ملفات كحد أقصى، و3 ميجابايت لكل ملف — PNG, JPG, PDF</small></button>}
       </div>
       <div className="mt-10 grid gap-4 sm:grid-cols-2"><button type="button" onClick={onPrevious} className="rounded-xl border-2 border-[#20B7D5] py-3.5 font-bold text-[#20B7D5]">السابق</button><button type="button" disabled={!reasonIsValid} onClick={onNext} className={`rounded-xl py-3.5 font-bold text-white disabled:cursor-not-allowed disabled:bg-[#BDBDBD] ${reasonIsValid ? gradient : ""}`}>تخطي/متابعة</button></div>
     </div>
@@ -351,11 +355,7 @@ function PaymentStep({ doctor, paymentMethod, setPaymentMethod, submitting, onPr
       toast.info("أكمل بيانات البطاقة البنكية أولًا");
       return;
     }
-    onConfirm(
-      paymentMethod === "card"
-        ? { cardLastFour: card.number.replace(/\s/g, "").slice(-4), cardHolder: card.holder.trim() }
-        : {},
-    );
+    onConfirm();
   };
 
   return (

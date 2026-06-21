@@ -2025,6 +2025,37 @@ export async function createAppointment(values) {
   );
 }
 
+export async function bookAppointmentByPatient(values) {
+  const medicalFiles = Array.from(values.medicalFiles || values.files || []);
+
+  if (medicalFiles.length > 5) {
+    throw new ApiError("الحد الأقصى المسموح هو 5 ملفات طبية");
+  }
+
+  const oversizedFile = medicalFiles.find((file) =>
+    Boolean(getPatientFileSizeError(file)),
+  );
+  if (oversizedFile) {
+    throw new ApiError(getPatientFileSizeError(oversizedFile));
+  }
+
+  const formData = new FormData();
+  formData.append("doctorId", String(values.doctorId || ""));
+  formData.append("date", normalizeDate(values.date));
+  formData.append("slotTime", normalizeTime(values.slotTime || values.time));
+  formData.append("reason", String(values.reason || "").trim());
+  medicalFiles.forEach((file) => formData.append("medicalFiles", file));
+
+  const response = await apiRequest("/appointments/bookByPatient", {
+    method: "POST",
+    body: formData,
+  });
+
+  return normalizeAppointment(
+    findEntity(response, ["appointment", "booking", "reservation"]),
+  );
+}
+
 function normalizePrescriptionMedicines(medicines = []) {
   return medicines
     .map((medicine) =>
