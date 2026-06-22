@@ -871,6 +871,13 @@ export function normalizeAppointment(item = {}) {
     time,
     status: normalizeAppointmentStatus(item.status || item.bookingStatus),
     payment: normalizePaymentStatus(item.payment || item.paymentStatus),
+    reason: item.reason || item.visitReason || item.notes || "",
+    medicalFiles:
+      item.medicalFiles ||
+      item.attachments ||
+      item.files ||
+      item.uploadedFiles ||
+      [],
     raw: item,
   };
 }

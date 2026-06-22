@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  FileText,
   Pause,
   Pencil,
   Play,
@@ -307,7 +308,9 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
-  const [activeSection, setActiveSection] = useState("info");
+  const [activeSection, setActiveSection] = useState(() =>
+    startExam ? "booking" : "info",
+  );
   const [profileTab, setProfileTab] = useState("records");
   const [profileSearch, setProfileSearch] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState(null);
@@ -2153,26 +2156,46 @@ function PreviousMedicines() {
   );
 }
 
-function getAppointmentStatusText(status) {
-  const labels = {
-    confirmed: "مؤكد",
-    pending: "قيد الانتظار",
-    completed: "مكتمل",
-    cancelled: "ملغي",
-  };
+function getAppointmentFiles(appointment) {
+  const raw = appointment?.raw || {};
+  const files =
+    appointment?.medicalFiles ||
+    raw.medicalFiles ||
+    raw.attachments ||
+    raw.files ||
+    raw.uploadedFiles ||
+    [];
 
-  return labels[status] || status || "غير مسجل";
+  return Array.isArray(files) ? files : [];
 }
 
-function getPaymentStatusText(status) {
-  const labels = {
-    paid: "مدفوع",
-    waiting: "بانتظار الدفع",
-    pending: "بانتظار الدفع",
-    unpaid: "غير مدفوع",
-  };
+function getAppointmentFileData(file, index) {
+  const source = typeof file === "string" ? file : "";
+  const url =
+    source ||
+    file?.url ||
+    file?.secure_url ||
+    file?.fileUrl ||
+    file?.src ||
+    file?.path ||
+    "";
+  const name =
+    file?.originalName ||
+    file?.fileName ||
+    file?.filename ||
+    file?.name ||
+    decodeURIComponent(url.split("/").pop()?.split("?")[0] || "") ||
+    `ملف مرفق ${index + 1}`;
+  const extension = name.split(".").pop()?.toLowerCase();
 
-  return labels[status] || status || "غير مسجل";
+  return {
+    id: file?._id || file?.id || file?.fileId || `${name}-${index}`,
+    name,
+    url,
+    isImage:
+      String(file?.mimetype || file?.type || "").startsWith("image/") ||
+      ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension),
+  };
 }
 
 function BookingDetails({ appointment }) {
@@ -2185,32 +2208,59 @@ function BookingDetails({ appointment }) {
   }
 
   const raw = appointment.raw || {};
-  const items = [
-    { label: "تاريخ الحجز", value: formatProfileDate(appointment.date || raw.date) },
-    { label: "وقت الحجز", value: formatTime(appointment.time || raw.time) },
-    { label: "حالة الحجز", value: getAppointmentStatusText(appointment.status) },
-    { label: "حالة الدفع", value: getPaymentStatusText(appointment.payment) },
-    { label: "الطبيب", value: appointment.doctor || raw.doctorName },
-    { label: "التخصص", value: appointment.specialty || raw.specialty },
-    { label: "رقم الهاتف", value: appointment.phone || raw.phone || raw.patientPhone },
-  ].filter((item) => item.value);
+  const reason =
+    appointment.reason || raw.reason || raw.visitReason || raw.notes || "غير مسجل";
+  const files = getAppointmentFiles(appointment).map(getAppointmentFileData);
 
   return (
-    <section className="text-right">
-      <div className="grid gap-[12px] sm:grid-cols-2">
-        {items.map((item) => (
-          <article
-            key={item.label}
-            className="rounded-[10px] bg-white px-[20px] py-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.06)] dark:bg-[#3d3d3d]"
-          >
-            <p className="text-[13px] font-semibold text-[#8a8a8a] dark:text-gray-300">
-              {item.label}
-            </p>
-            <p className="mt-[8px] text-[18px] font-bold text-[#333] dark:text-white">
-              {item.value}
-            </p>
-          </article>
-        ))}
+    <section className="space-y-[20px] text-right">
+      <div>
+        <h2 className="mb-[9px] text-[15px] font-bold text-[#333] dark:text-white">
+          سبب الزيارة
+        </h2>
+        <div className="min-h-[48px] rounded-[8px] bg-[#f5f5f5] px-[18px] py-[13px] text-[15px] font-medium text-[#555] dark:bg-[#3d3d3d] dark:text-gray-100">
+          {reason}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-[9px] text-[15px] font-bold text-[#333] dark:text-white">
+          الملفات المرفقة
+        </h2>
+        {files.length > 0 ? (
+          <div className="grid gap-[12px] md:grid-cols-2">
+            {files.map((file) => (
+              <a
+                key={file.id}
+                href={file.url || undefined}
+                target={file.url ? "_blank" : undefined}
+                rel={file.url ? "noreferrer" : undefined}
+                className={`grid min-h-[130px] grid-cols-[minmax(0,1fr)_104px] items-center gap-3 rounded-[10px] bg-white px-[16px] py-[12px] shadow-[0_5px_20px_rgba(0,0,0,0.08)] dark:bg-[#3d3d3d] ${
+                  file.url ? "transition hover:-translate-y-0.5" : "cursor-default"
+                }`}
+              >
+                <span className="truncate text-left text-[14px] font-medium text-[#333] dark:text-white" dir="ltr">
+                  {file.name}
+                </span>
+                <span className="grid h-[106px] w-[104px] place-items-center overflow-hidden rounded-[9px] bg-[#eef3f5] dark:bg-[#4a4a4a]">
+                  {file.isImage && file.url ? (
+                    <img
+                      src={file.url}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <FileText size={42} className="text-[#28bbd5]" />
+                  )}
+                </span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[8px] bg-[#f5f5f5] px-[18px] py-[18px] text-center text-[14px] text-[#888] dark:bg-[#3d3d3d] dark:text-gray-300">
+            لا توجد ملفات مرفقة
+          </div>
+        )}
       </div>
     </section>
   );
