@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,10 +17,7 @@ import {
 import { toast } from "react-toastify";
 import { transcribeAudio } from "../../services/chatApi";
 import {
-  createMedicalReport,
-  createPrescription,
-  getCurrentDoctorId,
-  getCurrentDoctorProfile,
+  completeAppointment,
   getCurrentPatientForDoctor,
   getMedicalReportsForPatient,
   getPrescriptionsForPatient,
@@ -140,18 +137,6 @@ function getPatientRecordId(source, fallbackId) {
     source?.userId ||
     source?._id ||
     source?.id ||
-    fallbackId
-  );
-}
-
-function getDoctorRecordId(source, fallbackId = "") {
-  return (
-    source?.profileId ||
-    source?.doctorId ||
-    source?.id ||
-    source?.userId ||
-    source?.raw?._id ||
-    source?.raw?.id ||
     fallbackId
   );
 }
@@ -338,7 +323,6 @@ const patientPrescriptions = prescriptions.filter(() => false);
 export default function DoctorPatientProfilePage({ startExam = false }) {
   const { patientId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
   const [activeSection, setActiveSection] = useState(() =>
@@ -354,9 +338,11 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [loadedPatient, setLoadedPatient] = useState(null);
   const [currentAppointment, setCurrentAppointment] = useState(null);
+  const [currentAppointmentId, setCurrentAppointmentId] = useState(
+    () => location.state?.appointmentId || "",
+  );
   const [medicalReports, setMedicalReports] = useState([]);
   const [prescriptionHistory, setPrescriptionHistory] = useState([]);
-  const [currentDoctorId, setCurrentDoctorId] = useState("");
   const selectedRecord = useMemo(
     () => medicalReports.find((record) => record.id === selectedRecordId),
     [medicalReports, selectedRecordId],
@@ -394,11 +380,10 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
 
     async function loadExamContext() {
       const todayIso = getIsoDate(new Date());
-      const [patientsResult, appointmentsResult, doctorResult] =
+      const [patientsResult, appointmentsResult] =
         await Promise.allSettled([
           routedPatient ? Promise.resolve([]) : listPatientsForDoctor(),
           listMyDoctorAppointments(todayIso),
-          getCurrentDoctorProfile(),
         ]);
 
       if (!mounted) return;
@@ -427,16 +412,12 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
           stateAppointmentId,
         );
 
-        if (appointment) setCurrentAppointment(appointment);
+        if (appointment) {
+          setCurrentAppointment(appointment);
+          setCurrentAppointmentId(appointment.id || "");
+        }
       }
 
-      if (doctorResult.status === "fulfilled") {
-        setCurrentDoctorId(
-          getDoctorRecordId(doctorResult.value, getCurrentDoctorId()),
-        );
-      } else {
-        setCurrentDoctorId(getCurrentDoctorId());
-      }
     }
 
     loadExamContext();
@@ -464,6 +445,11 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
         }
         if (patientResult.value.appointment) {
           setCurrentAppointment(patientResult.value.appointment);
+          setCurrentAppointmentId(
+            patientResult.value.appointmentId ||
+              patientResult.value.appointment.id ||
+              "",
+          );
         }
       }
 
@@ -487,34 +473,17 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   }, [startExam, patientId]);
 
   const handleFinishVisit = async () => {
-    const targetPatientId = getPatientRecordId(storedPatient, patientId);
     const appointmentId =
-      location.state?.appointmentId || currentAppointment?.id || "";
-    const doctorId =
-      currentAppointment?.doctorId || currentDoctorId || getCurrentDoctorId();
+      currentAppointmentId ||
+      currentAppointment?.id ||
+      location.state?.appointmentId ||
+      "";
     const medicines = medicineRows.filter((row) =>
       [row.name, row.dose, row.schedule, row.duration].some((value) =>
         String(value || "").trim(),
       ),
     );
-    const payload = {
-      patientId: targetPatientId,
-      doctorId,
-      appointmentId,
-      diagnosis,
-      notes,
-      date: medicineDate,
-      medicines,
-      title: diagnosis,
-      summary: notes,
-    };
-
-    if (!targetPatientId) {
-      toast.error("تعذر تحديد المريض");
-      return;
-    }
-
-    if (!doctorId || !appointmentId) {
+    if (!appointmentId) {
       toast.error("جاري تحميل بيانات الموعد، حاول مرة أخرى");
       return;
     }
@@ -522,12 +491,18 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     setIsSavingVisit(true);
 
     try {
-      await Promise.all([
-        createPrescription(payload),
-        createMedicalReport(payload),
-      ]);
-      toast.success("تم حفظ الروشتة والسجل المرضي");
-      navigate("/doctor/patients", { replace: true });
+      await completeAppointment(appointmentId, {
+        diagnosis,
+        notes,
+        medicines: medicines.map((medicine) => ({
+          name: medicine.name,
+          dose: medicine.dose,
+          frequency: medicine.schedule,
+          duration: medicine.duration,
+        })),
+      });
+      toast.success("تم إنهاء الزيارة وحفظ البيانات");
+      window.location.replace("/doctor/dashboard");
     } catch (error) {
       toast.error(error.message || "تعذر حفظ بيانات الزيارة");
     } finally {

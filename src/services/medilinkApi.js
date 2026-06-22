@@ -2530,6 +2530,31 @@ export async function createAppointment(values) {
   );
 }
 
+export async function completeAppointment(id, values = {}) {
+  if (!id) {
+    throw new ApiError("تعذر تحديد موعد الكشف");
+  }
+
+  const medicines = (values.medicines || []).map((medicine) => ({
+    name: String(medicine.name || "").trim(),
+    dose: String(medicine.dose || "").trim(),
+    frequency: String(medicine.frequency || medicine.schedule || "").trim(),
+    duration: String(medicine.duration || "").trim(),
+  }));
+
+  return apiRequest(
+    `/appointments/completeAppointment/${encodeURIComponent(id)}`,
+    {
+      method: "POST",
+      body: {
+        diagnosis: String(values.diagnosis || "").trim(),
+        notes: String(values.notes || "").trim(),
+        medicines,
+      },
+    },
+  );
+}
+
 export async function bookAppointmentByReceptionist(values) {
   const payload = {
     doctorId: String(values.doctorId || ""),
