@@ -34,8 +34,10 @@ import searchDoctorIcon from "../../assets/landingPage/13(1).png";
 import specialtyIcon from "../../assets/landingPage/13 (2).png";
 import appointmentIcon from "../../assets/landingPage/13 (3).png";
 import { clearAuthSession } from "../../services/authApi";
+import { API_ORIGIN } from "../../services/apiClient";
 import { useClinicInfo } from "../../services/clinicInfoStore";
 import {
+  getBookedAppointmentsForPatient,
   getCurrentAuthUser,
   getCurrentUser,
 } from "../../services/medilinkApi";
@@ -473,7 +475,194 @@ export function PatientHomeHeader({
   );
 }
 
-function HeroSection({ patientName }) {
+function resolveMediaUrl(image) {
+  if (!image || typeof image !== "string") return "";
+  if (/^(https?:|data:|blob:)/i.test(image)) return image;
+  return `${API_ORIGIN.replace(/\/$/, "")}/${image.replace(/^\/+/, "")}`;
+}
+
+function getAppointmentTimestamp(appointment) {
+  if (!appointment?.date) return Number.POSITIVE_INFINITY;
+
+  const date = String(appointment.date).slice(0, 10);
+  const time = String(appointment.time || "00:00").slice(0, 5);
+  const timestamp = new Date(`${date}T${time}:00`).getTime();
+
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
+function getUpcomingAppointment(appointments = []) {
+  const now = Date.now();
+  const activeAppointments = appointments.filter(
+    (appointment) => appointment.status !== "cancelled",
+  );
+  const upcoming = activeAppointments
+    .filter((appointment) => getAppointmentTimestamp(appointment) >= now)
+    .sort(
+      (first, second) =>
+        getAppointmentTimestamp(first) - getAppointmentTimestamp(second),
+    );
+
+  if (upcoming.length) return upcoming[0];
+
+  return (
+    activeAppointments.sort(
+      (first, second) =>
+        getAppointmentTimestamp(second) - getAppointmentTimestamp(first),
+    )[0] || null
+  );
+}
+
+function formatAppointmentTime(value) {
+  if (!value) return "غير محدد";
+
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(value));
+  if (!match) return String(value);
+
+  const hour = Number(match[1]);
+  const minute = match[2];
+  const period = hour >= 12 ? "مساءً" : "صباحاً";
+  const displayHour = hour % 12 || 12;
+
+  return `${displayHour}:${minute} ${period}`;
+}
+
+function formatAppointmentDay(appointment) {
+  if (!appointment?.date) return "";
+
+  const appointmentDate = new Date(
+    `${String(appointment.date).slice(0, 10)}T12:00:00`,
+  );
+  if (Number.isNaN(appointmentDate.getTime())) return appointment.date;
+
+  const today = new Date();
+  const todayDate = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const targetDate = new Date(
+    appointmentDate.getFullYear(),
+    appointmentDate.getMonth(),
+    appointmentDate.getDate(),
+  );
+  const dayDiff = Math.round((targetDate - todayDate) / 86400000);
+
+  if (dayDiff === 0) return "اليوم";
+  if (dayDiff === 1) return "غداً";
+
+  return appointmentDate.toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function buildDoctorLookup(doctors = []) {
+  const lookup = new Map();
+
+  doctors.forEach((doctor) => {
+    [
+      doctor.id,
+      doctor.profileId,
+      doctor.userId,
+      doctor.raw?._id,
+      doctor.raw?.id,
+      doctor.raw?.user?._id,
+      doctor.raw?.user?.id,
+      doctor.raw?.doctorProfile?._id,
+      doctor.raw?.doctorProfile?.id,
+    ]
+      .filter(Boolean)
+      .forEach((id) => lookup.set(String(id), doctor));
+  });
+
+  return lookup;
+}
+
+function getAppointmentDoctor(appointment, doctorById) {
+  if (!appointment) return null;
+
+  const rawDoctor = appointment.raw?.doctor || appointment.raw?.doctorId || {};
+  const rawDoctorUser =
+    rawDoctor && typeof rawDoctor === "object"
+      ? rawDoctor.user || rawDoctor.account || {}
+      : {};
+  const ids = [
+    appointment.doctorId,
+    rawDoctor?._id,
+    rawDoctor?.id,
+    rawDoctorUser?._id,
+    rawDoctorUser?.id,
+    appointment.raw?.doctorProfile?._id,
+    appointment.raw?.doctorProfile?.id,
+  ].filter(Boolean);
+
+  return ids.map((id) => doctorById.get(String(id))).find(Boolean) || null;
+}
+
+function getAppointmentDoctorName(appointment, doctor) {
+  if (doctor) return getDoctorName(doctor);
+
+  const rawDoctor = appointment?.raw?.doctor || appointment?.raw?.doctorId || {};
+  const rawDoctorUser =
+    rawDoctor && typeof rawDoctor === "object"
+      ? rawDoctor.user || rawDoctor.account || {}
+      : {};
+  const rawName =
+    appointment?.doctor ||
+    rawDoctorUser.name ||
+    rawDoctor.name ||
+    [
+      rawDoctorUser.firstName || rawDoctor.firstName,
+      rawDoctorUser.lastName || rawDoctor.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+  if (!rawName) return "طبيب ميديلينك";
+  return /^(د\.|دكتور|دكتورة)\s*/.test(rawName) ? rawName : `د. ${rawName}`;
+}
+
+function getAppointmentDoctorImage(appointment, doctor) {
+  if (doctor) return getDoctorImage(doctor);
+
+  const rawDoctor = appointment?.raw?.doctor || appointment?.raw?.doctorId || {};
+  const rawDoctorUser =
+    rawDoctor && typeof rawDoctor === "object"
+      ? rawDoctor.user || rawDoctor.account || {}
+      : {};
+  const image =
+    rawDoctorUser.photo ||
+    rawDoctorUser.profileImage ||
+    rawDoctorUser.image ||
+    rawDoctor.profileImage ||
+    rawDoctor.photo ||
+    rawDoctor.image ||
+    appointment?.raw?.doctorImage ||
+    "";
+
+  return resolveMediaUrl(image) || doctor1;
+}
+
+function HeroSection({
+  patientName,
+  upcomingAppointment,
+  appointmentLoading,
+  doctorById = new Map(),
+}) {
+  const appointmentDoctor = getAppointmentDoctor(upcomingAppointment, doctorById);
+  const appointmentDoctorName = getAppointmentDoctorName(
+    upcomingAppointment,
+    appointmentDoctor,
+  );
+  const appointmentDoctorImage = getAppointmentDoctorImage(
+    upcomingAppointment,
+    appointmentDoctor,
+  );
+  const appointmentDay = formatAppointmentDay(upcomingAppointment);
+
   return (
     <section id="home" className={`${sectionClass} pt-10 sm:pt-14 lg:pt-16`}>
       <div className="grid items-center gap-8 md:grid-cols-2 lg:gap-14">
@@ -485,13 +674,35 @@ function HeroSection({ patientName }) {
 
           <article className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg bg-[#EAF8F8] p-4 dark:bg-[#363636] sm:p-5" dir="ltr">
             <div className="text-left" dir="rtl">
-              <p className="text-lg font-medium text-[#505050] dark:text-[#F0F0F0]">لديك موعد قادم اليوم</p>
-              <p className="mt-1 font-bold text-[#333333] dark:text-white">الساعة: 4:00 مساءً</p>
-              <p className="mt-1 text-sm font-semibold text-[#4F4F4F] dark:text-[#D5D5D5]">مع د. ندى حسين</p>
+              {appointmentLoading ? (
+                <>
+                  <p className="text-lg font-medium text-[#505050] dark:text-[#F0F0F0]">جاري تحميل موعدك القادم...</p>
+                  <p className="mt-1 font-bold text-[#333333] dark:text-white">الساعة: --</p>
+                  <p className="mt-1 text-sm font-semibold text-[#4F4F4F] dark:text-[#D5D5D5]">مع طبيب ميديلينك</p>
+                </>
+              ) : upcomingAppointment ? (
+                <>
+                  <p className="text-lg font-medium text-[#505050] dark:text-[#F0F0F0]">
+                    لديك موعد قادم {appointmentDay}
+                  </p>
+                  <p className="mt-1 font-bold text-[#333333] dark:text-white">
+                    الساعة: {formatAppointmentTime(upcomingAppointment.time)}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#4F4F4F] dark:text-[#D5D5D5]">
+                    مع {appointmentDoctorName}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-medium text-[#505050] dark:text-[#F0F0F0]">لا توجد مواعيد قادمة حالياً</p>
+                  <p className="mt-1 font-bold text-[#333333] dark:text-white">احجز موعدك المناسب الآن</p>
+                  <p className="mt-1 text-sm font-semibold text-[#4F4F4F] dark:text-[#D5D5D5]">مع أطباء ميديلينك</p>
+                </>
+              )}
             </div>
             <div className="relative shrink-0">
               <span className="absolute -right-2 top-1 size-3 rounded-full bg-[#2164AE]" />
-              <img src={doctor1} alt="د. ندى حسين" className="h-24 w-28 object-contain sm:h-28 sm:w-32" />
+              <img src={appointmentDoctorImage} alt={appointmentDoctorName} className="h-24 w-28 object-contain sm:h-28 sm:w-32" />
             </div>
           </article>
 
@@ -600,8 +811,12 @@ function RatingStars({ rating }) {
   );
 }
 
-function DoctorsSection({ search = "" }) {
-  const { doctors, loading, error } = useDoctors();
+function DoctorsSection({
+  search = "",
+  doctors = [],
+  loading = false,
+  error = "",
+}) {
   const filteredDoctors = useMemo(() => {
     const query = search.trim();
     if (!query) return doctors;
@@ -830,11 +1045,36 @@ export default function PatientHomePage() {
   const [doctorSearch, setDoctorSearch] = useState(
     location.state?.doctorSearch || "",
   );
+  const { doctors, loading: doctorsLoading, error: doctorsError } = useDoctors();
+  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
+  const [appointmentLoading, setAppointmentLoading] = useState(true);
   const patient = authUser?.patient || authUser?.profile || authUser || {};
   const patientName =
     [patient.firstName, patient.lastName].filter(Boolean).join(" ").trim() ||
     patient.name ||
     "مريض ميديلينك";
+  const doctorById = useMemo(() => buildDoctorLookup(doctors), [doctors]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getBookedAppointmentsForPatient()
+      .then((appointments) => {
+        if (mounted) {
+          setUpcomingAppointment(getUpcomingAppointment(appointments));
+        }
+      })
+      .catch(() => {
+        if (mounted) setUpcomingAppointment(null);
+      })
+      .finally(() => {
+        if (mounted) setAppointmentLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (location.hash === "#specialties") {
@@ -869,10 +1109,20 @@ export default function PatientHomePage() {
         onDoctorSearch={setDoctorSearch}
       />
       <main>
-        <HeroSection patientName={patientName} />
+        <HeroSection
+          patientName={patientName}
+          upcomingAppointment={upcomingAppointment}
+          appointmentLoading={appointmentLoading}
+          doctorById={doctorById}
+        />
         <StatsSection />
         <SpecialtiesSection />
-        <DoctorsSection search={doctorSearch} />
+        <DoctorsSection
+          search={doctorSearch}
+          doctors={doctors}
+          loading={doctorsLoading}
+          error={doctorsError}
+        />
         <WhySection />
         <AssistantSection />
         <FaqSection />

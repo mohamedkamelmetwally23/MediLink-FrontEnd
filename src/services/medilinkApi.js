@@ -1352,7 +1352,7 @@ export async function listDoctorAvailableSlots(doctor) {
   const results = await Promise.allSettled(
     paths.map((path) =>
       apiRequest(path, {
-        timeoutMs: 2500,
+        timeoutMs: 8000,
       }),
     ),
   );
@@ -1742,6 +1742,95 @@ function findNumericField(source, keys) {
   }
 
   return null;
+}
+
+function normalizeUserAppointmentCounts(response) {
+  if (typeof response === "number") {
+    return {
+      total: response,
+      completed: 0,
+      cancelled: 0,
+      pending: 0,
+    };
+  }
+
+  const data = unwrapData(response);
+  if (typeof data === "number") {
+    return {
+      total: data,
+      completed: 0,
+      cancelled: 0,
+      pending: 0,
+    };
+  }
+
+  const roots = [
+    response,
+    data,
+    response?.data?.data,
+    response?.data?.result,
+    response?.result,
+    response?.counts,
+    data?.counts,
+  ].filter((item) => item && typeof item === "object");
+
+  const findCount = (keys) => {
+    for (const root of roots) {
+      const value = findNumericField(root, keys);
+      if (value !== null) return value;
+    }
+
+    return null;
+  };
+
+  return {
+    total:
+      findCount([
+        "totalAppointments",
+        "appointmentsCount",
+        "appointmentCount",
+        "totalCount",
+        "count",
+        "total",
+      ]) ?? 0,
+    completed:
+      findCount([
+        "completedAppointments",
+        "completedAppointmentsCount",
+        "completedAppointmentCount",
+        "completedCount",
+        "completed",
+      ]) ?? 0,
+    cancelled:
+      findCount([
+        "cancelledAppointments",
+        "canceledAppointments",
+        "cancelledAppointmentsCount",
+        "canceledAppointmentsCount",
+        "cancelledAppointmentCount",
+        "canceledAppointmentCount",
+        "cancelledCount",
+        "canceledCount",
+        "cancelled",
+        "canceled",
+      ]) ?? 0,
+    pending:
+      findCount([
+        "pendingAppointments",
+        "pendingAppointmentsCount",
+        "pendingAppointmentCount",
+        "pendingCount",
+        "pending",
+      ]) ?? 0,
+  };
+}
+
+export async function getUserAppointmentsCount(userId) {
+  const response = await apiRequest(
+    `/appointments/getAppointmentsCount/${encodeURIComponent(userId)}`,
+  );
+
+  return normalizeUserAppointmentCounts(response);
 }
 
 export async function getDoctorPatientsPlanCount() {
@@ -2150,31 +2239,53 @@ export async function toggleUserActiveStatus(user, options = {}) {
   });
 
   if (user.role === "patient") {
-    const patientIds = Array.from(
+    const userIds = Array.from(
       new Set(
         [
           user.userId,
           getProfileUserId(user.raw),
           user.raw?.user?._id,
           user.raw?.user?.id,
-          user.raw?._id,
-          user.profileId,
           user.id,
         ]
           .filter(Boolean)
           .map(String),
       ),
     );
+    const patientIds = Array.from(
+      new Set(
+        [
+          user.raw?._id,
+          user.profileId,
+          user.id,
+          user.raw?.patient?._id,
+          user.raw?.patient?.id,
+          user.raw?.patientProfile?._id,
+          user.raw?.patientProfile?.id,
+          user.raw?.profile?._id,
+          user.raw?.profile?.id,
+        ]
+          .filter(Boolean)
+          .map(String),
+      ),
+    );
 
-    if (patientIds.length === 0) {
+    if (userIds.length === 0 && patientIds.length === 0) {
       throw new ApiError("تعذر تحديد رقم المريض في قاعدة البيانات");
     }
 
     return requestFirst(
-      patientIds.map((id) => `/patient/${id}/active`),
+      [
+        ...userIds.map((id) => `/users/${id}`),
+        ...patientIds.flatMap((id) => [
+          `/patient/${id}/active`,
+          `/patient/${id}`,
+        ]),
+      ],
       {
         method: "PATCH",
         body: statusPayload,
+        retryStatuses: [400, 404, 405, 500],
       },
     );
   }

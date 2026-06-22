@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
-import { getDoctor } from "../../../services/medilinkApi";
+import {
+  getDoctor,
+  getUserAppointmentsCount,
+} from "../../../services/medilinkApi";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
 
@@ -39,13 +42,23 @@ export default function UserProfilePage() {
   const storedUser = userId ? getUser(userId) : null;
   const routeRole = searchParams.get("role") || "";
   const isDoctorProfile = (storedUser?.role || routeRole) === "doctor";
+  const canLoadAppointmentCounts = ["doctor", "patient"].includes(
+    storedUser?.role || routeRole,
+  );
   const [doctorDetails, setDoctorDetails] = useState(null);
+  const [appointmentCounts, setAppointmentCounts] = useState(null);
   const activeDoctorDetails =
     isDoctorProfile && doctorDetails?.routeUserId === userId
       ? doctorDetails.data
       : null;
+  const activeAppointmentCounts =
+    appointmentCounts?.routeUserId === userId ? appointmentCounts.data : null;
   const profileSource = activeDoctorDetails || storedUser;
-  const profile = buildProfile(profileSource, searchParams);
+  const profile = buildProfile(
+    profileSource,
+    searchParams,
+    activeAppointmentCounts,
+  );
 
   useEffect(() => {
     if (!userId || !isDoctorProfile) {
@@ -75,6 +88,39 @@ export default function UserProfilePage() {
       mounted = false;
     };
   }, [isDoctorProfile, storedUser, userId]);
+
+  useEffect(() => {
+    if (!userId || !canLoadAppointmentCounts) {
+      return undefined;
+    }
+
+    let mounted = true;
+    const countIds = getAppointmentCountLookupIds(storedUser, userId);
+
+    async function loadAppointmentCounts() {
+      for (const countId of countIds) {
+        try {
+          const counts = await getUserAppointmentsCount(countId);
+          if (mounted) {
+            setAppointmentCounts({ routeUserId: userId, data: counts });
+          }
+          return;
+        } catch {
+          // Try the next possible user identifier.
+        }
+      }
+
+      if (mounted) {
+        setAppointmentCounts({ routeUserId: userId, data: null });
+      }
+    }
+
+    loadAppointmentCounts();
+
+    return () => {
+      mounted = false;
+    };
+  }, [canLoadAppointmentCounts, storedUser, userId]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -130,12 +176,13 @@ export default function UserProfilePage() {
   );
 }
 
-function buildProfile(user, searchParams) {
+function buildProfile(user, searchParams, appointmentCounts = null) {
   const fullName =
     user ? `${user.firstName} ${user.lastName}`.trim() : searchParams.get("name") || "غير متوفر";
   const [firstName, ...rest] = fullName.split(" ");
   const lastName = rest.join(" ");
   const role = user?.role || searchParams.get("role") || "patient";
+  const fallbackAppointmentsCount = user?.caseCount ?? user?.appointmentsCount ?? 0;
 
   return {
     firstName: user?.firstName || firstName,
@@ -160,9 +207,13 @@ function buildProfile(user, searchParams) {
     specialty: user?.specialty || searchParams.get("specialty") || "غير متوفر",
     education: user?.education || "غير متوفر",
     experience: user?.experience ? `${user.experience} سنوات` : "غير متوفر",
-    appointmentsCount: user?.caseCount ?? user?.appointmentsCount ?? 0,
-    completedAppointmentsCount: user?.completedAppointmentsCount ?? 0,
-    cancelledAppointmentsCount: user?.cancelledAppointmentsCount ?? 0,
+    appointmentsCount: appointmentCounts?.total ?? fallbackAppointmentsCount,
+    completedAppointmentsCount:
+      appointmentCounts?.completed ?? user?.completedAppointmentsCount ?? 0,
+    cancelledAppointmentsCount:
+      appointmentCounts?.cancelled ?? user?.cancelledAppointmentsCount ?? 0,
+    pendingAppointmentsCount:
+      appointmentCounts?.pending ?? user?.pendingAppointmentsCount ?? 0,
     rating: normalizeRatingValue(
       user?.rating ??
         user?.ratingsAverage ??
@@ -171,6 +222,39 @@ function buildProfile(user, searchParams) {
     ),
     image: getProfileImage(role),
   };
+}
+
+function getAppointmentCountLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.userId,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+        user?.raw?.patient?.user?._id,
+        user?.raw?.patient?.user?.id,
+        user?.raw?.doctor?.user?._id,
+        user?.raw?.doctor?.user?.id,
+        user?.raw?.doctorProfile?.user?._id,
+        user?.raw?.doctorProfile?.user?.id,
+        user?.id,
+        routeId,
+        user?.profileId,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.raw?.patient?._id,
+        user?.raw?.patient?.id,
+        user?.raw?.doctor?._id,
+        user?.raw?.doctor?.id,
+        user?.raw?.doctorProfile?._id,
+        user?.raw?.doctorProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
 }
 
 function getDoctorProfileLookupIds(user, routeId) {
@@ -375,7 +459,7 @@ function StatsGrid({ profile }) {
   const stats = getStats(profile);
 
   return (
-    <div className="grid gap-[25px] sm:grid-cols-3">
+    <div className="grid gap-[25px] sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (
         <section
           key={stat.label}
@@ -413,6 +497,7 @@ function getStats(profile) {
     { label: "إجمالي الحجوزات", value: profile.appointmentsCount },
     { label: "الحجوزات المكتملة", value: profile.completedAppointmentsCount },
     { label: "الحجوزات الملغية", value: profile.cancelledAppointmentsCount },
+    { label: "الحجوزات المعلقة", value: profile.pendingAppointmentsCount },
   ];
 }
 
