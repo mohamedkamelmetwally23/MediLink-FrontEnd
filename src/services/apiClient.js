@@ -1,6 +1,6 @@
 export const API_ORIGIN =
   import.meta.env.VITE_API_ORIGIN ||
-  "https://medilink-backend-production-0364.up.railway.app";
+  "https://medilink-backend-production-4a7f.up.railway.app";
 
 export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, "")}/api/v1`;
 
