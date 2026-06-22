@@ -2342,6 +2342,165 @@ export async function submitReview({ appointmentId, stars, comment = "" }) {
   });
 }
 
+const activityLabels = {
+  LOGIN: "تسجيل الدخول",
+  LOGOUT: "تسجيل الخروج",
+  REGISTER: "إنشاء حساب",
+  BOOK_APPOINTMENT: "حجز موعد",
+  CREATE_APPOINTMENT: "إنشاء موعد",
+  UPDATE_APPOINTMENT: "تعديل موعد",
+  CANCEL_APPOINTMENT: "إلغاء موعد",
+  DELETE_APPOINTMENT: "حذف موعد",
+  COMPLETE_APPOINTMENT: "إكمال موعد",
+  CONFIRM_APPOINTMENT: "تأكيد موعد",
+  CREATE_USER: "إضافة مستخدم",
+  UPDATE_USER: "تعديل مستخدم",
+  DELETE_USER: "حذف مستخدم",
+  CREATE_DOCTOR: "إضافة طبيب",
+  UPDATE_DOCTOR: "تعديل بيانات طبيب",
+  DELETE_DOCTOR: "حذف طبيب",
+  MAKE_DOCTOR_ACTIVE: "تفعيل حساب طبيب",
+  MAKE_DOCTOR_UNACTIVE: "تعطيل حساب طبيب",
+  MAKE_DOCTOR_INACTIVE: "تعطيل حساب طبيب",
+  MAKE_DOCTORS_ACTIVE: "تفعيل حسابات الأطباء",
+  MAKE_DOCTORS_UNACTIVE: "تعطيل حسابات الأطباء",
+  MAKE_DOCTORS_INACTIVE: "تعطيل حسابات الأطباء",
+  MAKE_PATIENT_ACTIVE: "تفعيل حساب مريض",
+  MAKE_PATIENT_UNACTIVE: "تعطيل حساب مريض",
+  MAKE_PATIENT_INACTIVE: "تعطيل حساب مريض",
+  MAKE_PATIENTS_ACTIVE: "تفعيل حسابات المرضى",
+  MAKE_PATIENTS_UNACTIVE: "تعطيل حسابات المرضى",
+  MAKE_PATIENTS_INACTIVE: "تعطيل حسابات المرضى",
+  CREATE_RECEPTIONIST: "إضافة موظف استقبال",
+  UPDATE_RECEPTIONIST: "تعديل بيانات موظف استقبال",
+  DELETE_RECEPTIONIST: "حذف موظف استقبال",
+  MAKE_RECEPTIONIST_ACTIVE: "تفعيل حساب موظف استقبال",
+  MAKE_RECEPTIONIST_UNACTIVE: "تعطيل حساب موظف استقبال",
+  MAKE_RECEPTIONIST_INACTIVE: "تعطيل حساب موظف استقبال",
+  MAKE_RECEPTIONISTS_ACTIVE: "تفعيل حسابات موظفي الاستقبال",
+  MAKE_RECEPTIONISTS_UNACTIVE: "تعطيل حسابات موظفي الاستقبال",
+  MAKE_RECEPTIONISTS_INACTIVE: "تعطيل حسابات موظفي الاستقبال",
+  MAKE_USER_ACTIVE: "تفعيل حساب مستخدم",
+  MAKE_USER_UNACTIVE: "تعطيل حساب مستخدم",
+  MAKE_USER_INACTIVE: "تعطيل حساب مستخدم",
+  MAKE_USERS_ACTIVE: "تفعيل حسابات المستخدمين",
+  MAKE_USERS_UNACTIVE: "تعطيل حسابات المستخدمين",
+  MAKE_USERS_INACTIVE: "تعطيل حسابات المستخدمين",
+  CREATE_SPECIALIZATION: "إضافة تخصص",
+  UPDATE_SPECIALIZATION: "تعديل تخصص",
+  DELETE_SPECIALIZATION: "حذف تخصص",
+  UPDATE_PROFILE: "تحديث الملف الشخصي",
+  CHANGE_PASSWORD: "تغيير كلمة المرور",
+  CREATE_REVIEW: "إضافة تقييم",
+  CREATE_MEDICAL_REPORT: "إضافة تقرير طبي",
+  CREATE_PRESCRIPTION: "إضافة وصفة طبية",
+};
+
+function translateActivityLabel(value) {
+  if (typeof value !== "string") return value;
+
+  const label = value.trim();
+  if (!label) return "";
+
+  const normalizedLabel = label
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+
+  return activityLabels[normalizedLabel] || label;
+}
+
+export function normalizeActivity(item = {}, index = 0) {
+  if (typeof item === "string") {
+    return {
+      id: `activity-${index}`,
+      description: translateActivityLabel(item),
+      actorName: "",
+      createdAt: "",
+      raw: item,
+    };
+  }
+
+  const actor =
+    item.user ||
+    item.actor ||
+    item.performedBy ||
+    item.createdBy ||
+    item.admin ||
+    item.doctor ||
+    item.receptionist ||
+    {};
+  const details =
+    item.details && typeof item.details === "object" ? item.details : {};
+  const actorName =
+    actor.name ||
+    actor.fullName ||
+    joinName(actor) ||
+    item.userName ||
+    item.actorName ||
+    item.performedByName ||
+    "";
+  const action = translateActivityLabel(
+    item.action || item.type || item.event || item.activityType || "",
+  );
+  const target =
+    item.targetName ||
+    item.entityName ||
+    item.resourceName ||
+    details.targetName ||
+    details.entityName ||
+    "";
+  const fallbackDescription = [action, target].filter(Boolean).join(" - ");
+
+  return {
+    id: getId(item) || item.activityId || item.logId || `activity-${index}`,
+    description: translateActivityLabel(
+      item.description ||
+      item.message ||
+      item.activity ||
+      item.actionDescription ||
+      details.message ||
+      details.description ||
+      fallbackDescription ||
+      "نشاط جديد",
+    ),
+    actorName,
+    createdAt:
+      item.createdAt ||
+      item.timestamp ||
+      item.activityDate ||
+      item.date ||
+      item.updatedAt ||
+      "",
+    raw: item,
+  };
+}
+
+export async function listActivities(limit = 500) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 500, 500));
+  const response = await apiRequest(`/activities?limit=${safeLimit}`);
+  const activities = findArray(response, [
+    "activities",
+    "activity",
+    "logs",
+    "auditLogs",
+    "records",
+    "docs",
+    "items",
+    "results",
+  ]);
+
+  return activities
+    .map(normalizeActivity)
+    .sort((first, second) => {
+      const firstTime = new Date(first.createdAt).getTime();
+      const secondTime = new Date(second.createdAt).getTime();
+
+      if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) return 0;
+      return secondTime - firstTime;
+    });
+}
+
 export async function getClinicProfits() {
   const response = await apiRequest("/clinic/getProfits");
   const data = response?.data ?? response ?? {};
