@@ -131,6 +131,8 @@ function SearchBox({ value, onChange }) {
 }
 
 function DoctorCard({ doctor }) {
+  const rating = normalizeRating(doctor.rating);
+
   return (
     <article className="overflow-hidden rounded-[8px] bg-white text-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div className="flex h-[184px] items-end justify-center bg-[#f5f5f5] dark:bg-[#444]">
@@ -148,17 +150,8 @@ function DoctorCard({ doctor }) {
           className="mt-[4px] flex items-center justify-center gap-[6px] text-[15px] font-medium text-black dark:text-white"
           dir="ltr"
         >
-          <span>{doctor.rating || "-"}</span>
-          <span className="flex gap-[2px] text-[#ffb000]">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                size={14}
-                strokeWidth={1.5}
-                fill="currentColor"
-              />
-            ))}
-          </span>
+          <span>{Number.isFinite(rating) ? formatRating(rating) : "-"}</span>
+          <RatingStars rating={rating} />
         </div>
         <Link
           to={doctor.to}
@@ -168,5 +161,48 @@ function DoctorCard({ doctor }) {
         </Link>
       </div>
     </article>
+  );
+}
+
+function normalizeRating(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return NaN;
+  return Math.min(5, Math.max(0, rating));
+}
+
+function formatRating(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function RatingStars({ rating }) {
+  const ratingValue = Number.isFinite(rating) ? rating : 0;
+
+  return (
+    <span className="flex gap-[2px]" aria-hidden="true">
+      {Array.from({ length: 5 }, (_, index) => {
+        const fillPercentage =
+          Math.min(Math.max(ratingValue - index, 0), 1) * 100;
+
+        return (
+          <span
+            key={index}
+            className="relative inline-grid h-[14px] w-[14px] place-items-center text-[#d0d0d0] dark:text-[#777]"
+          >
+            <Star size={14} strokeWidth={1.5} />
+            <span
+              className="absolute inset-y-0 left-0 overflow-hidden text-[#ffb000]"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <Star
+                className="absolute left-0 top-0"
+                size={14}
+                strokeWidth={1.5}
+                fill="currentColor"
+              />
+            </span>
+          </span>
+        );
+      })}
+    </span>
   );
 }

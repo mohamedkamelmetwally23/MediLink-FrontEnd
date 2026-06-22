@@ -1068,12 +1068,13 @@ export async function listDoctors() {
 }
 
 export async function getDoctor(id) {
+  const doctorId = encodeURIComponent(id);
   const doctor = await entityFromPaths(
     [
-      `/doctors/${id}`,
-      `/doctorprofiles/${id}`,
-      `/doctorProfiles/${id}`,
-      `/doctor-profiles/${id}`,
+      `/doctors/${doctorId}`,
+      `/doctorprofiles/${doctorId}`,
+      `/doctorProfiles/${doctorId}`,
+      `/doctor-profiles/${doctorId}`,
     ],
     ["doctor", "doctorprofile", "doctorProfile", "profile"],
   );
@@ -1932,14 +1933,15 @@ function hasAppointmentShape(value) {
 }
 
 export async function getPatient(id) {
+  const patientId = encodeURIComponent(id);
   const patient = await entityFromPaths(
     [
-      `/patient/getPatientById/${id}`,
-      `/patient/${id}`,
-      `/patients/${id}`,
-      `/patientprofiles/${id}`,
-      `/patientProfiles/${id}`,
-      `/patient-profiles/${id}`,
+      `/patient/${patientId}`,
+      `/patient/getPatientById/${patientId}`,
+      `/patients/${patientId}`,
+      `/patientprofiles/${patientId}`,
+      `/patientProfiles/${patientId}`,
+      `/patient-profiles/${patientId}`,
     ],
     ["patient", "patientprofile", "patientProfile", "profile", "user"],
   );

@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, apiRequest, getStoredToken } from "./apiClient";
-
-const clinicInformationUrl =
-  "https://medilink-backend-production-0364.up.railway.app/api/v1/clinic/informations";
+import { ApiError, apiRequest } from "./apiClient";
 
 export const clinicInfoStorageKey = "medilink-clinic-info";
 
@@ -98,11 +95,11 @@ function normalizeClinicInfo(response) {
   const schedule = data.schedule || {};
 
   return {
-    name: data.name || "",
-    address: data.address || "",
-    description: data.description || "",
-    phone: data.phone || "",
-    email: data.email || "",
+    name: data.name || data.clinicName || "",
+    address: data.address || data.location || "",
+    description: data.description || data.about || "",
+    phone: data.phone || data.phoneNumber || data.mobile || "",
+    email: data.email || data.clinicEmail || "",
     schedule: {
       appointmentDuration:
         schedule.appointmentDuration ??
@@ -140,27 +137,12 @@ function normalizeSchedule(response) {
 
 export async function loadClinicInfo() {
   const currentInfo = readClinicInfo();
-  const token = getStoredToken();
   const [response, scheduleResponse] = await Promise.all([
-    fetch(clinicInformationUrl, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    }),
+    apiRequest("/clinic/informations"),
     apiRequest("/clinic/schedule").catch(() => null),
   ]);
 
-  if (!response.ok) {
-    throw new ApiError("تعذر تحميل معلومات العيادة", {
-      status: response.status,
-    });
-  }
-
-  const responseData = await response.json();
-  const backendInfo = normalizeClinicInfo(responseData);
+  const backendInfo = normalizeClinicInfo(response);
   const backendSchedule = scheduleResponse
     ? normalizeSchedule(scheduleResponse)
     : {};
@@ -185,6 +167,7 @@ export async function loadClinicInfo() {
 }
 
 export async function updateClinicInfo(info) {
+  const currentInfo = readClinicInfo();
   const payload = {
     name: info.name?.trim(),
     address: info.address?.trim(),
@@ -209,8 +192,10 @@ export async function updateClinicInfo(info) {
   }
 
   const updatedInfo = {
-    ...payload,
+    ...currentInfo,
     ...normalizeClinicInfo(response),
+    ...payload,
+    schedule: currentInfo.schedule,
   };
   saveClinicInfo(updatedInfo);
   return updatedInfo;
