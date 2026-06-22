@@ -746,18 +746,57 @@ export function normalizePatient(item = {}) {
       item.year ||
       "",
     phone,
-    height: item.tall ?? user.tall ?? item.height ?? user.height ?? "",
-    weight: item.weight ?? user.weight ?? "",
-    bloodType: item.bloodType || user.bloodType || "",
-    smoker: item.smoking ?? user.smoking ?? item.smoker ?? user.smoker ?? "",
+    image:
+      user.photo ||
+      user.image ||
+      user.profileImage ||
+      profile.photo ||
+      profile.image ||
+      profile.profileImage ||
+      item.photo ||
+      item.image ||
+      item.profileImage ||
+      "",
+    photo:
+      user.photo ||
+      profile.photo ||
+      item.photo ||
+      "",
+    height:
+      profile.tall ??
+      profile.height ??
+      item.tall ??
+      user.tall ??
+      item.height ??
+      user.height ??
+      "",
+    weight: profile.weight ?? item.weight ?? user.weight ?? "",
+    bloodType: profile.bloodType || item.bloodType || user.bloodType || "",
+    smoker:
+      profile.smoking ??
+      item.smoking ??
+      user.smoking ??
+      profile.smoker ??
+      item.smoker ??
+      user.smoker ??
+      "",
     chronicConditions: normalizeStringList(
-      item.chronicConditions || user.chronicConditions || [],
+      profile.chronicConditions ||
+        item.chronicConditions ||
+        user.chronicConditions ||
+        [],
     ),
-    allergies: normalizeStringList(item.allergies || user.allergies || []),
+    allergies: normalizeStringList(
+      profile.allergies || item.allergies || user.allergies || [],
+    ),
     chronicMedications: normalizeStringList(
-      item.chronicMedications || user.chronicMedications || [],
+      profile.chronicMedications ||
+        item.chronicMedications ||
+        user.chronicMedications ||
+        [],
     ),
-    medicalFiles: item.medicalFiles || user.medicalFiles || [],
+    medicalFiles:
+      profile.medicalFiles || item.medicalFiles || user.medicalFiles || [],
     role: "patient",
     active: status === "active",
     status,
@@ -1777,20 +1816,57 @@ export async function getCurrentPatientForDoctor(patientUserId) {
     "patientprofile",
     "profile",
   ]);
-  const patient =
-    hasPatientShape(patientSource)
-      ? patientSource
-      : appointmentSource?.patient ||
-        appointmentSource?.patientId ||
-        responseData?.appointment?.patient ||
-        responseData?.appointment?.patientId ||
-        patientSource;
+  const patientProfile =
+    responseData?.patientProfile ||
+    responseData?.patientprofile ||
+    appointmentSource?.patientProfile ||
+    appointmentSource?.patientprofile ||
+    {};
+  const patientUser =
+    responseData?.patient ||
+    responseData?.currentPatient ||
+    appointmentSource?.patient ||
+    appointmentSource?.patientId ||
+    responseData?.appointment?.patient ||
+    responseData?.appointment?.patientId ||
+    patientSource ||
+    {};
+  const patient = {
+    ...(patientProfile && typeof patientProfile === "object"
+      ? patientProfile
+      : {}),
+    ...(patientUser && typeof patientUser === "object" ? patientUser : {}),
+    patientProfile,
+    user:
+      patientUser?.user ||
+      patientUser?.account ||
+      patientProfile?.user ||
+      patientProfile?.account ||
+      patientUser,
+    photo:
+      patientUser?.photo ||
+      patientProfile?.photo ||
+      responseData?.photo ||
+      "",
+  };
   const appointment =
     hasAppointmentShape(appointmentSource) || hasAppointmentShape(responseData)
       ? normalizeAppointment(
-          hasAppointmentShape(appointmentSource)
-            ? appointmentSource
-            : responseData,
+          {
+            ...(hasAppointmentShape(appointmentSource)
+              ? appointmentSource
+              : responseData),
+            reason:
+              appointmentSource?.reason ||
+              appointmentSource?.visitReason ||
+              responseData?.reason ||
+              responseData?.visitReason ||
+              "",
+            medicalFiles:
+              appointmentSource?.medicalFiles ||
+              responseData?.medicalFiles ||
+              [],
+          },
         )
       : null;
 
@@ -1799,6 +1875,39 @@ export async function getCurrentPatientForDoctor(patientUserId) {
     appointment,
     raw: response,
   };
+}
+
+export async function getMedicalReportsForPatient(patientId) {
+  if (!patientId) throw new ApiError("تعذر تحديد المريض");
+
+  const response = await apiRequest(
+    `/medicalReports/${encodeURIComponent(patientId)}`,
+  );
+
+  return findArray(response, [
+    "medicalReports",
+    "reports",
+    "docs",
+    "results",
+    "items",
+    "data",
+  ]);
+}
+
+export async function getPrescriptionsForPatient(patientId) {
+  if (!patientId) throw new ApiError("تعذر تحديد المريض");
+
+  const response = await apiRequest(
+    `/prescriptions/${encodeURIComponent(patientId)}`,
+  );
+
+  return findArray(response, [
+    "prescriptions",
+    "docs",
+    "results",
+    "items",
+    "data",
+  ]);
 }
 
 function hasAppointmentShape(value) {
@@ -1819,23 +1928,6 @@ function hasAppointmentShape(value) {
       value.paymentStatus ||
       value.doctor ||
       value.doctorId,
-  );
-}
-
-function hasPatientShape(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-
-  return Boolean(
-    getId(value) ||
-      getProfileUserId(value) ||
-      value.name ||
-      value.firstName ||
-      value.lastName ||
-      value.phone ||
-      value.birthDate ||
-      value.bloodType ||
-      value.height ||
-      value.weight,
   );
 }
 

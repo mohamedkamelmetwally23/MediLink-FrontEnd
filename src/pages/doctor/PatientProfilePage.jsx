@@ -22,6 +22,8 @@ import {
   getCurrentDoctorId,
   getCurrentDoctorProfile,
   getCurrentPatientForDoctor,
+  getMedicalReportsForPatient,
+  getPrescriptionsForPatient,
   listMyDoctorAppointments,
   listPatientsForDoctor,
 } from "../../services/medilinkApi";
@@ -32,11 +34,6 @@ import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
 import scaleIcon from "../../assets/doctor departement/ion_scale-outline.png";
 import heightIcon from "../../assets/doctor departement/Group 640 (1).png";
 import recordIcon from "../../assets/doctor departement/Monotone add.png";
-import xrayImageOne from "../../assets/doctor departement/image 12.png";
-import reportImage from "../../assets/doctor departement/image 12 (1).png";
-import xrayImageTwo from "../../assets/doctor departement/image 12 (2).png";
-import xrayImageThree from "../../assets/doctor departement/image 12 (3).png";
-import xrayImageFour from "../../assets/doctor departement/image 12 (4).png";
 import { useUsersStore } from "../admin/users/useUsersStore";
 
 const defaultPatient = {
@@ -112,16 +109,25 @@ function buildPatientFromUser(user) {
         : user.role || defaultPatient.role,
     name: name || defaultPatient.name,
     phone: user.phone || "",
-    image: user.image || user.profileImage || user.avatar || patientImage,
+    image:
+      user.photo ||
+      user.image ||
+      user.profileImage ||
+      user.avatar ||
+      patientImage,
     birthDate: user.birthDate || "",
     registeredAt: user.createdAt || user.registrationDate || "",
-    height: user.height || "",
+    height: user.height ?? user.tall ?? "",
     weight: user.weight || "",
     bloodType: user.bloodType || "",
     smoker,
     age: getAgeFromBirthDate(user.birthDate) || user.age || "",
     gender,
     status: user.status === "inactive" ? "غير مفعل" : defaultPatient.status,
+    chronicConditions: user.chronicConditions || [],
+    allergies: user.allergies || [],
+    chronicMedications: user.chronicMedications || [],
+    medicalFiles: user.medicalFiles || [],
   };
 }
 
@@ -159,6 +165,34 @@ function getIsoDate(date) {
 
 function sameId(left, right) {
   return Boolean(left && right && String(left) === String(right));
+}
+
+function normalizePatientMedicalReport(report = {}, index = 0) {
+  return {
+    id: report._id || report.id || `medical-report-${index}`,
+    date: formatProfileDate(report.createdAt),
+    title: report.diagnosis || "تقرير طبي",
+    summary: report.notes ? `ملاحظات: ${report.notes}` : "لا توجد ملاحظات",
+    diagnosis: report.diagnosis || "غير مسجل",
+    notes: report.notes || "لا توجد ملاحظات",
+  };
+}
+
+function normalizePatientPrescription(prescription = {}, index = 0) {
+  const medicines = Array.isArray(prescription.medicines)
+    ? prescription.medicines
+    : [];
+
+  return {
+    id: prescription._id || prescription.id || `prescription-${index}`,
+    date: formatProfileDate(prescription.createdAt),
+    rows: medicines.map((medicine) => [
+      medicine.name || "غير مسجل",
+      medicine.dose || "غير مسجل",
+      medicine.frequency || "غير مسجل",
+      medicine.duration || "غير مسجل",
+    ]),
+  };
 }
 
 function getAppointmentPatientIds(appointment) {
@@ -323,10 +357,12 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [loadedPatient, setLoadedPatient] = useState(null);
   const [currentAppointment, setCurrentAppointment] = useState(null);
+  const [medicalReports, setMedicalReports] = useState([]);
+  const [prescriptionHistory, setPrescriptionHistory] = useState([]);
   const [currentDoctorId, setCurrentDoctorId] = useState("");
   const selectedRecord = useMemo(
-    () => patientMedicalRecords.find((record) => record.id === selectedRecordId),
-    [selectedRecordId],
+    () => medicalReports.find((record) => record.id === selectedRecordId),
+    [medicalReports, selectedRecordId],
   );
   const routedPatient = location.state?.patient;
   const currentPatientUserId = location.state?.currentPatientUserId;
@@ -336,7 +372,23 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     buildPatientFromUser(storedPatient) ||
     (!startExam ? fallbackPatients[patientId] : null) ||
     (startExam
-      ? { ...defaultPatient, name: "جاري تحميل بيانات المريض", phone: "" }
+      ? {
+          name: "جاري تحميل بيانات المريض",
+          role: "مريض",
+          status: "",
+          gender: "",
+          age: "",
+          phone: "",
+          image: patientImage,
+          height: "",
+          weight: "",
+          bloodType: "",
+          smoker: "",
+          chronicConditions: [],
+          allergies: [],
+          chronicMedications: [],
+          medicalFiles: [],
+        }
       : null) ||
     defaultPatient;
 
@@ -398,23 +450,44 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   }, [patientId, routedPatient, currentPatientUserId, stateAppointmentId]);
 
   useEffect(() => {
-    if (!startExam || !currentPatientUserId) return undefined;
+    if (!startExam || !patientId) return undefined;
 
     let mounted = true;
 
-    getCurrentPatientForDoctor(currentPatientUserId)
-      .then((result) => {
-        if (!mounted) return;
+    Promise.allSettled([
+      getCurrentPatientForDoctor(patientId),
+      getMedicalReportsForPatient(patientId),
+      getPrescriptionsForPatient(patientId),
+    ]).then(([patientResult, reportsResult, prescriptionsResult]) => {
+      if (!mounted) return;
 
-        if (result.patient) setLoadedPatient(result.patient);
-        if (result.appointment) setCurrentAppointment(result.appointment);
-      })
-      .catch(() => {});
+      if (patientResult.status === "fulfilled") {
+        if (patientResult.value.patient) {
+          setLoadedPatient(patientResult.value.patient);
+        }
+        if (patientResult.value.appointment) {
+          setCurrentAppointment(patientResult.value.appointment);
+        }
+      }
+
+      setMedicalReports(
+        reportsResult.status === "fulfilled"
+          ? reportsResult.value.map(normalizePatientMedicalReport)
+          : [],
+      );
+      setPrescriptionHistory(
+        prescriptionsResult.status === "fulfilled"
+          ? prescriptionsResult.value
+              .map(normalizePatientPrescription)
+              .filter((group) => group.rows.length > 0)
+          : [],
+      );
+    });
 
     return () => {
       mounted = false;
     };
-  }, [startExam, currentPatientUserId]);
+  }, [startExam, patientId]);
 
   const handleFinishVisit = async () => {
     const targetPatientId = getPatientRecordId(storedPatient, patientId);
@@ -513,14 +586,21 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
                     <BookingDetails appointment={currentAppointment} />
                   )}
                   {activeSection === "info" && <PatientInformation patient={patient} />}
-                  {activeSection === "files" && <MedicalFiles large />}
+                  {activeSection === "files" && (
+                    <MedicalFiles files={patient.medicalFiles} />
+                  )}
                   {activeSection === "records" && !selectedRecord && (
-                    <MedicalRecords onOpenRecord={openRecord} />
+                    <MedicalRecords
+                      records={medicalReports}
+                      onOpenRecord={openRecord}
+                    />
                   )}
                   {activeSection === "records" && selectedRecord && (
                     <MedicalRecordDetails record={selectedRecord} />
                   )}
-                  {activeSection === "medicines" && <PreviousMedicines />}
+                  {activeSection === "medicines" && (
+                    <PreviousMedicines prescriptions={prescriptionHistory} />
+                  )}
                 </div>
               </section>
             </div>
@@ -2031,9 +2111,15 @@ function PatientInformation({ patient }) {
         ))}
       </div>
 
-      <PatientTags title="الأمراض المزمنة" values={followupData.diseases} />
-      <PatientTags title="الحساسيات" values={followupData.allergies} />
-      <PatientTags title="الأدوية" values={followupData.medicines} />
+      <PatientTags
+        title="الأمراض المزمنة"
+        values={patient.chronicConditions || []}
+      />
+      <PatientTags title="الحساسيات" values={patient.allergies || []} />
+      <PatientTags
+        title="الأدوية"
+        values={patient.chronicMedications || []}
+      />
     </div>
   );
 }
@@ -2061,14 +2147,14 @@ function PatientTags({ title, values }) {
   );
 }
 
-function MedicalRecords({ onOpenRecord }) {
-  if (patientMedicalRecords.length === 0) {
+function MedicalRecords({ records, onOpenRecord }) {
+  if (records.length === 0) {
     return <PatientEmptyState text="لا يوجد سجل طبي حتى الآن" />;
   }
 
   return (
     <div className="space-y-[9px]">
-      {patientMedicalRecords.map((record) => (
+      {records.map((record) => (
         <button
           key={record.id}
           type="button"
@@ -2076,7 +2162,7 @@ function MedicalRecords({ onOpenRecord }) {
           dir="ltr"
           onClick={() => onOpenRecord(record.id)}
         >
-          <span className="rounded-full bg-[#effcfc] px-[8px] py-[4px] text-left text-[10px] font-medium text-[#667] dark:bg-[#274d52] dark:text-gray-200">
+          <span className="flex min-h-[28px] items-center justify-center rounded-full bg-[#effcfc] px-[8px] py-[4px] text-center text-[10px] font-medium text-[#667] dark:bg-[#274d52] dark:text-gray-200">
             {record.date}
           </span>
           <span className="min-w-0 text-right" dir="rtl">
@@ -2111,8 +2197,8 @@ function MedicalRecordDetails({ record }) {
   );
 }
 
-function PreviousMedicines() {
-  if (patientPrescriptions.length === 0) {
+function PreviousMedicines({ prescriptions }) {
+  if (prescriptions.length === 0) {
     return <PatientEmptyState text="لا توجد أدوية أو جرعات سابقة حتى الآن" />;
   }
 
@@ -2123,8 +2209,8 @@ function PreviousMedicines() {
       </h2>
 
       <div className="min-w-[620px] space-y-[28px]">
-        {patientPrescriptions.map((group) => (
-          <section key={group.date}>
+        {prescriptions.map((group) => (
+          <section key={group.id}>
             <p className="mb-[17px] text-[15px] font-medium text-[#28bfd8]">{group.date}</p>
             <div className="grid grid-cols-4 gap-[9px] text-[15px] font-semibold text-[#666] dark:text-gray-300">
               <span>اسم الدواء</span>
@@ -2135,7 +2221,7 @@ function PreviousMedicines() {
             <div className="mt-[8px] space-y-[8px]">
               {group.rows.map((row) => (
                 <div
-                  key={`${group.date}-${row.join("-")}`}
+                  key={`${group.id}-${row.join("-")}`}
                   className="grid grid-cols-4 gap-[9px] text-[17px] text-[#333] dark:text-white sm:text-[20px]"
                 >
                   {row.map((cell) => (
@@ -2187,15 +2273,129 @@ function getAppointmentFileData(file, index) {
     decodeURIComponent(url.split("/").pop()?.split("?")[0] || "") ||
     `ملف مرفق ${index + 1}`;
   const extension = name.split(".").pop()?.toLowerCase();
+  const mimeType = String(file?.mimetype || file?.mimeType || file?.type || "");
+  const nonImageExtensions = [
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "txt",
+    "csv",
+  ];
 
   return {
     id: file?._id || file?.id || file?.fileId || `${name}-${index}`,
     name,
     url,
     isImage:
-      String(file?.mimetype || file?.type || "").startsWith("image/") ||
-      ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension),
+      mimeType.startsWith("image/") ||
+      ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg"].includes(
+        extension,
+      ) ||
+      Boolean(
+        url &&
+          !mimeType &&
+          !nonImageExtensions.includes(extension),
+      ),
   };
+}
+
+function AttachmentCard({ file, large = false }) {
+  const [imageError, setImageError] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const showImage = file.isImage && file.url && !imageError;
+
+  const handleOpen = () => {
+    if (showImage) {
+      setPreviewOpen(true);
+      return;
+    }
+
+    if (file.url) {
+      window.open(file.url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        className={`grid w-full grid-cols-[minmax(0,1fr)_110px] items-center gap-3 rounded-[10px] bg-white px-[16px] py-[12px] text-right shadow-[0_5px_20px_rgba(0,0,0,0.09)] transition dark:bg-[#3d3d3d] sm:grid-cols-[minmax(0,1fr)_128px] sm:px-[26px] ${
+          large ? "min-h-[178px]" : "min-h-[130px]"
+        } ${file.url ? "hover:-translate-y-0.5" : "cursor-default"}`}
+      >
+        <span
+          className="self-start truncate pt-[10px] text-left text-[14px] font-medium text-black dark:text-white sm:text-[17px]"
+          dir="ltr"
+        >
+          {file.name}
+        </span>
+        <span
+          className={`grid place-items-center overflow-hidden rounded-[10px] bg-[#eef3f5] shadow-inner dark:bg-[#4a4a4a] ${
+            large
+              ? "h-[142px] w-[110px] sm:h-[170px] sm:w-[126px]"
+              : "h-[106px] w-[104px]"
+          }`}
+        >
+          {showImage ? (
+            <img
+              src={file.url}
+              alt={file.name}
+              className="h-full w-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <FileText size={large ? 46 : 42} className="text-[#28bbd5]" />
+          )}
+        </span>
+      </button>
+
+      {previewOpen && showImage && (
+        <ImagePreviewModal
+          file={file}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ImagePreviewModal({ file, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] grid place-items-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`معاينة ${file.name}`}
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        aria-label="إغلاق المعاينة"
+        className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+        onClick={onClose}
+      >
+        <X size={27} />
+      </button>
+      <img
+        src={file.url}
+        alt={file.name}
+        className="max-h-[88vh] max-w-[94vw] rounded-[12px] object-contain shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      />
+    </div>
+  );
 }
 
 function BookingDetails({ appointment }) {
@@ -2230,30 +2430,7 @@ function BookingDetails({ appointment }) {
         {files.length > 0 ? (
           <div className="grid gap-[12px] md:grid-cols-2">
             {files.map((file) => (
-              <a
-                key={file.id}
-                href={file.url || undefined}
-                target={file.url ? "_blank" : undefined}
-                rel={file.url ? "noreferrer" : undefined}
-                className={`grid min-h-[130px] grid-cols-[minmax(0,1fr)_104px] items-center gap-3 rounded-[10px] bg-white px-[16px] py-[12px] shadow-[0_5px_20px_rgba(0,0,0,0.08)] dark:bg-[#3d3d3d] ${
-                  file.url ? "transition hover:-translate-y-0.5" : "cursor-default"
-                }`}
-              >
-                <span className="truncate text-left text-[14px] font-medium text-[#333] dark:text-white" dir="ltr">
-                  {file.name}
-                </span>
-                <span className="grid h-[106px] w-[104px] place-items-center overflow-hidden rounded-[9px] bg-[#eef3f5] dark:bg-[#4a4a4a]">
-                  {file.isImage && file.url ? (
-                    <img
-                      src={file.url}
-                      alt={file.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <FileText size={42} className="text-[#28bbd5]" />
-                  )}
-                </span>
-              </a>
+              <AttachmentCard key={file.id} file={file} />
             ))}
           </div>
         ) : (
@@ -2266,52 +2443,20 @@ function BookingDetails({ appointment }) {
   );
 }
 
-function MedicalFiles({ compact = false, large = false }) {
-  const files = (large
-    ? [
-        { type: "xray", image: xrayImageOne },
-        { type: "report", image: reportImage },
-        { type: "xray", image: xrayImageTwo },
-        { type: "xray", image: xrayImageThree },
-        { type: "xray", image: xrayImageFour },
-        { type: "report", image: reportImage },
-      ]
-    : [
-        { type: "report", image: reportImage },
-        { type: "xray", image: xrayImageOne },
-      ]).filter(() => false);
+function MedicalFiles({ files = [] }) {
+  const normalizedFiles = (Array.isArray(files) ? files : []).map(
+    getAppointmentFileData,
+  );
 
-  if (files.length === 0) {
+  if (normalizedFiles.length === 0) {
     return <PatientEmptyState text="لا توجد ملفات طبية حتى الآن" />;
   }
 
   return (
-    <div className={`grid gap-[12px] ${large ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
-      {files.map((file, index) => (
-        <article
-          key={`${file.type}-${index}`}
-          className={`grid grid-cols-[minmax(0,1fr)_96px] items-center rounded-[10px] bg-white px-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[minmax(0,1fr)_128px] sm:px-[26px] ${
-            compact ? "h-[178px] sm:h-[202px]" : "h-[178px] sm:h-[202px]"
-          }`}
-        >
-          <h3 className="self-start pt-[18px] text-left text-[16px] font-medium text-black dark:text-white sm:text-[20px]" dir="ltr">
-            20042026.PNG
-          </h3>
-          <FilePreview file={file} />
-        </article>
+    <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2">
+      {normalizedFiles.map((file) => (
+        <AttachmentCard key={file.id} file={file} large />
       ))}
-    </div>
-  );
-}
-
-function FilePreview({ file }) {
-  return (
-    <div className="h-[142px] w-[96px] overflow-hidden rounded-[10px] bg-[#eef3f5] shadow-inner sm:h-[170px] sm:w-[126px]">
-      <img
-        src={file.image}
-        alt=""
-        className="h-full w-full object-cover"
-      />
     </div>
   );
 }
