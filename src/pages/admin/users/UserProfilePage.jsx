@@ -7,6 +7,7 @@ import ActivityList from "../../../components/admin/ActivityList";
 import {
   getDoctor,
   getUserAppointmentsCount,
+  listDoctorActivities,
   listPatientActivities,
 } from "../../../services/medilinkApi";
 import { userRoles, userStatuses } from "./usersData";
@@ -179,6 +180,13 @@ export default function UserProfilePage() {
             routeId={userId}
           />
         )}
+        {(storedUser?.role || routeRole) === "doctor" && (
+          <DoctorActivityPanel
+            key={userId}
+            user={profileSource}
+            routeId={userId}
+          />
+        )}
       </main>
     </section>
   );
@@ -299,6 +307,31 @@ function getPatientActivityLookupIds(user, routeId) {
         user?.raw?.patient?.id,
         user?.raw?.patientProfile?._id,
         user?.raw?.patientProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+        user?.id,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.userId,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+        routeId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getDoctorActivityLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.profileId,
+        user?.raw?.doctor?._id,
+        user?.raw?.doctor?.id,
+        user?.raw?.doctorProfile?._id,
+        user?.raw?.doctorProfile?.id,
         user?.raw?.profile?._id,
         user?.raw?.profile?.id,
         user?.id,
@@ -569,6 +602,7 @@ function ActivityPanel({
   activities,
   loading,
   error,
+  title,
   showAll = false,
   onShowAll,
 }) {
@@ -576,7 +610,7 @@ function ActivityPanel({
     <section className="mt-[42px] overflow-hidden rounded-[8px] bg-white py-[25px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div className="mb-[18px] flex items-center justify-between gap-4 px-6">
         <h2 className="text-right text-[20px] font-bold text-[#333] dark:text-white">
-          سجل نشاطات المريض
+          {title}
         </h2>
 
         {!loading && !error && activities.length > 0 && !showAll && (
@@ -596,6 +630,8 @@ function ActivityPanel({
           loading={loading}
           error={error}
           compact={!showAll}
+          showRole={false}
+          showActorName={false}
         />
       </div>
     </section>
@@ -645,6 +681,57 @@ function PatientActivityPanel({ user, routeId }) {
       activities={activities}
       loading={loading}
       error={error}
+      title="سجل نشاطات المريض"
+      showAll={showAll}
+      onShowAll={() => setShowAll(true)}
+    />
+  );
+}
+
+function DoctorActivityPanel({ user, routeId }) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const doctorIds = getDoctorActivityLookupIds(user, routeId);
+
+    async function loadDoctorActivities() {
+      for (const doctorId of doctorIds) {
+        try {
+          const doctorActivities = await listDoctorActivities(doctorId, 500);
+
+          if (mounted) {
+            setActivities(doctorActivities);
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // Try the next possible doctor identifier.
+        }
+      }
+
+      if (mounted) {
+        setError("تعذر تحميل سجل نشاطات الطبيب");
+        setLoading(false);
+      }
+    }
+
+    loadDoctorActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [routeId, user]);
+
+  return (
+    <ActivityPanel
+      activities={activities}
+      loading={loading}
+      error={error}
+      title="سجل نشاطات الطبيب"
       showAll={showAll}
       onShowAll={() => setShowAll(true)}
     />

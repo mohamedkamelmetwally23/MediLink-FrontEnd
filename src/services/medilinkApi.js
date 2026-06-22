@@ -2552,12 +2552,12 @@ export async function listActivities(limit = 500) {
     });
 }
 
-export async function listPatientActivities(patientId, limit = 500) {
-  if (!patientId) return [];
+async function listEntityActivities(entityId, limit = 500) {
+  if (!entityId) return [];
 
   const safeLimit = Math.max(1, Math.min(Number(limit) || 500, 500));
   const response = await apiRequest(
-    `/activities/${encodeURIComponent(patientId)}?limit=${safeLimit}`,
+    `/activities/${encodeURIComponent(entityId)}?limit=${safeLimit}`,
   );
   const activities = findArray(response, [
     "activities",
@@ -2579,6 +2579,14 @@ export async function listPatientActivities(patientId, limit = 500) {
       if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) return 0;
       return secondTime - firstTime;
     });
+}
+
+export function listPatientActivities(patientId, limit = 500) {
+  return listEntityActivities(patientId, limit);
+}
+
+export function listDoctorActivities(doctorId, limit = 500) {
+  return listEntityActivities(doctorId, limit);
 }
 
 export async function getClinicProfits() {

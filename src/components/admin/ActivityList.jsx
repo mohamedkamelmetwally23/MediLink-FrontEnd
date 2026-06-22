@@ -33,6 +33,8 @@ export default function ActivityList({
   loading = false,
   error = "",
   compact = false,
+  showRole = true,
+  showActorName = true,
 }) {
   const [visibleCount, setVisibleCount] = useState(ACTIVITIES_BATCH_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -132,17 +134,17 @@ export default function ActivityList({
                 {activityItem.description}
               </p>
 
-              {(activityItem.actorName ||
-                activityItem.actorRole ||
+              {((showActorName && activityItem.actorName) ||
+                (showRole && activityItem.actorRole) ||
                 formattedDate) && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#8a8a8a] dark:text-gray-300">
-                  {activityItem.actorName && (
+                  {showActorName && activityItem.actorName && (
                     <span className="flex items-center gap-1">
                       <UserRound size={13} />
                       {activityItem.actorName}
                     </span>
                   )}
-                  {activityItem.actorRole && (
+                  {showRole && activityItem.actorRole && (
                     <span className="flex items-center gap-1 text-[#22a9c2] dark:text-[#60d7ea]">
                       <ShieldCheck size={13} />
                       {activityItem.actorRole}
