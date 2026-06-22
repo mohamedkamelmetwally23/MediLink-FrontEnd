@@ -2335,10 +2335,10 @@ export async function toggleUserActiveStatus(user, options = {}) {
   };
 }
 
-export async function submitReview({ appointmentId, stars, comment = "" }) {
+export async function submitReview({ appointmentId, stars }) {
   return apiRequest("/reviews", {
     method: "POST",
-    body: { appointmentId, stars, comment },
+    body: { appointmentId, stars },
   });
 }
 

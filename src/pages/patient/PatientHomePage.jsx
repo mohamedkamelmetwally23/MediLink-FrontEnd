@@ -1050,7 +1050,7 @@ export default function PatientHomePage() {
   const { doctors, loading: doctorsLoading, error: doctorsError } = useDoctors();
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [appointmentLoading, setAppointmentLoading] = useState(true);
-  const [ratingAppointment, setRatingAppointment] = useState(null);
+  const [ratingAppointments, setRatingAppointments] = useState([]);
   const patient = authUser?.patient || authUser?.profile || authUser || {};
   const patientName =
     [patient.firstName, patient.lastName].filter(Boolean).join(" ").trim() ||
@@ -1066,13 +1066,22 @@ export default function PatientHomePage() {
         if (!mounted) return;
         setUpcomingAppointment(getUpcomingAppointment(appointments));
 
-        const unrated = appointments.find(
-          (apt) =>
-            apt.status === "completed" &&
-            apt.raw?.isRated === false &&
-            !sessionStorage.getItem(`medilink-rated-${apt.id}`),
-        );
-        if (unrated) setRatingAppointment(unrated);
+        const unratedAppointments = appointments.filter((appointment) => {
+          const isRated =
+            appointment.raw?.isRated ??
+            appointment.raw?.rated ??
+            appointment.raw?.reviewed;
+          const isUnrated =
+            isRated === false ||
+            String(isRated).trim().toLowerCase() === "false";
+
+          return (
+            appointment.status === "completed" &&
+            isUnrated
+          );
+        });
+
+        setRatingAppointments(unratedAppointments);
       })
       .catch(() => {
         if (mounted) setUpcomingAppointment(null);
@@ -1112,17 +1121,19 @@ export default function PatientHomePage() {
     return undefined;
   }, [location.hash, location.state]);
 
-  const handleRatingSubmit = async ({ appointmentId, stars, comment }) => {
-    await submitReview({ appointmentId, stars, comment });
-    sessionStorage.setItem(`medilink-rated-${appointmentId}`, "1");
-    setRatingAppointment(null);
+  const ratingAppointment = ratingAppointments[0] || null;
+
+  const showNextRatingAppointment = () => {
+    setRatingAppointments((appointments) => appointments.slice(1));
+  };
+
+  const handleRatingSubmit = async ({ appointmentId, stars }) => {
+    await submitReview({ appointmentId, stars });
+    showNextRatingAppointment();
   };
 
   const handleRatingSkip = () => {
-    if (ratingAppointment) {
-      sessionStorage.setItem(`medilink-rated-${ratingAppointment.id}`, "1");
-    }
-    setRatingAppointment(null);
+    showNextRatingAppointment();
   };
 
   return (
@@ -1153,7 +1164,9 @@ export default function PatientHomePage() {
       <PatientHomeFooter />
       {ratingAppointment && (
         <RatingPopup
+          key={ratingAppointment.id}
           appointment={ratingAppointment}
+          remainingCount={ratingAppointments.length}
           onSubmit={handleRatingSubmit}
           onSkip={handleRatingSkip}
         />
