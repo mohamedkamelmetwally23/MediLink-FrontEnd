@@ -105,7 +105,10 @@ function buildPatientFromUser(user) {
       : user.smoker || "";
 
   return {
-    role: user.role || defaultPatient.role,
+    role:
+      String(user.role || "").toLowerCase() === "patient"
+        ? "مريض"
+        : user.role || defaultPatient.role,
     name: name || defaultPatient.name,
     phone: user.phone || "",
     image: user.image || user.profileImage || user.avatar || patientImage,
@@ -1955,7 +1958,11 @@ function PatientCard({ patient }) {
           {patient.name}
         </h1>
         <div className="mt-[7px] flex items-center justify-center gap-[13px] text-[14px] text-[#6d6d6d] dark:text-gray-300 sm:justify-start">
-          <span>{patient.role || "مريض"}</span>
+          <span>
+            {String(patient.role || "").toLowerCase() === "patient"
+              ? "مريض"
+              : patient.role || "مريض"}
+          </span>
           <span className="rounded-[6px] bg-[#e2f8e9] px-[8px] py-[2px] text-[11px] font-bold text-[#229b4e] dark:bg-[#234f35] dark:text-[#8ee3aa]">
             {patient.status || "مفعل"}
           </span>
