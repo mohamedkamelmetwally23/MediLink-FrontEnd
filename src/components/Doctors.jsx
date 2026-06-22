@@ -17,6 +17,32 @@ function DoctorsSkeleton() {
   );
 }
 
+function RatingStars({ rating }) {
+  return (
+    <span className="flex gap-1.5" aria-hidden="true">
+      {Array.from({ length: 5 }).map((_, starIndex) => {
+        const fillPercentage =
+          Math.min(Math.max(rating - starIndex, 0), 1) * 100;
+
+        return (
+          <span
+            key={starIndex}
+            className="relative inline-grid h-4 w-4 place-items-center text-yellow-400/25"
+          >
+            <FaStar className="absolute inset-0 h-4 w-4" />
+            <span
+              className="absolute inset-y-0 left-0 overflow-hidden text-yellow-400"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <FaStar className="absolute left-0 top-0 h-4 w-4 max-w-none" />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export default function Doctors() {
   const navigate = useNavigate();
   const { doctors, loading, error, reload } = useDoctors();
@@ -70,11 +96,7 @@ export default function Doctors() {
                 <p className="min-h-9 text-xs leading-5 text-[#6D6D6D] dark:text-[#BDBDBD]">{doctor.specialty || "طب عام"}</p>
                 <div className="mt-auto flex items-center gap-3 text-sm text-[#555555] dark:text-[#E0E0E0]">
                   <span>{rating.toFixed(1)}</span>
-                  <span className="flex gap-1.5 text-yellow-400">
-                    {Array.from({ length: 5 }).map((_, starIndex) => (
-                      <FaStar key={starIndex} className={starIndex < Math.round(rating) ? "" : "opacity-25"} />
-                    ))}
-                  </span>
+                  <RatingStars rating={rating} />
                 </div>
               </button>
             );

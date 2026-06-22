@@ -6,12 +6,10 @@ import {
   ChevronsRight,
   Pencil,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
-  deleteAppointment,
   listAppointments,
   updateAppointmentStatus,
 } from "../../services/medilinkApi";
@@ -96,13 +94,11 @@ function saveCachedAppointments(appointments) {
 export default function ReceptionistAppointmentsPage() {
   const cachedAppointments = useMemo(() => readCachedAppointments(), []);
   const [appointments, setAppointments] = useState(() => cachedAppointments);
-  const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [bookingFilter, setBookingFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
-  const [pendingDelete, setPendingDelete] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(() => cachedAppointments.length === 0);
@@ -183,53 +179,10 @@ export default function ReceptionistAppointmentsPage() {
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
-  const visibleIds = pageAppointments.map((appointment) => appointment.id);
-  const selectedCount = selectedIds.length;
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   const resetToFirstPage = (updateValue) => {
     updateValue();
     setCurrentPage(1);
-  };
-
-  const toggleAppointment = (id) => {
-    setSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
-
-  const toggleAllVisible = () => {
-    setSelectedIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !visibleIds.includes(id));
-      }
-
-      return Array.from(new Set([...current, ...visibleIds]));
-    });
-  };
-
-  const removeAppointments = (ids) => {
-    setAppointments((current) =>
-      current.filter((appointment) => !ids.includes(appointment.id)),
-    );
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
-  };
-
-  const deleteAppointments = (ids) => {
-    const apiIds = ids.filter((id) => !String(id).startsWith("demo-"));
-
-    if (apiIds.length === 0) {
-      removeAppointments(ids);
-      return;
-    }
-
-    Promise.all(apiIds.map(deleteAppointment))
-      .then(() => removeAppointments(ids))
-      .catch(() => setPendingDelete(null));
   };
 
   const updateAppointment = (appointment, values) => {
@@ -259,19 +212,10 @@ export default function ReceptionistAppointmentsPage() {
           />
         </div>
 
-        {selectedCount > 0 && (
-          <SelectionBar
-            count={selectedCount}
-            onClear={() => setSelectedIds([])}
-            onDelete={() => setPendingDelete(selectedIds)}
-          />
-        )}
-
         <section className="overflow-hidden bg-white dark:bg-[#505050]">
           <div className="overflow-x-auto">
-            <div className="min-w-[920px]">
+            <div className="min-w-[860px]">
               <TableHeader
-                allVisibleSelected={allVisibleSelected}
                 bookingFilter={bookingFilter}
                 dateFilter={dateFilter}
                 dates={dates}
@@ -289,7 +233,6 @@ export default function ReceptionistAppointmentsPage() {
                 onPaymentChange={(value) =>
                   resetToFirstPage(() => setPaymentFilter(value))
                 }
-                onToggleAll={toggleAllVisible}
                 paymentFilter={paymentFilter}
               />
 
@@ -304,10 +247,7 @@ export default function ReceptionistAppointmentsPage() {
                   <AppointmentRow
                     key={appointment.id}
                     appointment={appointment}
-                    selected={selectedIds.includes(appointment.id)}
-                    onDelete={() => setPendingDelete([appointment.id])}
                     onEdit={() => setEditingAppointment(appointment)}
-                    onToggle={() => toggleAppointment(appointment.id)}
                   />
                 ))
               )}
@@ -323,13 +263,6 @@ export default function ReceptionistAppointmentsPage() {
           )}
         </section>
       </main>
-
-      {pendingDelete && (
-        <ConfirmDeleteModal
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deleteAppointments(pendingDelete)}
-        />
-      )}
 
       {editingAppointment && (
         <EditAppointmentModal
@@ -383,37 +316,7 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
-  return (
-    <div className="mb-[16px] flex h-[58px] items-center justify-between rounded-[8px] border border-[#d8eef5] bg-[#f5fcff] px-[18px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
-      <p className="text-[13px] font-semibold text-[#333] dark:text-white">
-        تم تحديد {count} من العناصر
-      </p>
-
-      <div className="flex items-center gap-[18px]" dir="ltr">
-        <button
-          type="button"
-          aria-label="إلغاء التحديد"
-          className="grid h-[32px] w-[32px] place-items-center text-[#222] dark:text-white"
-          onClick={onClear}
-        >
-          <X size={20} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
-          className="flex h-[32px] items-center gap-[10px] rounded-[8px] border border-[#ff2626] px-[14px] text-[12px] font-semibold text-[#ff2626]"
-          onClick={onDelete}
-        >
-          <span>حذف المحدد</span>
-          <Trash2 size={16} strokeWidth={1.8} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function TableHeader({
-  allVisibleSelected,
   bookingFilter,
   dateFilter,
   dates,
@@ -423,17 +326,13 @@ function TableHeader({
   onDateChange,
   onDoctorChange,
   onPaymentChange,
-  onToggleAll,
   paymentFilter,
 }) {
   return (
     <div
-      className="grid h-[42px] grid-cols-[48px_1.15fr_1.15fr_1.45fr_1fr_1fr_76px] items-center bg-[#f7f7f7] text-[12px] font-medium text-[#333] dark:bg-[#444] dark:text-white"
+      className="grid h-[42px] grid-cols-[1.15fr_1.15fr_1.45fr_1fr_1fr_48px] items-center bg-[#f7f7f7] text-[12px] font-medium text-[#333] dark:bg-[#444] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-center">
-        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
-      </div>
       <span className="text-center">المريض</span>
       <FilterSelect value={doctorFilter} onChange={onDoctorChange} label="الطبيب">
         <option value="">الطبيب</option>
@@ -499,17 +398,12 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function AppointmentRow({ appointment, selected, onDelete, onEdit, onToggle }) {
+function AppointmentRow({ appointment, onEdit }) {
   return (
     <div
-      className={`grid h-[40px] grid-cols-[48px_1.15fr_1.15fr_1.45fr_1fr_1fr_76px] items-center border-b border-[#e8e8e8] text-[11px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
-        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
-      }`}
+      className="grid h-[40px] grid-cols-[1.15fr_1.15fr_1.45fr_1fr_1fr_48px] items-center border-b border-[#e8e8e8] bg-white text-[11px] text-[#2f2f2f] transition dark:border-white/15 dark:bg-[#505050] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-center">
-        <Checkbox checked={selected} onClick={onToggle} />
-      </div>
       <span className="truncate px-2 text-center">{appointment.patient}</span>
       <span className="truncate px-2 text-center">{appointment.doctor}</span>
       <span className="truncate px-2 text-center">
@@ -521,7 +415,7 @@ function AppointmentRow({ appointment, selected, onDelete, onEdit, onToggle }) {
       <div className="flex justify-center">
         <StatusBadge value={appointment.payment} labels={paymentStatusLabels} />
       </div>
-      <div className="flex items-center justify-center gap-3" dir="ltr">
+      <div className="flex items-center justify-center" dir="ltr">
         <button
           type="button"
           aria-label="تعديل"
@@ -530,33 +424,8 @@ function AppointmentRow({ appointment, selected, onDelete, onEdit, onToggle }) {
         >
           <Pencil size={16} strokeWidth={1.7} />
         </button>
-        <button
-          type="button"
-          aria-label="حذف"
-          className="text-[#333] transition hover:text-[#ff2626] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} strokeWidth={1.7} />
-        </button>
       </div>
     </div>
-  );
-}
-
-function Checkbox({ checked, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      className={`grid h-[16px] w-[16px] place-items-center rounded-[3px] border text-[10px] font-bold leading-none ${
-        checked
-          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
-          : "border-[#999] bg-transparent"
-      }`}
-      onClick={onClick}
-    >
-      {checked ? "✓" : ""}
-    </button>
   );
 }
 
@@ -652,37 +521,6 @@ function getPaginationPages(currentPage, totalPages) {
   return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, totalPages]
     .filter((page) => page === "ellipsis" || (page >= 1 && page <= totalPages))
     .filter((page, index, items) => page === "ellipsis" || items.indexOf(page) === index);
-}
-
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
-  return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/20 p-4">
-      <div className="w-full max-w-[348px] rounded-[9px] bg-white px-[24px] pb-[16px] pt-[30px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
-        <div className="mx-auto grid h-[50px] w-[50px] place-items-center rounded-full bg-[#c92626] text-[36px] font-bold leading-none text-white">
-          !
-        </div>
-        <h2 className="mt-[23px] text-[18px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
-        </h2>
-        <div className="mt-[15px] grid grid-cols-2 gap-[7px]" dir="ltr">
-          <button
-            type="button"
-            className="h-[38px] rounded-[8px] border border-[#ff3030] text-[12px] font-semibold text-[#ff3030]"
-            onClick={onConfirm}
-          >
-            نعم
-          </button>
-          <button
-            type="button"
-            className="h-[38px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-semibold text-white"
-            onClick={onCancel}
-          >
-            لا
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function EditAppointmentModal({ appointment, onCancel, onSave }) {

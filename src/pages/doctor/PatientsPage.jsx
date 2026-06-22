@@ -6,7 +6,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { includesSearchText } from "../../utils/searchText";
@@ -15,8 +14,8 @@ import { listPatientsForDoctor } from "../../services/medilinkApi";
 const pageSize = 10;
 
 const statusLabels = {
-  active: "نشط",
-  inactive: "غير نشط",
+  active: "مفعل",
+  inactive: "غير مفعل",
 };
 
 function toPatientRow(user) {
@@ -37,8 +36,6 @@ export default function DoctorPatientsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -83,38 +80,10 @@ export default function DoctorPatientsPage() {
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
-  const visibleIds = pagePatients.map((patient) => patient.id);
-  const selectedCount = selectedIds.length;
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   const resetToFirstPage = (updateValue) => {
     updateValue();
     setCurrentPage(1);
-  };
-
-  const togglePatient = (id) => {
-    setSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
-
-  const toggleAllVisible = () => {
-    setSelectedIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !visibleIds.includes(id));
-      }
-
-      return Array.from(new Set([...current, ...visibleIds]));
-    });
-  };
-
-  const deletePatients = (ids) => {
-    setPatients((current) => current.filter((patient) => !ids.includes(patient.id)));
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setPendingDelete(null);
   };
 
   return (
@@ -127,20 +96,10 @@ export default function DoctorPatientsPage() {
             <SearchBox value={search} onChange={setSearch} />
           </div>
 
-          {selectedCount > 0 && (
-            <SelectionBar
-              count={selectedCount}
-              onClear={() => setSelectedIds([])}
-              onDelete={() => setPendingDelete(selectedIds)}
-            />
-          )}
-
         <section className="w-full overflow-hidden rounded-[4px] border border-[#e8eef1] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#505050]">
           <div className="overflow-x-auto">
-            <div className="min-w-[620px] w-full">
+            <div className="w-full min-w-[760px]">
               <TableHeader
-                allVisibleSelected={allVisibleSelected}
-                onToggleAll={toggleAllVisible}
                 statusFilter={statusFilter}
                 onStatusChange={(value) =>
                   resetToFirstPage(() => setStatusFilter(value))
@@ -158,8 +117,6 @@ export default function DoctorPatientsPage() {
                   <PatientRow
                     key={patient.id}
                     patient={patient}
-                    selected={selectedIds.includes(patient.id)}
-                    onToggle={() => togglePatient(patient.id)}
                   />
                 ))
               )}
@@ -177,12 +134,6 @@ export default function DoctorPatientsPage() {
         </div>
       </main>
 
-      {pendingDelete && (
-        <ConfirmDeleteModal
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => deletePatients(pendingDelete)}
-        />
-      )}
     </section>
   );
 }
@@ -230,130 +181,57 @@ function SearchBox({ value, onChange }) {
   );
 }
 
-function SelectionBar({ count, onClear, onDelete }) {
-  return (
-    <div className="flex min-h-[42px] items-center justify-between gap-4 rounded-[4px] border border-[#d8eef5] bg-[#f8fdff] px-[12px] dark:border-cyan-400/25 dark:bg-cyan-400/10">
-      <button
-        type="button"
-        aria-label="إلغاء التحديد"
-        className="grid h-[28px] w-[28px] place-items-center text-[#6f7b80] dark:text-white"
-        onClick={onClear}
-      >
-        <X size={18} strokeWidth={1.8} />
-      </button>
-
-      <div className="flex items-center gap-[16px]">
-        <button
-          type="button"
-          className="flex h-[28px] items-center rounded-[4px] border border-[#ff2626] px-[10px] text-[10px] font-semibold text-[#ff2626]"
-          onClick={onDelete}
-        >
-          <span>حذف المحدد</span>
-        </button>
-
-        <p className="text-[11px] font-semibold text-[#333] dark:text-white">
-          تم تحديد {count} من العناصر
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function TableHeader({
-  allVisibleSelected,
-  onToggleAll,
   statusFilter,
   onStatusChange,
 }) {
   return (
     <div
-      className="grid h-[36px] grid-cols-[34px_minmax(150px,1fr)_140px_74px_78px_36px] items-center bg-[#f7f7f7] px-[8px] text-[10px] font-bold text-[#333] dark:bg-[#444] dark:text-white"
+      className="grid h-[56px] grid-cols-[1.6fr_1.35fr_1fr_minmax(0,0.5fr)_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-end">
-        <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
-      </div>
-      <span className="text-right">الاسم</span>
+      <span className="truncate text-center">الاسم</span>
       <span className="text-center">رقم الهاتف</span>
-      <span className="text-center">عدد الزيارات</span>
       <select
         value={statusFilter}
         onChange={(event) => onStatusChange(event.target.value)}
-        className="mx-auto h-[26px] w-[78px] rounded-[5px] bg-transparent text-center text-[10px] font-bold outline-none dark:bg-[#444]"
+        className="mx-auto h-full w-full bg-transparent text-center text-[17px] font-medium outline-none dark:bg-[#444]"
       >
         <option value="">الحالة</option>
-        <option value="active">نشط</option>
-        <option value="inactive">غير نشط</option>
+        <option value="active">مفعل</option>
+        <option value="inactive">غير مفعل</option>
       </select>
+      <span aria-hidden="true" />
       <span />
     </div>
   );
 }
 
-function PatientRow({ patient, selected, onToggle }) {
+function PatientRow({ patient }) {
   return (
     <div
-      className={`grid h-[36px] grid-cols-[34px_minmax(150px,1fr)_140px_74px_78px_36px] items-center border-b border-[#e9e9e9] px-[8px] text-[10px] text-[#333] transition hover:bg-[#f6f6f6] dark:border-white/10 dark:text-white dark:hover:bg-white/5 ${
-        selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
-      }`}
+      className="grid h-[56px] grid-cols-[1.6fr_1.35fr_1fr_minmax(0,0.5fr)_48px] items-center border-b border-[#dddddd] bg-white text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:bg-[#505050] dark:text-white"
       dir="rtl"
     >
-      <div className="flex justify-end">
-        <Checkbox checked={selected} onClick={onToggle} />
-      </div>
-      <span className="truncate text-right font-medium text-[#2f2f2f] dark:text-white">
+      <span className="truncate text-center">
         {patient.name}
       </span>
-      <span className="truncate text-center font-medium text-[#333] dark:text-gray-200" dir="ltr">
+      <span className="truncate text-center" dir="ltr">
         {patient.phone}
       </span>
-      <span className="text-center font-medium text-[#333] dark:text-gray-200">
-        {patient.casesCount}
-      </span>
-      <StatusBadge status={patient.status} />
-      <div className="hidden" aria-hidden="true">
-        <button
-          type="button"
-          aria-label={`تعطيل ${patient.name}`}
-          className="text-[#a4a4a4] transition hover:text-[#35c0d8]"
-        >
-          {null}
-        </button>
-        <button
-          type="button"
-          aria-label={`حذف ${patient.name}`}
-          className="text-[#a4a4a4] transition hover:text-[#ff2626]"
-          disabled
-        >
-          <Trash2 size={15} strokeWidth={1.8} />
-        </button>
+      <div className="flex justify-center">
+        <StatusBadge status={patient.status} />
       </div>
+      <span aria-hidden="true" />
       <Link
         to={`/doctor/patients/${encodeURIComponent(patient.id)}/profile`}
         state={{ patient: patient.raw || patient }}
         aria-label={`عرض ملف ${patient.name}`}
-        className="mx-auto grid h-[28px] w-[28px] place-items-center rounded-full text-[#35c0d8] transition hover:bg-[#edfafd] dark:text-[#35c0d8] dark:hover:bg-white/10"
+        className="grid h-full place-items-center text-[#333] dark:text-white"
       >
-        <ChevronLeft size={17} strokeWidth={1.9} />
+        <ChevronLeft size={23} strokeWidth={1.7} />
       </Link>
     </div>
-  );
-}
-
-function Checkbox({ checked, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      className={`grid h-[13px] w-[13px] place-items-center rounded-[2px] border text-[9px] font-bold leading-none ${
-        checked
-          ? "border-[#43bfd1] bg-[#43bfd1] text-white"
-          : "border-[#c2c2c2] bg-transparent"
-      }`}
-      onClick={onClick}
-    >
-      {checked ? "✓" : ""}
-    </button>
   );
 }
 
@@ -362,10 +240,10 @@ function StatusBadge({ status }) {
 
   return (
     <span
-      className={`mx-auto inline-flex h-[18px] min-w-[46px] items-center justify-center rounded-full px-[8px] text-[8px] font-bold ${
+      className={`rounded-[7px] px-[7px] py-[5px] text-[10px] font-medium ${
         isActive
-          ? "bg-[#eaf8e9] text-[#36a820] dark:bg-[#36a820]/15 dark:text-[#75dd62]"
-          : "bg-[#fff0f0] text-[#ff2020] dark:bg-[#ff2020]/15 dark:text-[#ff7d7d]"
+          ? "bg-[#e8fff4] text-[#129a55]"
+          : "bg-[#fff0f0] text-[#ff2020]"
       }`}
     >
       {statusLabels[status]}
@@ -455,33 +333,3 @@ function getPaginationPages(currentPage, totalPages) {
   });
 }
 
-function ConfirmDeleteModal({ onCancel, onConfirm }) {
-  return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/20 p-4">
-      <div className="w-full max-w-[348px] rounded-[8px] bg-white px-[24px] pb-[18px] pt-[28px] text-center shadow-[0_12px_35px_rgba(0,0,0,0.16)] dark:bg-[#3f3f3f]">
-        <div className="mx-auto grid h-[44px] w-[44px] place-items-center rounded-full bg-[#c92626] text-[28px] font-bold leading-none text-white">
-          !
-        </div>
-        <h2 className="mt-[18px] text-[17px] font-bold leading-7 text-[#c92626]">
-          هل أنت متأكد من حذف هذا العنصر
-        </h2>
-        <div className="mt-[15px] grid grid-cols-2 gap-[8px]" dir="ltr">
-          <button
-            type="button"
-            className="h-[39px] rounded-[7px] border border-[#0fb8e8] text-[12px] font-semibold text-[#12aee0]"
-            onClick={onConfirm}
-          >
-            نعم
-          </button>
-          <button
-            type="button"
-            className="h-[39px] rounded-[7px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-semibold text-white"
-            onClick={onCancel}
-          >
-            لا
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

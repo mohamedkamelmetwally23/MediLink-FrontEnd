@@ -1,7 +1,9 @@
 import { ArrowRight, Star } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
+import { getDoctor } from "../../../services/medilinkApi";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
 
@@ -35,7 +37,44 @@ export default function UserProfilePage() {
   const [searchParams] = useSearchParams();
   const { getUser, loading } = useUsersStore();
   const storedUser = userId ? getUser(userId) : null;
-  const profile = buildProfile(storedUser, searchParams);
+  const routeRole = searchParams.get("role") || "";
+  const isDoctorProfile = (storedUser?.role || routeRole) === "doctor";
+  const [doctorDetails, setDoctorDetails] = useState(null);
+  const activeDoctorDetails =
+    isDoctorProfile && doctorDetails?.routeUserId === userId
+      ? doctorDetails.data
+      : null;
+  const profileSource = activeDoctorDetails || storedUser;
+  const profile = buildProfile(profileSource, searchParams);
+
+  useEffect(() => {
+    if (!userId || !isDoctorProfile) {
+      return undefined;
+    }
+
+    let mounted = true;
+    const doctorIds = getDoctorProfileLookupIds(storedUser, userId);
+
+    async function loadDoctorDetails() {
+      for (const doctorId of doctorIds) {
+        try {
+          const doctor = await getDoctor(doctorId);
+          if (mounted) setDoctorDetails({ routeUserId: userId, data: doctor });
+          return;
+        } catch {
+          // Try the next possible doctor identifier.
+        }
+      }
+
+      if (mounted) setDoctorDetails({ routeUserId: userId, data: null });
+    }
+
+    loadDoctorDetails();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isDoctorProfile, storedUser, userId]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -124,8 +163,50 @@ function buildProfile(user, searchParams) {
     appointmentsCount: user?.caseCount ?? user?.appointmentsCount ?? 0,
     completedAppointmentsCount: user?.completedAppointmentsCount ?? 0,
     cancelledAppointmentsCount: user?.cancelledAppointmentsCount ?? 0,
+    rating: normalizeRatingValue(
+      user?.rating ??
+        user?.ratingsAverage ??
+        user?.raw?.rating ??
+        user?.raw?.ratingsAverage,
+    ),
     image: getProfileImage(role),
   };
+}
+
+function getDoctorProfileLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        routeId,
+        user?.id,
+        user?.profileId,
+        user?.userId,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.raw?.doctor?._id,
+        user?.raw?.doctor?.id,
+        user?.raw?.doctorProfile?._id,
+        user?.raw?.doctorProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function normalizeRatingValue(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return 0;
+  return Math.min(5, Math.max(0, rating));
+}
+
+function formatRatingValue(value) {
+  const rating = normalizeRatingValue(value);
+  return Number.isInteger(rating) ? String(rating) : rating.toFixed(1);
 }
 
 function ProfileLoadingState() {
@@ -317,7 +398,7 @@ function getStats(profile) {
     return [
       { label: "التخصص", value: profile.specialty },
       { label: "إجمالي الحجوزات", value: profile.appointmentsCount },
-      { label: "التقييم", value: <RatingStars /> },
+      { label: "التقييم", value: <RatingStars rating={profile.rating} /> },
     ];
   }
 
@@ -335,11 +416,26 @@ function getStats(profile) {
   ];
 }
 
-function RatingStars() {
+function RatingStars({ rating }) {
+  const ratingValue = normalizeRatingValue(rating);
+
   return (
-    <span className="flex justify-center gap-1 text-[#f6aa00]">
+    <span className="flex items-center justify-center gap-2" dir="ltr">
+      <span className="text-[18px] font-bold text-[#333] dark:text-white">
+        {formatRatingValue(ratingValue)}
+      </span>
       {Array.from({ length: 5 }).map((_, index) => (
-        <Star key={index} size={17} fill="currentColor" />
+        <span key={index} className="relative inline-grid h-[18px] w-[18px] place-items-center">
+          <Star size={18} className="text-[#d6d6d6]" strokeWidth={1.8} />
+          <span
+            className="absolute inset-0 overflow-hidden text-[#f6aa00]"
+            style={{
+              width: `${Math.min(Math.max(ratingValue - index, 0), 1) * 100}%`,
+            }}
+          >
+            <Star size={18} fill="currentColor" strokeWidth={1.8} />
+          </span>
+        </span>
       ))}
     </span>
   );

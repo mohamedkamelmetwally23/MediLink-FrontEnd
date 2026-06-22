@@ -54,6 +54,32 @@ function isSelectableSlot(slot, fallbackDate = "") {
   return isAvailableSlot(slot.status) && !isPastSlot(slotDate, slot.time);
 }
 
+function RatingStars({ rating }) {
+  return (
+    <span className="flex gap-1 text-[#FFB800]" aria-hidden="true">
+      {Array.from({ length: 5 }).map((_, index) => {
+        const fillPercentage =
+          Math.min(Math.max(rating - index, 0), 1) * 100;
+
+        return (
+          <span
+            key={index}
+            className="relative inline-grid h-4 w-4 place-items-center text-[#FFB800]/25"
+          >
+            <FaStar className="absolute inset-0 h-4 w-4" />
+            <span
+              className="absolute inset-y-0 left-0 overflow-hidden text-[#FFB800]"
+              style={{ width: `${fillPercentage}%` }}
+            >
+              <FaStar className="absolute left-0 top-0 h-4 w-4 max-w-none" />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export default function PatientBookingPage() {
   const { doctorId } = useParams();
   const location = useLocation();
@@ -160,7 +186,7 @@ function DoctorStrip({ doctor }) {
       <div className="text-center sm:text-right">
         <h2 className="text-2xl font-extrabold sm:text-3xl">{getDoctorName(doctor)}</h2>
         <p className="mt-2 text-lg text-[#888] dark:text-[#C9D6D5]">{doctor.specialty || "طب عام"}</p>
-        <div className="mt-3 flex items-center justify-center gap-2 sm:justify-start"><span className="flex gap-1 text-[#FFB800]">{Array.from({ length: 5 }).map((_, i) => <FaStar key={i} className={i < Math.round(rating) ? "" : "opacity-25"} />)}</span><strong>{rating.toFixed(1)}</strong></div>
+        <div className="mt-3 flex items-center justify-center gap-2 sm:justify-start"><RatingStars rating={rating} /><strong>{rating.toFixed(1)}</strong></div>
       </div>
       <div className="rounded-2xl bg-[#DDF5F3] px-7 py-5 text-center dark:bg-[#2D5A57]"><strong className="text-xl">سعر الكشف</strong><p className="mt-2 text-lg">{doctor.consultationFee || 100} جنيه</p></div>
     </section>

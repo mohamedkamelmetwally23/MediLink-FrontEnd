@@ -20,6 +20,7 @@ import {
   completeAppointment,
   getCurrentPatientForDoctor,
   getMedicalReportsForPatient,
+  getPatient,
   getPrescriptionsForPatient,
   listMyDoctorAppointments,
   listPatientsForDoctor,
@@ -65,6 +66,13 @@ const fallbackPatients = {
   5: defaultPatient,
 };
 
+const MAX_MEDICAL_TEXT_LENGTH = 500;
+const MAX_MEDICINE_FIELD_LENGTH = 50;
+
+function limitText(value, maxLength) {
+  return String(value || "").slice(0, maxLength);
+}
+
 function getAgeFromBirthDate(birthDate) {
   if (!birthDate) return "";
 
@@ -82,9 +90,78 @@ function getAgeFromBirthDate(birthDate) {
   return `${age} سنة`;
 }
 
+function getDateFromParts(user = {}) {
+  const year = user.year || user.birthYear || user.yearOfBirth;
+  const month = user.month || user.birthMonth || user.monthOfBirth;
+  const day = user.day || user.birthDay || user.dayOfBirth;
+
+  if (!year || !month || !day) return "";
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function getPatientBirthDate(user = {}) {
+  return (
+    user.birthDate ||
+    user.dateOfBirth ||
+    user.birthdate ||
+    user.birth_date ||
+    user.dob ||
+    getDateFromParts(user)
+  );
+}
+
+function normalizeDisplayList(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap(normalizeDisplayList).filter(Boolean);
+  }
+
+  if (value === undefined || value === null) return [];
+
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+
+    if (text.startsWith("[") && text.endsWith("]")) {
+      try {
+        return normalizeDisplayList(JSON.parse(text));
+      } catch {
+        return [text];
+      }
+    }
+
+    return [text];
+  }
+
+  return [String(value)];
+}
+
+function formatSmokingValue(value) {
+  if (typeof value === "boolean") return value ? "نعم" : "لا";
+  if (value === undefined || value === null || value === "") return "";
+
+  const text = String(value).trim();
+  const normalized = text.toLowerCase();
+
+  if (["true", "1", "yes", "smoker", "نعم", "مدخن"].includes(normalized)) {
+    return "نعم";
+  }
+
+  if (
+    ["false", "0", "no", "non-smoker", "nonsmoker", "لا", "غير مدخن"].includes(
+      normalized,
+    )
+  ) {
+    return "لا";
+  }
+
+  return text;
+}
+
 function buildPatientFromUser(user) {
   if (!user) return null;
 
+  const birthDate = getPatientBirthDate(user);
   const name = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim();
   const gender =
     user.gender === "female"
@@ -92,12 +169,7 @@ function buildPatientFromUser(user) {
       : user.gender === "male"
         ? "ذكر"
         : user.gender || "";
-  const smoker =
-    typeof user.smoker === "boolean"
-      ? user.smoker
-        ? "نعم"
-        : "لا"
-      : user.smoker || "";
+  const smoker = formatSmokingValue(user.smoker ?? user.smoking);
 
   return {
     role:
@@ -105,25 +177,25 @@ function buildPatientFromUser(user) {
         ? "مريض"
         : user.role || defaultPatient.role,
     name: name || defaultPatient.name,
-    phone: user.phone || "",
+    phone: user.phone || user.phoneNumber || user.mobile || "",
     image:
       user.photo ||
       user.image ||
       user.profileImage ||
       user.avatar ||
       patientImage,
-    birthDate: user.birthDate || "",
-    registeredAt: user.createdAt || user.registrationDate || "",
+    birthDate,
+    registeredAt: user.createdAt || user.registrationDate || user.registeredAt || "",
     height: user.height ?? user.tall ?? "",
     weight: user.weight || "",
     bloodType: user.bloodType || "",
     smoker,
-    age: getAgeFromBirthDate(user.birthDate) || user.age || "",
+    age: getAgeFromBirthDate(birthDate) || user.age || "",
     gender,
     status: user.status === "inactive" ? "غير مفعل" : defaultPatient.status,
-    chronicConditions: user.chronicConditions || [],
-    allergies: user.allergies || [],
-    chronicMedications: user.chronicMedications || [],
+    chronicConditions: normalizeDisplayList(user.chronicConditions),
+    allergies: normalizeDisplayList(user.allergies),
+    chronicMedications: normalizeDisplayList(user.chronicMedications),
     medicalFiles: user.medicalFiles || [],
   };
 }
@@ -153,28 +225,48 @@ function sameId(left, right) {
 }
 
 function normalizePatientMedicalReport(report = {}, index = 0) {
+  const date =
+    report.createdAt ||
+    report.medicalReportDate ||
+    report.reportDate ||
+    report.visitDate ||
+    report.date;
+  const diagnosis =
+    report.diagnosis || report.title || report.summary || report.report || "";
+  const notes =
+    report.notes || report.description || report.report || report.summary || "";
+
   return {
     id: report._id || report.id || `medical-report-${index}`,
-    date: formatProfileDate(report.createdAt),
-    title: report.diagnosis || "تقرير طبي",
-    summary: report.notes ? `ملاحظات: ${report.notes}` : "لا توجد ملاحظات",
-    diagnosis: report.diagnosis || "غير مسجل",
-    notes: report.notes || "لا توجد ملاحظات",
+    date: formatProfileDate(date),
+    title: diagnosis || "تقرير طبي",
+    summary: notes ? `ملاحظات: ${notes}` : "لا توجد ملاحظات",
+    diagnosis: diagnosis || "غير مسجل",
+    notes: notes || "لا توجد ملاحظات",
   };
 }
 
 function normalizePatientPrescription(prescription = {}, index = 0) {
   const medicines = Array.isArray(prescription.medicines)
     ? prescription.medicines
-    : [];
+    : Array.isArray(prescription.medications)
+      ? prescription.medications
+      : Array.isArray(prescription.drugs)
+        ? prescription.drugs
+        : [];
+  const date =
+    prescription.createdAt ||
+    prescription.prescriptionDate ||
+    prescription.visitDate ||
+    prescription.date;
 
   return {
     id: prescription._id || prescription.id || `prescription-${index}`,
-    date: formatProfileDate(prescription.createdAt),
+    date: formatProfileDate(date),
     rows: medicines.map((medicine) => [
-      medicine.name || "غير مسجل",
-      medicine.dose || "غير مسجل",
-      medicine.frequency || "غير مسجل",
+      medicine.name || medicine.medicineName || medicine.drugName || "غير مسجل",
+      medicine.dose || medicine.dosage || "غير مسجل",
+      medicine.frequency || medicine.schedule || "غير مسجل",
       medicine.duration || "غير مسجل",
     ]),
   };
@@ -428,26 +520,36 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   }, [patientId, routedPatient, currentPatientUserId, stateAppointmentId]);
 
   useEffect(() => {
-    if (!startExam || !patientId) return undefined;
+    if (!patientId) return undefined;
 
     let mounted = true;
 
     Promise.allSettled([
-      getCurrentPatientForDoctor(patientId),
+      getPatient(patientId),
+      startExam ? getCurrentPatientForDoctor(patientId) : Promise.resolve(null),
       getMedicalReportsForPatient(patientId),
       getPrescriptionsForPatient(patientId),
-    ]).then(([patientResult, reportsResult, prescriptionsResult]) => {
+    ]).then(([patientResult, currentPatientResult, reportsResult, prescriptionsResult]) => {
       if (!mounted) return;
 
       if (patientResult.status === "fulfilled") {
-        if (patientResult.value.patient) {
-          setLoadedPatient(patientResult.value.patient);
-        }
-        if (patientResult.value.appointment) {
-          setCurrentAppointment(patientResult.value.appointment);
+        setLoadedPatient(patientResult.value);
+      } else if (
+        currentPatientResult.status === "fulfilled" &&
+        currentPatientResult.value?.patient
+      ) {
+        setLoadedPatient(currentPatientResult.value.patient);
+      }
+
+      if (
+        currentPatientResult.status === "fulfilled" &&
+        currentPatientResult.value
+      ) {
+        if (currentPatientResult.value.appointment) {
+          setCurrentAppointment(currentPatientResult.value.appointment);
           setCurrentAppointmentId(
-            patientResult.value.appointmentId ||
-              patientResult.value.appointment.id ||
+            currentPatientResult.value.appointmentId ||
+              currentPatientResult.value.appointment.id ||
               "",
           );
         }
@@ -515,6 +617,8 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
       <PatientProfileDetails
         patient={patient}
         activeTab={profileTab}
+        medicalReports={medicalReports}
+        prescriptions={prescriptionHistory}
         search={profileSearch}
         onTabChange={setProfileTab}
         onSearchChange={setProfileSearch}
@@ -634,6 +738,8 @@ const profileTabs = [
 function PatientProfileDetails({
   patient,
   activeTab,
+  medicalReports,
+  prescriptions,
   search,
   onTabChange,
   onSearchChange,
@@ -648,8 +754,8 @@ function PatientProfileDetails({
           to="/doctor/patients"
           className="mt-[15px] flex items-center gap-[12px] text-[18px] font-medium text-[#22bada] transition hover:text-[#0aa7cf]"
         >
-          <ArrowRight size={18} strokeWidth={2} />
           رجوع
+          <ArrowRight size={18} strokeWidth={2} />
         </Link>
 
         <div className="text-right" dir="rtl">
@@ -674,6 +780,9 @@ function PatientProfileDetails({
 
         <PatientProfileTabs
           activeTab={activeTab}
+          medicalReports={medicalReports}
+          patient={patient}
+          prescriptions={prescriptions}
           search={search}
           onTabChange={onTabChange}
           onSearchChange={onSearchChange}
@@ -788,6 +897,9 @@ function PatientVitals({ patient }) {
 
 function PatientProfileTabs({
   activeTab,
+  medicalReports,
+  patient,
+  prescriptions,
   search,
   onTabChange,
   onSearchChange,
@@ -817,9 +929,15 @@ function PatientProfileTabs({
       </div>
 
       <div className="mt-[38px]">
-        {activeTab === "records" && <ProfileMedicalRecords search={search} />}
-        {activeTab === "prescriptions" && <ProfilePrescriptions search={search} />}
-        {activeTab === "extra" && <ProfileExtraInfo search={search} />}
+        {activeTab === "records" && (
+          <ProfileMedicalRecords records={medicalReports} search={search} />
+        )}
+        {activeTab === "prescriptions" && (
+          <ProfilePrescriptions prescriptions={prescriptions} search={search} />
+        )}
+        {activeTab === "extra" && (
+          <ProfileExtraInfo patient={patient} search={search} />
+        )}
       </div>
     </section>
   );
@@ -857,8 +975,8 @@ function PatientProfileSearch({ value, onChange }) {
   );
 }
 
-function ProfileMedicalRecords({ search }) {
-  const records = filterItems(patientMedicalRecords, search, (record) =>
+function ProfileMedicalRecords({ records: sourceRecords = patientMedicalRecords, search }) {
+  const records = filterItems(sourceRecords || [], search, (record) =>
     [record.date, record.title, record.summary].join(" "),
   );
 
@@ -891,8 +1009,11 @@ function ProfileMedicalRecords({ search }) {
   );
 }
 
-function ProfilePrescriptions({ search }) {
-  const groups = filterItems(patientPrescriptions, search, (group) =>
+function ProfilePrescriptions({
+  prescriptions: sourcePrescriptions = patientPrescriptions,
+  search,
+}) {
+  const groups = filterItems(sourcePrescriptions || [], search, (group) =>
     `${group.date} ${group.rows.flat().join(" ")}`,
   );
 
@@ -903,7 +1024,7 @@ function ProfilePrescriptions({ search }) {
   return (
     <div className="space-y-[48px] overflow-x-auto pb-2 text-right">
       {groups.map((group) => (
-        <section key={group.date} className="min-w-[680px]">
+        <section key={group.id || group.date} className="min-w-[680px]">
           <p className="mb-[25px] text-[15px] font-medium text-[#22bada]">
             {group.date}
           </p>
@@ -936,16 +1057,25 @@ function ProfilePrescriptions({ search }) {
   );
 }
 
-function ProfileExtraInfo({ search }) {
+function ProfileExtraInfo({ patient, search }) {
   const groups = [
-    { title: "الأمراض المزمنة", values: followupData.diseases },
-    { title: "الحساسيات", values: followupData.allergies },
-    { title: "الأدوية", values: followupData.medicines },
+    {
+      title: "الأمراض المزمنة",
+      values: patient?.chronicConditions || followupData.diseases,
+    },
+    {
+      title: "الحساسيات",
+      values: patient?.allergies || followupData.allergies,
+    },
+    {
+      title: "الأدوية",
+      values: patient?.chronicMedications || followupData.medicines,
+    },
   ];
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      values: filterItems(group.values, search, (value) => value),
+      values: filterItems(normalizeDisplayList(group.values), search, (value) => value),
     }))
     .filter((group) => group.values.length > 0 || !search.trim());
 
@@ -1199,6 +1329,7 @@ function DiagnosisStep({
   const diagnosisRef = useRef(diagnosis);
   // First recording fills the diagnosis; every recording after it becomes a note.
   const hasDiagnosisRef = useRef(Boolean(diagnosis && diagnosis.trim()));
+  const canGoNext = diagnosis.trim().length > 0;
 
   useEffect(() => {
     notesRef.current = notes;
@@ -1241,12 +1372,13 @@ function DiagnosisStep({
       const isDiagnosis = !hasDiagnosisRef.current;
 
       if (isDiagnosis) {
-        onDiagnosisChange(text);
+        onDiagnosisChange(limitText(text, MAX_MEDICAL_TEXT_LENGTH));
         hasDiagnosisRef.current = true;
         toast.success("تم تسجيل التشخيص");
       } else {
         const current = notesRef.current?.trim();
-        onNotesChange(current ? `${current}\n${text}` : text);
+        const nextNotes = current ? `${current}\n${text}` : text;
+        onNotesChange(limitText(nextNotes, MAX_MEDICAL_TEXT_LENGTH));
         toast.success("تمت إضافة ملاحظة جديدة");
       }
     } catch {
@@ -1391,14 +1523,16 @@ function DiagnosisStep({
       </div>
 
       <div className="mt-[48px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-          onClick={onNext}
-        >
-          <ArrowLeft size={23} strokeWidth={2.2} />
-          التالي
-        </button>
+        {canGoNext && (
+          <button
+            type="button"
+            className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+            onClick={onNext}
+          >
+            <ArrowLeft size={23} strokeWidth={2.2} />
+            التالي
+          </button>
+        )}
         <button
           type="button"
           className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
@@ -1424,11 +1558,16 @@ function MedicinesStep({
   onNext,
 }) {
   const dateInputRef = useRef(null);
+  const canGoNext = medicineRows.some((row) =>
+    [row.name, row.dose, row.schedule, row.duration].some((value) =>
+      String(value || "").trim(),
+    ),
+  );
 
   const updateMedicine = (id, key, value) => {
     onMedicineRowsChange((currentRows) =>
       currentRows.map((row) =>
-        row.id === id ? { ...row, [key]: value } : row,
+        row.id === id ? { ...row, [key]: limitText(value, MAX_MEDICINE_FIELD_LENGTH) } : row,
       ),
     );
   };
@@ -1566,21 +1705,26 @@ function MedicinesStep({
         </label>
         <textarea
           value={notes}
-          onChange={(event) => onNotesChange(event.target.value)}
+          onChange={(event) =>
+            onNotesChange(limitText(event.target.value, MAX_MEDICAL_TEXT_LENGTH))
+          }
+          maxLength={MAX_MEDICAL_TEXT_LENGTH}
           rows={3}
           className="min-h-[90px] w-full resize-none rounded-[8px] bg-[#fafafa] px-[18px] py-[16px] text-right text-[17px] leading-8 text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]"
         />
       </section>
 
       <div className="mt-[63px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-          onClick={onNext}
-        >
-          <ArrowLeft size={23} strokeWidth={2.2} />
-          التالي
-        </button>
+        {canGoNext && (
+          <button
+            type="button"
+            className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
+            onClick={onNext}
+          >
+            <ArrowLeft size={23} strokeWidth={2.2} />
+            التالي
+          </button>
+        )}
         <button
           type="button"
           className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
@@ -1598,7 +1742,10 @@ function MedicineInput({ value, onChange, dir = "rtl" }) {
   return (
     <input
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) =>
+        onChange(limitText(event.target.value, MAX_MEDICINE_FIELD_LENGTH))
+      }
+      maxLength={MAX_MEDICINE_FIELD_LENGTH}
       dir={dir}
       className="h-[52px] min-w-0 rounded-[8px] bg-[#fafafa] px-[14px] text-right text-[18px] text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]"
     />
@@ -1767,7 +1914,10 @@ function EditableMedicalField({
       <div className={`relative rounded-[8px] bg-[#fafafa] dark:bg-[#3d3d3d] ${minHeight}`}>
         <textarea
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) =>
+            onChange(limitText(event.target.value, MAX_MEDICAL_TEXT_LENGTH))
+          }
+          maxLength={MAX_MEDICAL_TEXT_LENGTH}
           rows={multiline ? 5 : 2}
           className={`block w-full resize-none rounded-[8px] bg-transparent px-[18px] py-[13px] text-right text-[17px] leading-8 text-[#333] outline-none dark:text-gray-100 sm:px-[31px] sm:text-[20px] ${
             multiline ? "min-h-[172px]" : "min-h-[58px]"
