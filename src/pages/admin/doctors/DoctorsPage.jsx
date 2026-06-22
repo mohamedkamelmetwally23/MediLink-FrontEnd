@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Ban,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import CustomSelect from "../../../components/admin/CustomSelect";
 import ConfirmStatusChangeModal from "../../../components/admin/ConfirmStatusChangeModal";
+import { getUserAppointmentsCount } from "../../../services/medilinkApi";
 import { includesSearchText } from "../../../utils/searchText";
 import { useSpecialtiesStore } from "../specialties/useSpecialtiesStore";
 import { userStatuses } from "../users/usersData";
@@ -22,6 +23,49 @@ const pageSize = 10;
 
 function getAppointmentsCount(doctor) {
   return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
+}
+
+function getDoctorAppointmentCountLookupIds(doctor) {
+  return Array.from(
+    new Set(
+      [
+        doctor.userId,
+        doctor.raw?.user?._id,
+        doctor.raw?.user?.id,
+        doctor.raw?.doctor?.user?._id,
+        doctor.raw?.doctor?.user?.id,
+        doctor.raw?.doctorProfile?.user?._id,
+        doctor.raw?.doctorProfile?.user?.id,
+        doctor.id,
+        doctor.profileId,
+        doctor.raw?._id,
+        doctor.raw?.id,
+        doctor.raw?.doctor?._id,
+        doctor.raw?.doctor?.id,
+        doctor.raw?.doctorProfile?._id,
+        doctor.raw?.doctorProfile?.id,
+        doctor.raw?.profile?._id,
+        doctor.raw?.profile?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+async function loadDoctorAppointmentsCount(doctor) {
+  const doctorIds = getDoctorAppointmentCountLookupIds(doctor);
+
+  for (const doctorId of doctorIds) {
+    try {
+      const counts = await getUserAppointmentsCount(doctorId);
+      return counts.total;
+    } catch {
+      // Try the next possible user identifier.
+    }
+  }
+
+  return getAppointmentsCount(doctor);
 }
 
 export default function DoctorsPage() {
@@ -41,6 +85,7 @@ export default function DoctorsPage() {
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [doctorAppointmentCounts, setDoctorAppointmentCounts] = useState({});
 
   const filteredDoctors = useMemo(() => {
     const query = search.trim();
@@ -62,9 +107,13 @@ export default function DoctorsPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredDoctors.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageDoctors = filteredDoctors.slice(
-    (safeCurrentPage - 1) * pageSize,
-    safeCurrentPage * pageSize,
+  const pageDoctors = useMemo(
+    () =>
+      filteredDoctors.slice(
+        (safeCurrentPage - 1) * pageSize,
+        safeCurrentPage * pageSize,
+      ),
+    [filteredDoctors, safeCurrentPage],
   );
   const visibleIds = pageDoctors.map((doctor) => doctor.id);
   const selectedCount = selectedIds.length;
@@ -76,6 +125,37 @@ export default function DoctorsPage() {
     selectedDoctors.every((doctor) => doctor.status === "inactive");
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+
+  useEffect(() => {
+    if (loading || pageDoctors.length === 0) return undefined;
+
+    let mounted = true;
+
+    async function loadVisibleDoctorCounts() {
+      const entries = await Promise.all(
+        pageDoctors.map(async (doctor) => [
+          doctor.id,
+          await loadDoctorAppointmentsCount(doctor),
+        ]),
+      );
+
+      if (!mounted) return;
+
+      setDoctorAppointmentCounts((currentCounts) => {
+        const nextCounts = { ...currentCounts };
+        entries.forEach(([doctorId, appointmentsCount]) => {
+          nextCounts[doctorId] = appointmentsCount;
+        });
+        return nextCounts;
+      });
+    }
+
+    loadVisibleDoctorCounts();
+
+    return () => {
+      mounted = false;
+    };
+  }, [loading, pageDoctors]);
 
   const toggleDoctor = (id) => {
     setSelectedIds((current) =>
@@ -202,6 +282,7 @@ export default function DoctorsPage() {
                   <DoctorRow
                     key={doctor.id}
                     doctor={doctor}
+                    appointmentsCount={doctorAppointmentCounts[doctor.id]}
                     selected={selectedIds.includes(doctor.id)}
                     onToggle={() => toggleDoctor(doctor.id)}
                     onToggleStatus={() => {
@@ -387,8 +468,15 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
-  const appointmentsCount = getAppointmentsCount(doctor);
+function DoctorRow({
+  doctor,
+  appointmentsCount,
+  selected,
+  onToggle,
+  onToggleStatus,
+}) {
+  const displayedAppointmentsCount =
+    appointmentsCount ?? getAppointmentsCount(doctor);
 
   return (
     <div
@@ -403,7 +491,7 @@ function DoctorRow({ doctor, selected, onToggle, onToggleStatus }) {
         {doctor.firstName} {doctor.lastName}
       </span>
       <span className="truncate text-center">{doctor.specialty || "غير محدد"}</span>
-      <span className="text-center">{appointmentsCount}</span>
+      <span className="text-center">{displayedAppointmentsCount}</span>
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>

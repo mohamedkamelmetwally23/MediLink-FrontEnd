@@ -543,10 +543,23 @@ function getPaginationPages(currentPage, totalPages) {
 
 function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
   const isActive = getUserActiveStatus(user) === "active";
+  const handleCancel = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
+  };
+  const handleConfirm = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onConfirm();
+  };
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-black/25 p-4">
-      <div className="w-full max-w-[390px] rounded-[12px] bg-white px-[26px] pb-[18px] pt-[30px] text-center shadow-[0_16px_45px_rgba(0,0,0,0.18)] dark:bg-[#3f3f3f]">
+      <div
+        className="w-full max-w-[390px] rounded-[12px] bg-white px-[26px] pb-[18px] pt-[30px] text-center shadow-[0_16px_45px_rgba(0,0,0,0.18)] dark:bg-[#3f3f3f]"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div
           className={`mx-auto grid h-[54px] w-[54px] place-items-center rounded-full text-[30px] font-bold leading-none text-white ${
             isActive ? "bg-[#ff3b3b]" : "bg-[#22b66f]"
@@ -570,7 +583,7 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
             type="button"
             disabled={loading}
             className="h-[36px] rounded-[6px] border border-[#ff2626] bg-transparent text-[13px] font-semibold text-[#ff2626] transition hover:bg-[#ff2626]/10 disabled:opacity-60"
-            onClick={onConfirm}
+            onClick={handleConfirm}
           >
             {loading ? "جاري الحفظ..." : "نعم"}
           </button>
@@ -578,7 +591,7 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
             type="button"
             disabled={loading}
             className="h-[36px] rounded-[6px] bg-linear-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
-            onClick={onCancel}
+            onClick={handleCancel}
           >
             لا
           </button>

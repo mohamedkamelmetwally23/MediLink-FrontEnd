@@ -24,7 +24,7 @@ import {
   getCurrentDoctorId,
   getCurrentDoctorProfile,
   getDoctorPatientsPlanCount,
-  listCurrentDoctorAvailableSlots,
+  listDoctorAvailableSlots,
   listDoctorAppointments,
   listMyDoctorAppointments,
 } from "../../services/medilinkApi";
@@ -332,6 +332,36 @@ async function loadDoctorAppointments(doctor) {
   return [];
 }
 
+function getDoctorAvailableSlotIds(doctor) {
+  return Array.from(
+    new Set(
+      [
+        doctor?.profileId,
+        doctor?.raw?._id,
+        doctor?.raw?.doctorProfile?._id,
+        doctor?.raw?.doctorProfile?.id,
+        doctor?.raw?.profile?._id,
+        doctor?.raw?.profile?.id,
+        doctor?.raw?.id,
+        doctor?.id,
+        doctor?.userId,
+        doctor?.raw?.user?._id,
+        doctor?.raw?.user?.id,
+        getCurrentDoctorId(),
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+async function loadDoctorAvailableSlots(doctor) {
+  const doctorIds = getDoctorAvailableSlotIds(doctor);
+  if (doctorIds.length === 0) return [];
+
+  return listDoctorAvailableSlots(doctorIds);
+}
+
 function withFallback(promise, fallback, timeoutMs = 7000) {
   return Promise.race([
     promise,
@@ -468,9 +498,9 @@ export default function DoctorDashboard() {
       doctorPromise
         .then((currentDoctor) =>
           withFallback(
-            listCurrentDoctorAvailableSlots(currentDoctor),
+            loadDoctorAvailableSlots(currentDoctor),
             [],
-            7000,
+            9000,
           ),
         )
         .then((slots) => {
