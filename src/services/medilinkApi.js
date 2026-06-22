@@ -2552,6 +2552,35 @@ export async function listActivities(limit = 500) {
     });
 }
 
+export async function listPatientActivities(patientId, limit = 500) {
+  if (!patientId) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 500, 500));
+  const response = await apiRequest(
+    `/activities/${encodeURIComponent(patientId)}?limit=${safeLimit}`,
+  );
+  const activities = findArray(response, [
+    "activities",
+    "activity",
+    "logs",
+    "auditLogs",
+    "records",
+    "docs",
+    "items",
+    "results",
+  ]);
+
+  return activities
+    .map(normalizeActivity)
+    .sort((first, second) => {
+      const firstTime = new Date(first.createdAt).getTime();
+      const secondTime = new Date(second.createdAt).getTime();
+
+      if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) return 0;
+      return secondTime - firstTime;
+    });
+}
+
 export async function getClinicProfits() {
   const response = await apiRequest("/clinic/getProfits");
   const data = response?.data ?? response ?? {};

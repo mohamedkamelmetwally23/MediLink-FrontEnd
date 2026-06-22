@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  ChevronRight,
   Receipt,
   Stethoscope,
   TrendingUp,
@@ -715,7 +714,6 @@ export default function Dashboard() {
                 className="flex items-center gap-2 text-[13px] text-[#30bfd6]"
                 dir="ltr"
               >
-                <ChevronRight size={22} strokeWidth={1.9} />
                 <span>عرض الكل</span>
               </Link>
             }
