@@ -6,7 +6,9 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Receipt,
   Stethoscope,
+  TrendingUp,
   UserRound,
 } from "lucide-react";
 import {
@@ -23,7 +25,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getCurrentAuthUser, listAppointments } from "../../services/medilinkApi";
+import { getCurrentAuthUser, getClinicProfits, listAppointments } from "../../services/medilinkApi";
 import { normalizeSpecialtyLabel } from "./users/usersData";
 import { useUsersStore } from "./users/useUsersStore";
 
@@ -51,6 +53,18 @@ const statsConfig = [
     icon: Banknote,
     color: "text-[#5bbf22]",
     bg: "bg-[#edf9e6]",
+  },
+  {
+    title: "الحجوزات المدفوعة",
+    icon: Receipt,
+    color: "text-[#e07b22]",
+    bg: "bg-[#fff3e8]",
+  },
+  {
+    title: "متوسط رسوم الموعد",
+    icon: TrendingUp,
+    color: "text-[#9b22bf]",
+    bg: "bg-[#f5ebff]",
   },
 ];
 
@@ -359,6 +373,7 @@ export default function Dashboard() {
   const { users } = useUsersStore();
   const [dashboardAppointments, setDashboardAppointments] = useState([]);
   const [appointmentsLoaded, setAppointmentsLoaded] = useState(false);
+  const [clinicProfits, setClinicProfits] = useState(null);
   const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("month");
   const [selectedDoctorId, setSelectedDoctorId] = useState("all");
   const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("year");
@@ -407,7 +422,11 @@ export default function Dashboard() {
       users.length,
       dashboardAppointments.length,
       users.filter((user) => user.role === "doctor").length,
-      totalRevenue,
+      clinicProfits?.totalProfit ?? totalRevenue,
+      clinicProfits?.appointmentCount ?? 0,
+      clinicProfits?.avgFeePerAppointment != null
+        ? Number(clinicProfits.avgFeePerAppointment).toFixed(2)
+        : 0,
     ];
 
     return {
@@ -437,12 +456,26 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    getClinicProfits()
+      .then((profits) => {
+        if (mounted) setClinicProfits(profits);
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
       <Header />
 
       <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}

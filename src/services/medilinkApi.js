@@ -2236,6 +2236,7 @@ export async function toggleUserActiveStatus(user, options = {}) {
     statusNote,
     inactiveNote: statusNote,
     note: statusNote,
+    notes: statusNote,
   });
 
   if (user.role === "patient") {
@@ -2331,6 +2332,23 @@ export async function toggleUserActiveStatus(user, options = {}) {
   return {
     ...response,
     active: nextActive,
+  };
+}
+
+export async function submitReview({ appointmentId, stars, comment = "" }) {
+  return apiRequest("/reviews", {
+    method: "POST",
+    body: { appointmentId, stars, comment },
+  });
+}
+
+export async function getClinicProfits() {
+  const response = await apiRequest("/clinic/getProfits");
+  const data = response?.data ?? response ?? {};
+  return {
+    totalProfit: Number(data.totalProfit ?? 0),
+    appointmentCount: Number(data.appointmentCount ?? 0),
+    avgFeePerAppointment: Number(data.avgFeePerAppointment ?? 0),
   };
 }
 

@@ -3,12 +3,14 @@ import {
   Banknote,
   CalendarCheck,
   ChevronLeft,
+  Receipt,
+  TrendingUp,
   XCircle,
 } from "lucide-react";
 import patientAvatar from "../../assets/landingPage/admin.png";
 import doctorAvatar from "../../assets/landingPage/doctor1.png";
 import CustomSelect from "../../components/admin/CustomSelect";
-import { listAppointments, listDoctors } from "../../services/medilinkApi";
+import { getClinicProfits, listAppointments, listDoctors } from "../../services/medilinkApi";
 
 const statusLabels = {
   pending: "انتظار",
@@ -59,6 +61,22 @@ const statCards = [
     iconClass: "bg-[#eafff4] text-[#23b66f]",
     trend: "+18% عن الامس",
     trendClass: "text-[#22b66b]",
+  },
+  {
+    key: "appointmentCount",
+    label: "الحجوزات المدفوعة",
+    icon: Receipt,
+    iconClass: "bg-[#fff3e8] text-[#e07b22]",
+    trend: "",
+    trendClass: "",
+  },
+  {
+    key: "avgFee",
+    label: "متوسط رسوم الموعد",
+    icon: TrendingUp,
+    iconClass: "bg-[#f5ebff] text-[#9b22bf]",
+    trend: "",
+    trendClass: "",
   },
 ];
 
@@ -193,6 +211,7 @@ export default function ReceptionistDashboard() {
   const [tableBookingFilter, setTableBookingFilter] = useState("");
   const [tablePaymentFilter, setTablePaymentFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [clinicProfits, setClinicProfits] = useState(null);
   const todayIso = getIsoDate(new Date());
 
   useEffect(() => {
@@ -216,6 +235,20 @@ export default function ReceptionistDashboard() {
           setLoading(false);
         }
       });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getClinicProfits()
+      .then((profits) => {
+        if (mounted) setClinicProfits(profits);
+      })
+      .catch(() => {});
 
     return () => {
       mounted = false;
@@ -303,7 +336,11 @@ export default function ReceptionistDashboard() {
     cancelled: todayAppointments.filter(
       (appointment) => appointment.status === "cancelled",
     ).length,
-    revenue: todayAppointments.length * 250,
+    revenue: clinicProfits?.totalProfit ?? 0,
+    appointmentCount: clinicProfits?.appointmentCount ?? 0,
+    avgFee: clinicProfits?.avgFeePerAppointment != null
+      ? Number(clinicProfits.avgFeePerAppointment).toFixed(2)
+      : 0,
   };
 
   return (
@@ -369,7 +406,7 @@ function Header() {
 
 function StatsGrid({ stats, loading }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {statCards.map((card) => (
         <StatCard
           key={card.key}
