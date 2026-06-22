@@ -252,8 +252,7 @@ const menuItems = [
 ];
 
 const steps = [
-  { number: 5, label: "ملخص" },
-  { number: 4, label: "المراجعة" },
+  { number: 4, label: "ملخص" },
   { number: 3, label: "الأدوية والجرعات" },
   { number: 2, label: "التشخيص" },
   { number: 1, label: "ملف المريض" },
@@ -352,8 +351,6 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [notes, setNotes] = useState("");
   const [medicineDate, setMedicineDate] = useState(() => getIsoDate(new Date()));
   const [medicineRows, setMedicineRows] = useState(() => [createEmptyMedicineRow(1)]);
-  const [reviewDate, setReviewDate] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [loadedPatient, setLoadedPatient] = useState(null);
   const [currentAppointment, setCurrentAppointment] = useState(null);
@@ -508,8 +505,6 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
       notes,
       date: medicineDate,
       medicines,
-      reviewDate,
-      reviewNotes,
       title: diagnosis,
       summary: notes,
     };
@@ -636,17 +631,6 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
             medicineRows={medicineRows}
             onMedicineRowsChange={setMedicineRows}
             onBack={() => setConsultationStep("diagnosis")}
-            onNext={() => setConsultationStep("review")}
-          />
-        )}
-
-        {consultationStep === "review" && (
-          <ReviewAppointmentStep
-            reviewDate={reviewDate}
-            onReviewDateChange={setReviewDate}
-            reviewNotes={reviewNotes}
-            onReviewNotesChange={setReviewNotes}
-            onBack={() => setConsultationStep("medicines")}
             onNext={() => setConsultationStep("summary")}
           />
         )}
@@ -656,9 +640,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
             diagnosis={diagnosis}
             notes={notes}
             medicineRows={medicineRows}
-            reviewDate={reviewDate}
-            reviewNotes={reviewNotes}
-            onBack={() => setConsultationStep("review")}
+            onBack={() => setConsultationStep("medicines")}
             onFinish={handleFinishVisit}
             isSaving={isSavingVisit}
           />
@@ -1029,7 +1011,7 @@ function filterItems(items, search, getText) {
 function Stepper({ currentStep }) {
   return (
     <div className="pb-2">
-      <div className="mx-auto grid w-full max-w-[1120px] grid-cols-5 items-start gap-0" dir="ltr">
+      <div className="mx-auto grid w-full max-w-[920px] grid-cols-4 items-start gap-0" dir="ltr">
         {steps.map((step, index) => (
           <StepItem
             key={step.label}
@@ -1046,15 +1028,13 @@ function Stepper({ currentStep }) {
 function StepItem({ step, index, currentStep }) {
   const isDone =
     (currentStep !== "patient" && step.number === 1) ||
-    (["medicines", "review", "summary"].includes(currentStep) && step.number === 2) ||
-    (["review", "summary"].includes(currentStep) && step.number === 3) ||
-    (currentStep === "summary" && step.number === 4);
+    (["medicines", "summary"].includes(currentStep) && step.number === 2) ||
+    (currentStep === "summary" && step.number === 3);
   const isActive =
     (currentStep === "patient" && step.number === 1) ||
     (currentStep === "diagnosis" && step.number === 2) ||
     (currentStep === "medicines" && step.number === 3) ||
-    (currentStep === "review" && step.number === 4) ||
-    (currentStep === "summary" && step.number === 5);
+    (currentStep === "summary" && step.number === 4);
 
   return (
     <div className="relative text-center">
@@ -1650,85 +1630,10 @@ function MedicineInput({ value, onChange, dir = "rtl" }) {
   );
 }
 
-function ReviewAppointmentStep({
-  reviewDate,
-  onReviewDateChange,
-  reviewNotes,
-  onReviewNotesChange,
-  onBack,
-  onNext,
-}) {
-  const reviewDateInputRef = useRef(null);
-
-  return (
-    <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
-      <div className="w-full max-w-[544px] space-y-[31px] text-right">
-        <div className="w-auto">
-          <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-            التاريخ
-          </label>
-          <button
-            type="button"
-            className="grid h-[52px] w-full grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#fafafa] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100"
-            dir="ltr"
-            onClick={() => openDatePicker(reviewDateInputRef)}
-          >
-            <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
-            <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
-              {formatDisplayDate(reviewDate)}
-            </span>
-            <input
-              ref={reviewDateInputRef}
-              type="date"
-              value={reviewDate}
-              onChange={(event) => onReviewDateChange(event.target.value)}
-              className="sr-only"
-              tabIndex={-1}
-            />
-          </button>
-        </div>
-
-        <div>
-          <label className="mb-[10px] block text-[17px] font-semibold text-[#111] dark:text-white">
-            ملاحظات
-          </label>
-          <textarea
-            value={reviewNotes}
-            onChange={(event) => onReviewNotesChange(event.target.value)}
-            rows={2}
-            className="min-h-[56px] w-full resize-none rounded-[8px] bg-[#fafafa] px-[18px] py-[12px] text-right text-[17px] leading-8 text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]"
-          />
-        </div>
-      </div>
-
-      <div className="mt-[180px] grid gap-[12px] sm:grid-cols-2 lg:mt-[499px]" dir="ltr">
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-          onClick={onNext}
-        >
-          <ArrowLeft size={23} strokeWidth={2.2} />
-          التالي
-        </button>
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
-          onClick={onBack}
-        >
-          السابق
-          <ArrowRight size={23} strokeWidth={2.2} />
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function SummaryStep({
   diagnosis,
   notes,
   medicineRows,
-  reviewDate,
-  reviewNotes,
   onBack,
   onFinish,
   isSaving,
@@ -1743,7 +1648,7 @@ function SummaryStep({
     <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
       <article className="grid min-h-[108px] items-center rounded-[10px] bg-white px-[22px] py-[18px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[120px_minmax(0,1fr)] sm:px-[34px]" dir="ltr">
         <span className="text-left text-[10px] text-[#456] dark:text-gray-300">
-          {formatDisplayDate(reviewDate)}
+          {formatDisplayDate(new Date().toISOString().slice(0, 10))}
         </span>
         <div dir="rtl">
           <h2 className="text-[18px] font-bold leading-7 text-[#111] dark:text-white">
@@ -1790,41 +1695,6 @@ function SummaryStep({
           </div>
         </div>
 
-        <h3 className="mb-[11px] mt-[27px] text-[16px] font-semibold text-[#111] dark:text-white">
-          ملاحظات
-        </h3>
-        <div className="min-h-[90px] rounded-[8px] bg-[#FAFAFA] px-[22px] py-[17px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]">
-          {notes}
-        </div>
-      </section>
-
-      <section className="mt-[48px] rounded-[10px] bg-[#F0FAF9] px-[22px] py-[22px] text-right dark:bg-[#24484b] sm:px-[24px]">
-        <h2 className="mb-[28px] text-[22px] font-semibold text-[#333] dark:text-white">
-          المراجعة
-        </h2>
-
-        <div className="grid gap-[16px] lg:grid-cols-[minmax(260px,344px)_minmax(0,1fr)] lg:items-end">
-          <div className="text-right">
-            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-              التاريخ
-            </label>
-            <div className="grid h-[52px] grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#FAFAFA] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100" dir="ltr">
-              <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
-              <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
-                {formatDisplayDate(reviewDate)}
-              </span>
-            </div>
-          </div>
-
-          <div className="text-right">
-            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-              ملاحظات
-            </label>
-            <div className="min-h-[52px] rounded-[8px] bg-[#FAFAFA] px-[18px] py-[12px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]">
-              {reviewNotes}
-            </div>
-          </div>
-        </div>
       </section>
 
       <div className="mt-[60px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
