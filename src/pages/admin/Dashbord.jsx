@@ -25,7 +25,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getCurrentAuthUser, getClinicProfits, listAppointments } from "../../services/medilinkApi";
+import ActivityList from "../../components/admin/ActivityList";
+import {
+  getCurrentAuthUser,
+  getClinicProfits,
+  listActivities,
+  listAppointments,
+} from "../../services/medilinkApi";
 import { normalizeSpecialtyLabel } from "./users/usersData";
 import { useUsersStore } from "./users/useUsersStore";
 
@@ -374,6 +380,9 @@ export default function Dashboard() {
   const [dashboardAppointments, setDashboardAppointments] = useState([]);
   const [appointmentsLoaded, setAppointmentsLoaded] = useState(false);
   const [clinicProfits, setClinicProfits] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState("");
   const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("month");
   const [selectedDoctorId, setSelectedDoctorId] = useState("all");
   const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("year");
@@ -464,6 +473,30 @@ export default function Dashboard() {
         if (mounted) setClinicProfits(profits);
       })
       .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    listActivities(500)
+      .then((fetchedActivities) => {
+        if (mounted) {
+          setActivities(fetchedActivities);
+          setActivitiesError("");
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          setActivitiesError(error?.message || "تعذر تحميل النشاطات الأخيرة");
+        }
+      })
+      .finally(() => {
+        if (mounted) setActivitiesLoading(false);
+      });
 
     return () => {
       mounted = false;
@@ -688,7 +721,12 @@ export default function Dashboard() {
             }
             className="h-[360px] overflow-hidden"
           >
-            <ChartState text="لا يوجد نشاط من قاعدة البيانات حتى الآن" />
+            <ActivityList
+              activities={activities}
+              loading={activitiesLoading}
+              error={activitiesError}
+              compact
+            />
           </DashboardCard>
         </div>
       </section>

@@ -1,7 +1,38 @@
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import ActivityList from "../../../components/admin/ActivityList";
+import { listActivities } from "../../../services/medilinkApi";
 
 export default function ActivityPage() {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    listActivities(500)
+      .then((fetchedActivities) => {
+        if (mounted) {
+          setActivities(fetchedActivities);
+          setError("");
+        }
+      })
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError?.message || "تعذر تحميل النشاطات");
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <header className="flex min-h-[120px] items-start justify-between gap-4 bg-white px-4 pt-[39px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[32px]">
@@ -25,10 +56,12 @@ export default function ActivityPage() {
       </header>
 
       <main className="px-4 py-[30px] sm:px-6 lg:px-[32px]">
-        <section className="min-h-[805px] rounded-[10px] bg-white px-[12px] py-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-          <div className="grid min-h-[740px] place-items-center text-[22px] font-medium text-[#666] dark:text-gray-200">
-            لا يوجد نشاط من قاعدة البيانات حتى الآن
-          </div>
+        <section className="min-h-[805px] overflow-hidden rounded-[10px] bg-white py-[12px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+          <ActivityList
+            activities={activities}
+            loading={loading}
+            error={error}
+          />
         </section>
       </main>
     </section>
