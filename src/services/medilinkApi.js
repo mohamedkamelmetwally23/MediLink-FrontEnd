@@ -2345,7 +2345,10 @@ export async function submitReview({ appointmentId, stars, comment = "" }) {
 const activityLabels = {
   LOGIN: "تسجيل الدخول",
   LOGOUT: "تسجيل الخروج",
+  SIGNUP: "إنشاء حساب",
   REGISTER: "إنشاء حساب",
+  RESET_PASSWORD: "إعادة تعيين كلمة المرور",
+  UPDATE_PASSWORD: "تحديث كلمة المرور",
   BOOK_APPOINTMENT: "حجز موعد",
   CREATE_APPOINTMENT: "إنشاء موعد",
   UPDATE_APPOINTMENT: "تعديل موعد",
@@ -2353,11 +2356,13 @@ const activityLabels = {
   DELETE_APPOINTMENT: "حذف موعد",
   COMPLETE_APPOINTMENT: "إكمال موعد",
   CONFIRM_APPOINTMENT: "تأكيد موعد",
+  CHANGE_APPOINTMENT_STATUS: "تغيير حالة موعد",
   CREATE_USER: "إضافة مستخدم",
   UPDATE_USER: "تعديل مستخدم",
   DELETE_USER: "حذف مستخدم",
   CREATE_DOCTOR: "إضافة طبيب",
   UPDATE_DOCTOR: "تعديل بيانات طبيب",
+  UPDATE_DOCTOR_PROFILE: "تعديل الملف الشخصي لطبيب",
   DELETE_DOCTOR: "حذف طبيب",
   MAKE_DOCTOR_ACTIVE: "تفعيل حساب طبيب",
   MAKE_DOCTOR_UNACTIVE: "تعطيل حساب طبيب",
@@ -2373,6 +2378,7 @@ const activityLabels = {
   MAKE_PATIENTS_INACTIVE: "تعطيل حسابات المرضى",
   CREATE_RECEPTIONIST: "إضافة موظف استقبال",
   UPDATE_RECEPTIONIST: "تعديل بيانات موظف استقبال",
+  UPDATE_RECEPTIONIST_PROFILE: "تعديل الملف الشخصي لموظف استقبال",
   DELETE_RECEPTIONIST: "حذف موظف استقبال",
   MAKE_RECEPTIONIST_ACTIVE: "تفعيل حساب موظف استقبال",
   MAKE_RECEPTIONIST_UNACTIVE: "تعطيل حساب موظف استقبال",
@@ -2386,12 +2392,19 @@ const activityLabels = {
   MAKE_USERS_ACTIVE: "تفعيل حسابات المستخدمين",
   MAKE_USERS_UNACTIVE: "تعطيل حسابات المستخدمين",
   MAKE_USERS_INACTIVE: "تعطيل حسابات المستخدمين",
+  CHANGE_PATIENT_STATUS: "تغيير حالة مريض",
   CREATE_SPECIALIZATION: "إضافة تخصص",
+  ADD_SPECIALIZATION: "إضافة تخصص",
   UPDATE_SPECIALIZATION: "تعديل تخصص",
   DELETE_SPECIALIZATION: "حذف تخصص",
   UPDATE_PROFILE: "تحديث الملف الشخصي",
+  COMPLETE_PATIENT_PROFILE: "استكمال الملف الشخصي للمريض",
+  CREATE_PATIENT_USER: "إنشاء حساب مريض",
   CHANGE_PASSWORD: "تغيير كلمة المرور",
+  UPDATE_CLINIC_INFORMATION: "تحديث بيانات العيادة",
+  UPDATE_CLINIC_SCHEDULE: "تحديث مواعيد العيادة",
   CREATE_REVIEW: "إضافة تقييم",
+  DELETE_REVIEW: "حذف تقييم",
   CREATE_MEDICAL_REPORT: "إضافة تقرير طبي",
   CREATE_PRESCRIPTION: "إضافة وصفة طبية",
 };
@@ -2410,12 +2423,37 @@ function translateActivityLabel(value) {
   return activityLabels[normalizedLabel] || label;
 }
 
+function translateActivityRole(value) {
+  if (typeof value !== "string") return "";
+
+  const role = value.trim();
+  if (!role) return "";
+
+  const normalizedRole = role
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+  const roleLabels = {
+    ADMIN: "مدير النظام",
+    SUPER_ADMIN: "مدير النظام",
+    SYSTEM_ADMIN: "مدير النظام",
+    DOCTOR: "طبيب",
+    PATIENT: "مريض",
+    RECEPTIONIST: "موظف استقبال",
+    RECEPTION: "موظف استقبال",
+    USER: "مستخدم",
+  };
+
+  return roleLabels[normalizedRole] || role;
+}
+
 export function normalizeActivity(item = {}, index = 0) {
   if (typeof item === "string") {
     return {
       id: `activity-${index}`,
       description: translateActivityLabel(item),
       actorName: "",
+      actorRole: "",
       createdAt: "",
       raw: item,
     };
@@ -2440,6 +2478,18 @@ export function normalizeActivity(item = {}, index = 0) {
     item.actorName ||
     item.performedByName ||
     "";
+  const actorRole = translateActivityRole(
+    actor.role ||
+      actor.userRole ||
+      actor.user?.role ||
+      item.role ||
+      item.userRole ||
+      item.actorRole ||
+      item.performedByRole ||
+      details.role ||
+      details.userRole ||
+      "",
+  );
   const action = translateActivityLabel(
     item.action || item.type || item.event || item.activityType || "",
   );
@@ -2465,6 +2515,7 @@ export function normalizeActivity(item = {}, index = 0) {
       "نشاط جديد",
     ),
     actorName,
+    actorRole,
     createdAt:
       item.createdAt ||
       item.timestamp ||

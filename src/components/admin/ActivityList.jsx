@@ -1,4 +1,8 @@
-import { Activity, Clock3, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, Clock3, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
+
+const ACTIVITIES_BATCH_SIZE = 10;
+const LOAD_MORE_DELAY_MS = 1200;
 
 function formatActivityDate(value) {
   if (!value) return "";
@@ -30,6 +34,48 @@ export default function ActivityList({
   error = "",
   compact = false,
 }) {
+  const [visibleCount, setVisibleCount] = useState(ACTIVITIES_BATCH_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const loadMoreTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (compact || loading || error || visibleCount >= activities.length) {
+      return undefined;
+    }
+
+    const loadMoreElement = loadMoreRef.current;
+    if (!loadMoreElement) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || loadingMoreRef.current) return;
+
+        observer.disconnect();
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+        loadMoreTimerRef.current = setTimeout(() => {
+          setVisibleCount((currentCount) =>
+            Math.min(currentCount + ACTIVITIES_BATCH_SIZE, activities.length),
+          );
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }, LOAD_MORE_DELAY_MS);
+      },
+      { rootMargin: "40px 0px" },
+    );
+
+    observer.observe(loadMoreElement);
+    return () => {
+      observer.disconnect();
+      if (loadMoreTimerRef.current) {
+        clearTimeout(loadMoreTimerRef.current);
+        loadMoreTimerRef.current = null;
+      }
+    };
+  }, [activities.length, compact, error, loading, visibleCount]);
+
   if (loading) {
     return <ActivityState compact={compact}>جاري تحميل النشاطات...</ActivityState>;
   }
@@ -46,7 +92,10 @@ export default function ActivityList({
     );
   }
 
-  const visibleActivities = compact ? activities.slice(0, 4) : activities;
+  const visibleActivities = compact
+    ? activities.slice(0, 3)
+    : activities.slice(0, visibleCount);
+  const hasMoreActivities = !compact && visibleCount < activities.length;
 
   return (
     <div
@@ -83,12 +132,20 @@ export default function ActivityList({
                 {activityItem.description}
               </p>
 
-              {(activityItem.actorName || formattedDate) && (
+              {(activityItem.actorName ||
+                activityItem.actorRole ||
+                formattedDate) && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#8a8a8a] dark:text-gray-300">
                   {activityItem.actorName && (
                     <span className="flex items-center gap-1">
                       <UserRound size={13} />
                       {activityItem.actorName}
+                    </span>
+                  )}
+                  {activityItem.actorRole && (
+                    <span className="flex items-center gap-1 text-[#22a9c2] dark:text-[#60d7ea]">
+                      <ShieldCheck size={13} />
+                      {activityItem.actorRole}
                     </span>
                   )}
                   {formattedDate && (
@@ -106,6 +163,22 @@ export default function ActivityList({
           </article>
         );
       })}
+
+      {hasMoreActivities && (
+        <div
+          ref={loadMoreRef}
+          className="flex min-h-[72px] items-center justify-center gap-2 py-5 text-center text-[14px] font-medium text-[#8a8a8a] dark:text-gray-300"
+        >
+          {loadingMore ? (
+            <>
+              <LoaderCircle className="animate-spin text-[#25b8d1]" size={19} />
+              <span>جاري تحميل نشاطات إضافية...</span>
+            </>
+          ) : (
+            "مرّر لعرض نشاطات أكثر..."
+          )}
+        </div>
+      )}
     </div>
   );
 }
