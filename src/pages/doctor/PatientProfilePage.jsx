@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
   Check,
+  FileText,
   Pause,
   Pencil,
   Play,
@@ -16,11 +17,10 @@ import {
 import { toast } from "react-toastify";
 import { transcribeAudio } from "../../services/chatApi";
 import {
-  createMedicalReport,
-  createPrescription,
-  getCurrentDoctorId,
-  getCurrentDoctorProfile,
+  completeAppointment,
   getCurrentPatientForDoctor,
+  getMedicalReportsForPatient,
+  getPrescriptionsForPatient,
   listMyDoctorAppointments,
   listPatientsForDoctor,
 } from "../../services/medilinkApi";
@@ -31,11 +31,6 @@ import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
 import scaleIcon from "../../assets/doctor departement/ion_scale-outline.png";
 import heightIcon from "../../assets/doctor departement/Group 640 (1).png";
 import recordIcon from "../../assets/doctor departement/Monotone add.png";
-import xrayImageOne from "../../assets/doctor departement/image 12.png";
-import reportImage from "../../assets/doctor departement/image 12 (1).png";
-import xrayImageTwo from "../../assets/doctor departement/image 12 (2).png";
-import xrayImageThree from "../../assets/doctor departement/image 12 (3).png";
-import xrayImageFour from "../../assets/doctor departement/image 12 (4).png";
 import { useUsersStore } from "../admin/users/useUsersStore";
 
 const defaultPatient = {
@@ -105,19 +100,31 @@ function buildPatientFromUser(user) {
       : user.smoker || "";
 
   return {
-    role: user.role || defaultPatient.role,
+    role:
+      String(user.role || "").toLowerCase() === "patient"
+        ? "مريض"
+        : user.role || defaultPatient.role,
     name: name || defaultPatient.name,
     phone: user.phone || "",
-    image: user.image || user.profileImage || user.avatar || patientImage,
+    image:
+      user.photo ||
+      user.image ||
+      user.profileImage ||
+      user.avatar ||
+      patientImage,
     birthDate: user.birthDate || "",
     registeredAt: user.createdAt || user.registrationDate || "",
-    height: user.height || "",
+    height: user.height ?? user.tall ?? "",
     weight: user.weight || "",
     bloodType: user.bloodType || "",
     smoker,
     age: getAgeFromBirthDate(user.birthDate) || user.age || "",
     gender,
     status: user.status === "inactive" ? "غير مفعل" : defaultPatient.status,
+    chronicConditions: user.chronicConditions || [],
+    allergies: user.allergies || [],
+    chronicMedications: user.chronicMedications || [],
+    medicalFiles: user.medicalFiles || [],
   };
 }
 
@@ -134,18 +141,6 @@ function getPatientRecordId(source, fallbackId) {
   );
 }
 
-function getDoctorRecordId(source, fallbackId = "") {
-  return (
-    source?.profileId ||
-    source?.doctorId ||
-    source?.id ||
-    source?.userId ||
-    source?.raw?._id ||
-    source?.raw?.id ||
-    fallbackId
-  );
-}
-
 function getIsoDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -155,6 +150,34 @@ function getIsoDate(date) {
 
 function sameId(left, right) {
   return Boolean(left && right && String(left) === String(right));
+}
+
+function normalizePatientMedicalReport(report = {}, index = 0) {
+  return {
+    id: report._id || report.id || `medical-report-${index}`,
+    date: formatProfileDate(report.createdAt),
+    title: report.diagnosis || "تقرير طبي",
+    summary: report.notes ? `ملاحظات: ${report.notes}` : "لا توجد ملاحظات",
+    diagnosis: report.diagnosis || "غير مسجل",
+    notes: report.notes || "لا توجد ملاحظات",
+  };
+}
+
+function normalizePatientPrescription(prescription = {}, index = 0) {
+  const medicines = Array.isArray(prescription.medicines)
+    ? prescription.medicines
+    : [];
+
+  return {
+    id: prescription._id || prescription.id || `prescription-${index}`,
+    date: formatProfileDate(prescription.createdAt),
+    rows: medicines.map((medicine) => [
+      medicine.name || "غير مسجل",
+      medicine.dose || "غير مسجل",
+      medicine.frequency || "غير مسجل",
+      medicine.duration || "غير مسجل",
+    ]),
+  };
 }
 
 function getAppointmentPatientIds(appointment) {
@@ -214,8 +237,7 @@ const menuItems = [
 ];
 
 const steps = [
-  { number: 5, label: "ملخص" },
-  { number: 4, label: "المراجعة" },
+  { number: 4, label: "ملخص" },
   { number: 3, label: "الأدوية والجرعات" },
   { number: 2, label: "التشخيص" },
   { number: 1, label: "ملف المريض" },
@@ -301,10 +323,11 @@ const patientPrescriptions = prescriptions.filter(() => false);
 export default function DoctorPatientProfilePage({ startExam = false }) {
   const { patientId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const { getUser } = useUsersStore();
   const [consultationStep, setConsultationStep] = useState("patient");
-  const [activeSection, setActiveSection] = useState("info");
+  const [activeSection, setActiveSection] = useState(() =>
+    startExam ? "booking" : "info",
+  );
   const [profileTab, setProfileTab] = useState("records");
   const [profileSearch, setProfileSearch] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState(null);
@@ -312,15 +335,17 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [notes, setNotes] = useState("");
   const [medicineDate, setMedicineDate] = useState(() => getIsoDate(new Date()));
   const [medicineRows, setMedicineRows] = useState(() => [createEmptyMedicineRow(1)]);
-  const [reviewDate, setReviewDate] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [loadedPatient, setLoadedPatient] = useState(null);
   const [currentAppointment, setCurrentAppointment] = useState(null);
-  const [currentDoctorId, setCurrentDoctorId] = useState("");
+  const [currentAppointmentId, setCurrentAppointmentId] = useState(
+    () => location.state?.appointmentId || "",
+  );
+  const [medicalReports, setMedicalReports] = useState([]);
+  const [prescriptionHistory, setPrescriptionHistory] = useState([]);
   const selectedRecord = useMemo(
-    () => patientMedicalRecords.find((record) => record.id === selectedRecordId),
-    [selectedRecordId],
+    () => medicalReports.find((record) => record.id === selectedRecordId),
+    [medicalReports, selectedRecordId],
   );
   const routedPatient = location.state?.patient;
   const currentPatientUserId = location.state?.currentPatientUserId;
@@ -330,7 +355,23 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     buildPatientFromUser(storedPatient) ||
     (!startExam ? fallbackPatients[patientId] : null) ||
     (startExam
-      ? { ...defaultPatient, name: "جاري تحميل بيانات المريض", phone: "" }
+      ? {
+          name: "جاري تحميل بيانات المريض",
+          role: "مريض",
+          status: "",
+          gender: "",
+          age: "",
+          phone: "",
+          image: patientImage,
+          height: "",
+          weight: "",
+          bloodType: "",
+          smoker: "",
+          chronicConditions: [],
+          allergies: [],
+          chronicMedications: [],
+          medicalFiles: [],
+        }
       : null) ||
     defaultPatient;
 
@@ -339,11 +380,10 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
 
     async function loadExamContext() {
       const todayIso = getIsoDate(new Date());
-      const [patientsResult, appointmentsResult, doctorResult] =
+      const [patientsResult, appointmentsResult] =
         await Promise.allSettled([
           routedPatient ? Promise.resolve([]) : listPatientsForDoctor(),
           listMyDoctorAppointments(todayIso),
-          getCurrentDoctorProfile(),
         ]);
 
       if (!mounted) return;
@@ -372,16 +412,12 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
           stateAppointmentId,
         );
 
-        if (appointment) setCurrentAppointment(appointment);
+        if (appointment) {
+          setCurrentAppointment(appointment);
+          setCurrentAppointmentId(appointment.id || "");
+        }
       }
 
-      if (doctorResult.status === "fulfilled") {
-        setCurrentDoctorId(
-          getDoctorRecordId(doctorResult.value, getCurrentDoctorId()),
-        );
-      } else {
-        setCurrentDoctorId(getCurrentDoctorId());
-      }
     }
 
     loadExamContext();
@@ -392,55 +428,62 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   }, [patientId, routedPatient, currentPatientUserId, stateAppointmentId]);
 
   useEffect(() => {
-    if (!startExam || !currentPatientUserId) return undefined;
+    if (!startExam || !patientId) return undefined;
 
     let mounted = true;
 
-    getCurrentPatientForDoctor(currentPatientUserId)
-      .then((result) => {
-        if (!mounted) return;
+    Promise.allSettled([
+      getCurrentPatientForDoctor(patientId),
+      getMedicalReportsForPatient(patientId),
+      getPrescriptionsForPatient(patientId),
+    ]).then(([patientResult, reportsResult, prescriptionsResult]) => {
+      if (!mounted) return;
 
-        if (result.patient) setLoadedPatient(result.patient);
-        if (result.appointment) setCurrentAppointment(result.appointment);
-      })
-      .catch(() => {});
+      if (patientResult.status === "fulfilled") {
+        if (patientResult.value.patient) {
+          setLoadedPatient(patientResult.value.patient);
+        }
+        if (patientResult.value.appointment) {
+          setCurrentAppointment(patientResult.value.appointment);
+          setCurrentAppointmentId(
+            patientResult.value.appointmentId ||
+              patientResult.value.appointment.id ||
+              "",
+          );
+        }
+      }
+
+      setMedicalReports(
+        reportsResult.status === "fulfilled"
+          ? reportsResult.value.map(normalizePatientMedicalReport)
+          : [],
+      );
+      setPrescriptionHistory(
+        prescriptionsResult.status === "fulfilled"
+          ? prescriptionsResult.value
+              .map(normalizePatientPrescription)
+              .filter((group) => group.rows.length > 0)
+          : [],
+      );
+    });
 
     return () => {
       mounted = false;
     };
-  }, [startExam, currentPatientUserId]);
+  }, [startExam, patientId]);
 
   const handleFinishVisit = async () => {
-    const targetPatientId = getPatientRecordId(storedPatient, patientId);
     const appointmentId =
-      location.state?.appointmentId || currentAppointment?.id || "";
-    const doctorId =
-      currentAppointment?.doctorId || currentDoctorId || getCurrentDoctorId();
+      currentAppointmentId ||
+      currentAppointment?.id ||
+      location.state?.appointmentId ||
+      "";
     const medicines = medicineRows.filter((row) =>
       [row.name, row.dose, row.schedule, row.duration].some((value) =>
         String(value || "").trim(),
       ),
     );
-    const payload = {
-      patientId: targetPatientId,
-      doctorId,
-      appointmentId,
-      diagnosis,
-      notes,
-      date: medicineDate,
-      medicines,
-      reviewDate,
-      reviewNotes,
-      title: diagnosis,
-      summary: notes,
-    };
-
-    if (!targetPatientId) {
-      toast.error("تعذر تحديد المريض");
-      return;
-    }
-
-    if (!doctorId || !appointmentId) {
+    if (!appointmentId) {
       toast.error("جاري تحميل بيانات الموعد، حاول مرة أخرى");
       return;
     }
@@ -448,12 +491,18 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     setIsSavingVisit(true);
 
     try {
-      await Promise.all([
-        createPrescription(payload),
-        createMedicalReport(payload),
-      ]);
-      toast.success("تم حفظ الروشتة والسجل المرضي");
-      navigate("/doctor/patients", { replace: true });
+      await completeAppointment(appointmentId, {
+        diagnosis,
+        notes,
+        medicines: medicines.map((medicine) => ({
+          name: medicine.name,
+          dose: medicine.dose,
+          frequency: medicine.schedule,
+          duration: medicine.duration,
+        })),
+      });
+      toast.success("تم إنهاء الزيارة وحفظ البيانات");
+      window.location.replace("/doctor/dashboard");
     } catch (error) {
       toast.error(error.message || "تعذر حفظ بيانات الزيارة");
     } finally {
@@ -507,14 +556,21 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
                     <BookingDetails appointment={currentAppointment} />
                   )}
                   {activeSection === "info" && <PatientInformation patient={patient} />}
-                  {activeSection === "files" && <MedicalFiles large />}
+                  {activeSection === "files" && (
+                    <MedicalFiles files={patient.medicalFiles} />
+                  )}
                   {activeSection === "records" && !selectedRecord && (
-                    <MedicalRecords onOpenRecord={openRecord} />
+                    <MedicalRecords
+                      records={medicalReports}
+                      onOpenRecord={openRecord}
+                    />
                   )}
                   {activeSection === "records" && selectedRecord && (
                     <MedicalRecordDetails record={selectedRecord} />
                   )}
-                  {activeSection === "medicines" && <PreviousMedicines />}
+                  {activeSection === "medicines" && (
+                    <PreviousMedicines prescriptions={prescriptionHistory} />
+                  )}
                 </div>
               </section>
             </div>
@@ -550,17 +606,6 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
             medicineRows={medicineRows}
             onMedicineRowsChange={setMedicineRows}
             onBack={() => setConsultationStep("diagnosis")}
-            onNext={() => setConsultationStep("review")}
-          />
-        )}
-
-        {consultationStep === "review" && (
-          <ReviewAppointmentStep
-            reviewDate={reviewDate}
-            onReviewDateChange={setReviewDate}
-            reviewNotes={reviewNotes}
-            onReviewNotesChange={setReviewNotes}
-            onBack={() => setConsultationStep("medicines")}
             onNext={() => setConsultationStep("summary")}
           />
         )}
@@ -570,9 +615,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
             diagnosis={diagnosis}
             notes={notes}
             medicineRows={medicineRows}
-            reviewDate={reviewDate}
-            reviewNotes={reviewNotes}
-            onBack={() => setConsultationStep("review")}
+            onBack={() => setConsultationStep("medicines")}
             onFinish={handleFinishVisit}
             isSaving={isSavingVisit}
           />
@@ -943,7 +986,7 @@ function filterItems(items, search, getText) {
 function Stepper({ currentStep }) {
   return (
     <div className="pb-2">
-      <div className="mx-auto grid w-full max-w-[1120px] grid-cols-5 items-start gap-0" dir="ltr">
+      <div className="mx-auto grid w-full max-w-[920px] grid-cols-4 items-start gap-0" dir="ltr">
         {steps.map((step, index) => (
           <StepItem
             key={step.label}
@@ -960,15 +1003,13 @@ function Stepper({ currentStep }) {
 function StepItem({ step, index, currentStep }) {
   const isDone =
     (currentStep !== "patient" && step.number === 1) ||
-    (["medicines", "review", "summary"].includes(currentStep) && step.number === 2) ||
-    (["review", "summary"].includes(currentStep) && step.number === 3) ||
-    (currentStep === "summary" && step.number === 4);
+    (["medicines", "summary"].includes(currentStep) && step.number === 2) ||
+    (currentStep === "summary" && step.number === 3);
   const isActive =
     (currentStep === "patient" && step.number === 1) ||
     (currentStep === "diagnosis" && step.number === 2) ||
     (currentStep === "medicines" && step.number === 3) ||
-    (currentStep === "review" && step.number === 4) ||
-    (currentStep === "summary" && step.number === 5);
+    (currentStep === "summary" && step.number === 4);
 
   return (
     <div className="relative text-center">
@@ -1564,85 +1605,10 @@ function MedicineInput({ value, onChange, dir = "rtl" }) {
   );
 }
 
-function ReviewAppointmentStep({
-  reviewDate,
-  onReviewDateChange,
-  reviewNotes,
-  onReviewNotesChange,
-  onBack,
-  onNext,
-}) {
-  const reviewDateInputRef = useRef(null);
-
-  return (
-    <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
-      <div className="w-full max-w-[544px] space-y-[31px] text-right">
-        <div className="w-auto">
-          <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-            التاريخ
-          </label>
-          <button
-            type="button"
-            className="grid h-[52px] w-full grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#fafafa] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100"
-            dir="ltr"
-            onClick={() => openDatePicker(reviewDateInputRef)}
-          >
-            <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
-            <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
-              {formatDisplayDate(reviewDate)}
-            </span>
-            <input
-              ref={reviewDateInputRef}
-              type="date"
-              value={reviewDate}
-              onChange={(event) => onReviewDateChange(event.target.value)}
-              className="sr-only"
-              tabIndex={-1}
-            />
-          </button>
-        </div>
-
-        <div>
-          <label className="mb-[10px] block text-[17px] font-semibold text-[#111] dark:text-white">
-            ملاحظات
-          </label>
-          <textarea
-            value={reviewNotes}
-            onChange={(event) => onReviewNotesChange(event.target.value)}
-            rows={2}
-            className="min-h-[56px] w-full resize-none rounded-[8px] bg-[#fafafa] px-[18px] py-[12px] text-right text-[17px] leading-8 text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]"
-          />
-        </div>
-      </div>
-
-      <div className="mt-[180px] grid gap-[12px] sm:grid-cols-2 lg:mt-[499px]" dir="ltr">
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-          onClick={onNext}
-        >
-          <ArrowLeft size={23} strokeWidth={2.2} />
-          التالي
-        </button>
-        <button
-          type="button"
-          className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
-          onClick={onBack}
-        >
-          السابق
-          <ArrowRight size={23} strokeWidth={2.2} />
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function SummaryStep({
   diagnosis,
   notes,
   medicineRows,
-  reviewDate,
-  reviewNotes,
   onBack,
   onFinish,
   isSaving,
@@ -1657,7 +1623,7 @@ function SummaryStep({
     <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
       <article className="grid min-h-[108px] items-center rounded-[10px] bg-white px-[22px] py-[18px] text-right shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[120px_minmax(0,1fr)] sm:px-[34px]" dir="ltr">
         <span className="text-left text-[10px] text-[#456] dark:text-gray-300">
-          {formatDisplayDate(reviewDate)}
+          {formatDisplayDate(new Date().toISOString().slice(0, 10))}
         </span>
         <div dir="rtl">
           <h2 className="text-[18px] font-bold leading-7 text-[#111] dark:text-white">
@@ -1704,41 +1670,6 @@ function SummaryStep({
           </div>
         </div>
 
-        <h3 className="mb-[11px] mt-[27px] text-[16px] font-semibold text-[#111] dark:text-white">
-          ملاحظات
-        </h3>
-        <div className="min-h-[90px] rounded-[8px] bg-[#FAFAFA] px-[22px] py-[17px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]">
-          {notes}
-        </div>
-      </section>
-
-      <section className="mt-[48px] rounded-[10px] bg-[#F0FAF9] px-[22px] py-[22px] text-right dark:bg-[#24484b] sm:px-[24px]">
-        <h2 className="mb-[28px] text-[22px] font-semibold text-[#333] dark:text-white">
-          المراجعة
-        </h2>
-
-        <div className="grid gap-[16px] lg:grid-cols-[minmax(260px,344px)_minmax(0,1fr)] lg:items-end">
-          <div className="text-right">
-            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-              التاريخ
-            </label>
-            <div className="grid h-[52px] grid-cols-[44px_minmax(0,1fr)] items-center rounded-[8px] bg-[#FAFAFA] px-[14px] text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100" dir="ltr">
-              <CalendarDays size={23} strokeWidth={1.8} className="text-[#666] dark:text-gray-200" />
-              <span className="text-right text-[18px] sm:text-[20px]" dir="ltr">
-                {formatDisplayDate(reviewDate)}
-              </span>
-            </div>
-          </div>
-
-          <div className="text-right">
-            <label className="mb-[9px] block text-[15px] font-semibold text-[#111] dark:text-white">
-              ملاحظات
-            </label>
-            <div className="min-h-[52px] rounded-[8px] bg-[#FAFAFA] px-[18px] py-[12px] text-[18px] leading-8 text-[#333] dark:bg-[#3d3d3d] dark:text-gray-100 sm:px-[31px] sm:text-[20px]">
-              {reviewNotes}
-            </div>
-          </div>
-        </div>
       </section>
 
       <div className="mt-[60px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
@@ -1955,7 +1886,11 @@ function PatientCard({ patient }) {
           {patient.name}
         </h1>
         <div className="mt-[7px] flex items-center justify-center gap-[13px] text-[14px] text-[#6d6d6d] dark:text-gray-300 sm:justify-start">
-          <span>{patient.role || "مريض"}</span>
+          <span>
+            {String(patient.role || "").toLowerCase() === "patient"
+              ? "مريض"
+              : patient.role || "مريض"}
+          </span>
           <span className="rounded-[6px] bg-[#e2f8e9] px-[8px] py-[2px] text-[11px] font-bold text-[#229b4e] dark:bg-[#234f35] dark:text-[#8ee3aa]">
             {patient.status || "مفعل"}
           </span>
@@ -2021,9 +1956,15 @@ function PatientInformation({ patient }) {
         ))}
       </div>
 
-      <PatientTags title="الأمراض المزمنة" values={followupData.diseases} />
-      <PatientTags title="الحساسيات" values={followupData.allergies} />
-      <PatientTags title="الأدوية" values={followupData.medicines} />
+      <PatientTags
+        title="الأمراض المزمنة"
+        values={patient.chronicConditions || []}
+      />
+      <PatientTags title="الحساسيات" values={patient.allergies || []} />
+      <PatientTags
+        title="الأدوية"
+        values={patient.chronicMedications || []}
+      />
     </div>
   );
 }
@@ -2051,14 +1992,14 @@ function PatientTags({ title, values }) {
   );
 }
 
-function MedicalRecords({ onOpenRecord }) {
-  if (patientMedicalRecords.length === 0) {
+function MedicalRecords({ records, onOpenRecord }) {
+  if (records.length === 0) {
     return <PatientEmptyState text="لا يوجد سجل طبي حتى الآن" />;
   }
 
   return (
     <div className="space-y-[9px]">
-      {patientMedicalRecords.map((record) => (
+      {records.map((record) => (
         <button
           key={record.id}
           type="button"
@@ -2066,7 +2007,7 @@ function MedicalRecords({ onOpenRecord }) {
           dir="ltr"
           onClick={() => onOpenRecord(record.id)}
         >
-          <span className="rounded-full bg-[#effcfc] px-[8px] py-[4px] text-left text-[10px] font-medium text-[#667] dark:bg-[#274d52] dark:text-gray-200">
+          <span className="flex min-h-[28px] items-center justify-center rounded-full bg-[#effcfc] px-[8px] py-[4px] text-center text-[10px] font-medium text-[#667] dark:bg-[#274d52] dark:text-gray-200">
             {record.date}
           </span>
           <span className="min-w-0 text-right" dir="rtl">
@@ -2101,8 +2042,8 @@ function MedicalRecordDetails({ record }) {
   );
 }
 
-function PreviousMedicines() {
-  if (patientPrescriptions.length === 0) {
+function PreviousMedicines({ prescriptions }) {
+  if (prescriptions.length === 0) {
     return <PatientEmptyState text="لا توجد أدوية أو جرعات سابقة حتى الآن" />;
   }
 
@@ -2113,8 +2054,8 @@ function PreviousMedicines() {
       </h2>
 
       <div className="min-w-[620px] space-y-[28px]">
-        {patientPrescriptions.map((group) => (
-          <section key={group.date}>
+        {prescriptions.map((group) => (
+          <section key={group.id}>
             <p className="mb-[17px] text-[15px] font-medium text-[#28bfd8]">{group.date}</p>
             <div className="grid grid-cols-4 gap-[9px] text-[15px] font-semibold text-[#666] dark:text-gray-300">
               <span>اسم الدواء</span>
@@ -2125,7 +2066,7 @@ function PreviousMedicines() {
             <div className="mt-[8px] space-y-[8px]">
               {group.rows.map((row) => (
                 <div
-                  key={`${group.date}-${row.join("-")}`}
+                  key={`${group.id}-${row.join("-")}`}
                   className="grid grid-cols-4 gap-[9px] text-[17px] text-[#333] dark:text-white sm:text-[20px]"
                 >
                   {row.map((cell) => (
@@ -2146,26 +2087,160 @@ function PreviousMedicines() {
   );
 }
 
-function getAppointmentStatusText(status) {
-  const labels = {
-    confirmed: "مؤكد",
-    pending: "قيد الانتظار",
-    completed: "مكتمل",
-    cancelled: "ملغي",
-  };
+function getAppointmentFiles(appointment) {
+  const raw = appointment?.raw || {};
+  const files =
+    appointment?.medicalFiles ||
+    raw.medicalFiles ||
+    raw.attachments ||
+    raw.files ||
+    raw.uploadedFiles ||
+    [];
 
-  return labels[status] || status || "غير مسجل";
+  return Array.isArray(files) ? files : [];
 }
 
-function getPaymentStatusText(status) {
-  const labels = {
-    paid: "مدفوع",
-    waiting: "بانتظار الدفع",
-    pending: "بانتظار الدفع",
-    unpaid: "غير مدفوع",
+function getAppointmentFileData(file, index) {
+  const source = typeof file === "string" ? file : "";
+  const url =
+    source ||
+    file?.url ||
+    file?.secure_url ||
+    file?.fileUrl ||
+    file?.src ||
+    file?.path ||
+    "";
+  const name =
+    file?.originalName ||
+    file?.fileName ||
+    file?.filename ||
+    file?.name ||
+    decodeURIComponent(url.split("/").pop()?.split("?")[0] || "") ||
+    `ملف مرفق ${index + 1}`;
+  const extension = name.split(".").pop()?.toLowerCase();
+  const mimeType = String(file?.mimetype || file?.mimeType || file?.type || "");
+  const nonImageExtensions = [
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "txt",
+    "csv",
+  ];
+
+  return {
+    id: file?._id || file?.id || file?.fileId || `${name}-${index}`,
+    name,
+    url,
+    isImage:
+      mimeType.startsWith("image/") ||
+      ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg"].includes(
+        extension,
+      ) ||
+      Boolean(
+        url &&
+          !mimeType &&
+          !nonImageExtensions.includes(extension),
+      ),
+  };
+}
+
+function AttachmentCard({ file, large = false }) {
+  const [imageError, setImageError] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const showImage = file.isImage && file.url && !imageError;
+
+  const handleOpen = () => {
+    if (showImage) {
+      setPreviewOpen(true);
+      return;
+    }
+
+    if (file.url) {
+      window.open(file.url, "_blank", "noopener,noreferrer");
+    }
   };
 
-  return labels[status] || status || "غير مسجل";
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        className={`grid w-full grid-cols-[minmax(0,1fr)_110px] items-center gap-3 rounded-[10px] bg-white px-[16px] py-[12px] text-right shadow-[0_5px_20px_rgba(0,0,0,0.09)] transition dark:bg-[#3d3d3d] sm:grid-cols-[minmax(0,1fr)_128px] sm:px-[26px] ${
+          large ? "min-h-[178px]" : "min-h-[130px]"
+        } ${file.url ? "hover:-translate-y-0.5" : "cursor-default"}`}
+      >
+        <span
+          className="self-start truncate pt-[10px] text-left text-[14px] font-medium text-black dark:text-white sm:text-[17px]"
+          dir="ltr"
+        >
+          {file.name}
+        </span>
+        <span
+          className={`grid place-items-center overflow-hidden rounded-[10px] bg-[#eef3f5] shadow-inner dark:bg-[#4a4a4a] ${
+            large
+              ? "h-[142px] w-[110px] sm:h-[170px] sm:w-[126px]"
+              : "h-[106px] w-[104px]"
+          }`}
+        >
+          {showImage ? (
+            <img
+              src={file.url}
+              alt={file.name}
+              className="h-full w-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <FileText size={large ? 46 : 42} className="text-[#28bbd5]" />
+          )}
+        </span>
+      </button>
+
+      {previewOpen && showImage && (
+        <ImagePreviewModal
+          file={file}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ImagePreviewModal({ file, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] grid place-items-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`معاينة ${file.name}`}
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        aria-label="إغلاق المعاينة"
+        className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+        onClick={onClose}
+      >
+        <X size={27} />
+      </button>
+      <img
+        src={file.url}
+        alt={file.name}
+        className="max-h-[88vh] max-w-[94vw] rounded-[12px] object-contain shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      />
+    </div>
+  );
 }
 
 function BookingDetails({ appointment }) {
@@ -2178,83 +2253,55 @@ function BookingDetails({ appointment }) {
   }
 
   const raw = appointment.raw || {};
-  const items = [
-    { label: "تاريخ الحجز", value: formatProfileDate(appointment.date || raw.date) },
-    { label: "وقت الحجز", value: formatTime(appointment.time || raw.time) },
-    { label: "حالة الحجز", value: getAppointmentStatusText(appointment.status) },
-    { label: "حالة الدفع", value: getPaymentStatusText(appointment.payment) },
-    { label: "الطبيب", value: appointment.doctor || raw.doctorName },
-    { label: "التخصص", value: appointment.specialty || raw.specialty },
-    { label: "رقم الهاتف", value: appointment.phone || raw.phone || raw.patientPhone },
-  ].filter((item) => item.value);
+  const reason =
+    appointment.reason || raw.reason || raw.visitReason || raw.notes || "غير مسجل";
+  const files = getAppointmentFiles(appointment).map(getAppointmentFileData);
 
   return (
-    <section className="text-right">
-      <div className="grid gap-[12px] sm:grid-cols-2">
-        {items.map((item) => (
-          <article
-            key={item.label}
-            className="rounded-[10px] bg-white px-[20px] py-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.06)] dark:bg-[#3d3d3d]"
-          >
-            <p className="text-[13px] font-semibold text-[#8a8a8a] dark:text-gray-300">
-              {item.label}
-            </p>
-            <p className="mt-[8px] text-[18px] font-bold text-[#333] dark:text-white">
-              {item.value}
-            </p>
-          </article>
-        ))}
+    <section className="space-y-[20px] text-right">
+      <div>
+        <h2 className="mb-[9px] text-[15px] font-bold text-[#333] dark:text-white">
+          سبب الزيارة
+        </h2>
+        <div className="min-h-[48px] rounded-[8px] bg-[#f5f5f5] px-[18px] py-[13px] text-[15px] font-medium text-[#555] dark:bg-[#3d3d3d] dark:text-gray-100">
+          {reason}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-[9px] text-[15px] font-bold text-[#333] dark:text-white">
+          الملفات المرفقة
+        </h2>
+        {files.length > 0 ? (
+          <div className="grid gap-[12px] md:grid-cols-2">
+            {files.map((file) => (
+              <AttachmentCard key={file.id} file={file} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[8px] bg-[#f5f5f5] px-[18px] py-[18px] text-center text-[14px] text-[#888] dark:bg-[#3d3d3d] dark:text-gray-300">
+            لا توجد ملفات مرفقة
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function MedicalFiles({ compact = false, large = false }) {
-  const files = (large
-    ? [
-        { type: "xray", image: xrayImageOne },
-        { type: "report", image: reportImage },
-        { type: "xray", image: xrayImageTwo },
-        { type: "xray", image: xrayImageThree },
-        { type: "xray", image: xrayImageFour },
-        { type: "report", image: reportImage },
-      ]
-    : [
-        { type: "report", image: reportImage },
-        { type: "xray", image: xrayImageOne },
-      ]).filter(() => false);
+function MedicalFiles({ files = [] }) {
+  const normalizedFiles = (Array.isArray(files) ? files : []).map(
+    getAppointmentFileData,
+  );
 
-  if (files.length === 0) {
+  if (normalizedFiles.length === 0) {
     return <PatientEmptyState text="لا توجد ملفات طبية حتى الآن" />;
   }
 
   return (
-    <div className={`grid gap-[12px] ${large ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
-      {files.map((file, index) => (
-        <article
-          key={`${file.type}-${index}`}
-          className={`grid grid-cols-[minmax(0,1fr)_96px] items-center rounded-[10px] bg-white px-[16px] shadow-[0_5px_20px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[minmax(0,1fr)_128px] sm:px-[26px] ${
-            compact ? "h-[178px] sm:h-[202px]" : "h-[178px] sm:h-[202px]"
-          }`}
-        >
-          <h3 className="self-start pt-[18px] text-left text-[16px] font-medium text-black dark:text-white sm:text-[20px]" dir="ltr">
-            20042026.PNG
-          </h3>
-          <FilePreview file={file} />
-        </article>
+    <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2">
+      {normalizedFiles.map((file) => (
+        <AttachmentCard key={file.id} file={file} large />
       ))}
-    </div>
-  );
-}
-
-function FilePreview({ file }) {
-  return (
-    <div className="h-[142px] w-[96px] overflow-hidden rounded-[10px] bg-[#eef3f5] shadow-inner sm:h-[170px] sm:w-[126px]">
-      <img
-        src={file.image}
-        alt=""
-        className="h-full w-full object-cover"
-      />
     </div>
   );
 }
