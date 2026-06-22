@@ -35,33 +35,6 @@ const tabs = [
   { id: "appointments", label: "المواعيد المحجوزة" },
 ];
 
-const records = [
-  {
-    id: 1,
-    title: "حساسية شديدة",
-    notes: "سعال شديد واحتقان في الأنف والحنجرة",
-    date: "12 ديسمبر 2025",
-  },
-  {
-    id: 2,
-    title: "حساسية موسمية",
-    notes: "عطس متكرر واحتقان بالأنف",
-    date: "24 فبراير 2026",
-  },
-  {
-    id: 3,
-    title: "التهاب الجيوب الأنفية",
-    notes: "احتقان متوسط مع صداع متقطع",
-    date: "3 يناير 2026",
-  },
-  {
-    id: 4,
-    title: "حساسية شديدة",
-    notes: "سعال شديد واحتقان في الأنف والحنجرة",
-    date: "30 يناير 2026",
-  },
-];
-
 function currentPatientId(user) {
   return (
     user?.patientId ||
@@ -735,9 +708,10 @@ function getAppointmentTimestamp(appointment) {
 }
 
 function Appointments({ appointments, doctorById, search, onCancel }) {
-  const [now] = useState(() => Date.now());
   const filtered = appointments
     .filter((appointment) => {
+      if (!["pending", "completed"].includes(appointment.status)) return false;
+
       const doctor = doctorById.get(String(appointment.doctorId));
       return includesSearchText(
         `${appointment.doctor} ${doctor?.specialty || appointment.specialty}`,
@@ -745,16 +719,14 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
       );
     })
     .sort((first, second) => {
-      const firstTime = getAppointmentTimestamp(first);
-      const secondTime = getAppointmentTimestamp(second);
-      const firstIsUpcoming = firstTime >= now;
-      const secondIsUpcoming = secondTime >= now;
-
-      if (firstIsUpcoming !== secondIsUpcoming) {
-        return firstIsUpcoming ? -1 : 1;
+      if (first.status !== second.status) {
+        return first.status === "pending" ? -1 : 1;
       }
 
-      return firstIsUpcoming
+      const firstTime = getAppointmentTimestamp(first);
+      const secondTime = getAppointmentTimestamp(second);
+
+      return first.status === "pending"
         ? firstTime - secondTime
         : secondTime - firstTime;
     });
