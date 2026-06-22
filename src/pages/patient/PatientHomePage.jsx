@@ -22,6 +22,7 @@ import {
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaStar } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import LogoutConfirmModal from "../../components/LogoutConfirmModal";
+import RatingPopup from "../../components/RatingPopup";
 import ThemeLogo from "../../components/ThemeLogo";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
@@ -40,6 +41,7 @@ import {
   getBookedAppointmentsForPatient,
   getCurrentAuthUser,
   getCurrentUser,
+  submitReview,
 } from "../../services/medilinkApi";
 import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
 import { useSpecializations } from "../../hooks/useSpecializations";
@@ -1048,6 +1050,7 @@ export default function PatientHomePage() {
   const { doctors, loading: doctorsLoading, error: doctorsError } = useDoctors();
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [appointmentLoading, setAppointmentLoading] = useState(true);
+  const [ratingAppointment, setRatingAppointment] = useState(null);
   const patient = authUser?.patient || authUser?.profile || authUser || {};
   const patientName =
     [patient.firstName, patient.lastName].filter(Boolean).join(" ").trim() ||
@@ -1060,9 +1063,16 @@ export default function PatientHomePage() {
 
     getBookedAppointmentsForPatient()
       .then((appointments) => {
-        if (mounted) {
-          setUpcomingAppointment(getUpcomingAppointment(appointments));
-        }
+        if (!mounted) return;
+        setUpcomingAppointment(getUpcomingAppointment(appointments));
+
+        const unrated = appointments.find(
+          (apt) =>
+            apt.status === "completed" &&
+            apt.raw?.isRated === false &&
+            !sessionStorage.getItem(`medilink-rated-${apt.id}`),
+        );
+        if (unrated) setRatingAppointment(unrated);
       })
       .catch(() => {
         if (mounted) setUpcomingAppointment(null);
@@ -1102,6 +1112,19 @@ export default function PatientHomePage() {
     return undefined;
   }, [location.hash, location.state]);
 
+  const handleRatingSubmit = async ({ appointmentId, stars, comment }) => {
+    await submitReview({ appointmentId, stars, comment });
+    sessionStorage.setItem(`medilink-rated-${appointmentId}`, "1");
+    setRatingAppointment(null);
+  };
+
+  const handleRatingSkip = () => {
+    if (ratingAppointment) {
+      sessionStorage.setItem(`medilink-rated-${ratingAppointment.id}`, "1");
+    }
+    setRatingAppointment(null);
+  };
+
   return (
     <div className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
       <PatientHomeHeader
@@ -1128,6 +1151,13 @@ export default function PatientHomePage() {
         <FaqSection />
       </main>
       <PatientHomeFooter />
+      {ratingAppointment && (
+        <RatingPopup
+          appointment={ratingAppointment}
+          onSubmit={handleRatingSubmit}
+          onSkip={handleRatingSkip}
+        />
+      )}
     </div>
   );
 }

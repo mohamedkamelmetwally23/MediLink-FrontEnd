@@ -39,7 +39,7 @@ export default function ConfirmStatusChangeModal({
               onChange={(event) => onNoteChange?.(event.target.value)}
               rows={3}
               disabled={loading}
-              className="w-full resize-none rounded-[10px] border border-white/10 bg-transparent px-4 py-3 text-right text-[14px] text-[#333] outline-none transition placeholder:text-[#999] focus:border-[#35c0d8] dark:text-white"
+              className="w-full resize-none rounded-[10px] border border-[#ddd] bg-transparent px-4 py-3 text-right text-[14px] text-[#333] outline-none transition placeholder:text-[#999] focus:border-[#35c0d8] dark:border-white/20 dark:text-white"
               placeholder="اكتب سبب الحظر هنا..."
             />
           </label>

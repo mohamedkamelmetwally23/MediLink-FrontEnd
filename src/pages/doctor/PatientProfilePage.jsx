@@ -429,6 +429,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   const [medicineRows, setMedicineRows] = useState(() => [createEmptyMedicineRow(1)]);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [loadedPatient, setLoadedPatient] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [currentAppointment, setCurrentAppointment] = useState(null);
   const [currentAppointmentId, setCurrentAppointmentId] = useState(
     () => location.state?.appointmentId || "",
@@ -567,6 +568,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
               .filter((group) => group.rows.length > 0)
           : [],
       );
+      setIsLoadingProfile(false);
     });
 
     return () => {
@@ -616,6 +618,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     return (
       <PatientProfileDetails
         patient={patient}
+        isLoading={isLoadingProfile}
         activeTab={profileTab}
         medicalReports={medicalReports}
         prescriptions={prescriptionHistory}
@@ -737,6 +740,7 @@ const profileTabs = [
 
 function PatientProfileDetails({
   patient,
+  isLoading,
   activeTab,
   medicalReports,
   prescriptions,
@@ -770,11 +774,11 @@ function PatientProfileDetails({
 
       <main className="px-4 pb-[36px] pt-[31px] sm:px-8 lg:px-[32px]">
         <section className="grid gap-[24px] xl:grid-cols-[432px_minmax(0,1fr)]" dir="ltr">
-          <PatientInfoPanel patient={patient} />
+          <PatientInfoPanel patient={patient} isLoading={isLoading} />
 
           <div className="space-y-[35px]" dir="rtl">
             <PatientIdentityCard patient={patient} />
-            <PatientVitals patient={patient} />
+            <PatientVitals patient={patient} isLoading={isLoading} />
           </div>
         </section>
 
@@ -792,7 +796,7 @@ function PatientProfileDetails({
   );
 }
 
-function PatientInfoPanel({ patient }) {
+function PatientInfoPanel({ patient, isLoading }) {
   const info = [
     { label: "تاريخ الميلاد", value: formatProfileDate(patient.birthDate) },
     { label: "العمر", value: patient.age },
@@ -815,7 +819,7 @@ function PatientInfoPanel({ patient }) {
             dir="rtl"
           >
             <span className="font-medium text-[#444] dark:text-white">{item.label}</span>
-            <span>{item.value || "غير مسجل"}</span>
+            <span>{isLoading ? "" : (item.value || "غير مسجل")}</span>
           </div>
         ))}
       </div>
@@ -845,29 +849,29 @@ function PatientIdentityCard({ patient }) {
   );
 }
 
-function PatientVitals({ patient }) {
+function PatientVitals({ patient, isLoading }) {
   const vitals = [
     {
       label: "الطول",
-      value: patient.height || "غير مسجل",
+      value: isLoading ? "" : (patient.height || "غير مسجل"),
       icon: heightIcon,
       className: "h-[47px] w-[62px]",
     },
     {
       label: "الوزن",
-      value: patient.weight || "غير مسجل",
+      value: isLoading ? "" : (patient.weight || "غير مسجل"),
       icon: scaleIcon,
       className: "h-[38px] w-[38px]",
     },
     {
       label: "فصيلة الدم",
-      value: patient.bloodType || "غير مسجل",
+      value: isLoading ? "" : (patient.bloodType || "غير مسجل"),
       icon: bloodIcon,
       className: "h-[41px] w-[41px]",
     },
     {
       label: "مدخن",
-      value: patient.smoker || "غير مسجل",
+      value: isLoading ? "" : (patient.smoker || "غير مسجل"),
       icon: cigaretteIcon,
       className: "h-[40px] w-[40px]",
     },
