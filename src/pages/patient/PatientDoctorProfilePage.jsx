@@ -154,11 +154,11 @@ function DoctorProfile({ doctor, canBook, onBook }) {
           )}
         </div>
 
-        <div className="relative order-1 mx-auto flex h-[300px] w-full max-w-[430px] items-stretch justify-center md:order-2 md:h-full md:min-h-[430px]">
+        <div className="relative order-1 mx-auto flex h-[300px] w-full max-w-[430px] items-stretch justify-center py-4 md:order-2 md:h-full md:min-h-[430px] md:py-5">
           <span className="absolute right-[10%] top-[20%] size-32 rounded-full bg-[#20B7D8] sm:size-44" />
           <span className="absolute left-[10%] top-[20%] size-12 rounded-full bg-[#2364AA]" />
           <span className="absolute bottom-[8%] left-[7%] size-24 rounded-full bg-[#74D2DF]" />
-          <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="relative z-10 h-full w-full object-cover object-center" />
+          <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="relative z-10 h-full w-full rounded-2xl object-cover object-center" />
         </div>
       </section>
 
