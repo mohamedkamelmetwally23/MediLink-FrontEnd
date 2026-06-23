@@ -255,7 +255,6 @@ export default function ReceptionistPatientsPage() {
                     key={patient.id}
                     patient={patient}
                     selected={selectedIds.includes(patient.id)}
-                    onDelete={() => setPendingDelete([patient.id])}
                     onToggle={() => togglePatient(patient.id)}
                     onToggleStatus={() => toggleStatus(patient)}
                   />
@@ -403,7 +402,6 @@ function FilterSelect({ value, onChange, label, children }) {
 function PatientRow({
   patient,
   selected,
-  onDelete,
   onToggle,
   onToggleStatus,
 }) {
@@ -434,15 +432,7 @@ function PatientRow({
       <div className="flex justify-center">
         <StatusBadge status={status} />
       </div>
-      <div className="flex items-center justify-center gap-3" dir="ltr">
-        <button
-          type="button"
-          aria-label="حذف"
-          className="text-[#333] transition hover:text-[#ff2626] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={15} strokeWidth={1.7} />
-        </button>
+      <div className="flex items-center justify-center" dir="ltr">
         <button
           type="button"
           aria-label="تغيير الحالة"
