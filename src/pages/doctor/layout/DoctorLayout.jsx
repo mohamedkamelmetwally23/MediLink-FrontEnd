@@ -7,7 +7,7 @@ import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
   getCurrentDoctorProfile,
-  listMyDoctorAppointments,
+  getDoctorQueueByDoctor,
 } from "../../../services/medilinkApi";
 
 const navItems = [
@@ -15,13 +15,6 @@ const navItems = [
   { label: "المواعيد", icon: UsersRound, to: "/doctor/appointments" },
   { label: "المرضى", icon: Stethoscope, to: "/doctor/patients" },
 ];
-
-function getIsoDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function getTimeMinutes(time) {
   const [hours = 0, minutes = 0] = String(time || "").split(":").map(Number);
@@ -118,14 +111,7 @@ function getAppointmentPatientUserId(appointment) {
 }
 
 function buildWaitingList(appointments) {
-  const todayIso = getIsoDate(new Date());
-
   return appointments
-    .filter(
-      (appointment) =>
-        appointment.date === todayIso &&
-        !["cancelled", "completed"].includes(appointment.status),
-    )
     .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time))
     .slice(0, 3)
     .map((appointment, index) => {
@@ -172,10 +158,9 @@ export default function DoctorLayout() {
 
     async function loadSidebarData() {
       try {
-        const todayIso = getIsoDate(new Date());
         const [currentDoctor, appointments] = await Promise.all([
           getCurrentDoctorProfile().catch(() => null),
-          listMyDoctorAppointments(todayIso).catch(() => []),
+          getDoctorQueueByDoctor().catch(() => []),
         ]);
 
         if (!mounted) return;

@@ -2808,6 +2808,23 @@ export async function getDoctorQueueByReceptionist(doctorId) {
   }));
 }
 
+export async function getDoctorQueueByDoctor() {
+  const response = await apiRequest("/appointments/getDoctorQueueByDoctor");
+  const appointments = findArray(response, [
+    "appointments",
+    "appointment",
+    "queue",
+    "doctorQueue",
+    "waitingList",
+    "bookings",
+    "results",
+    "docs",
+    "items",
+  ]);
+
+  return appointments.map(normalizeAppointment);
+}
+
 export async function changeAppointmentQueueStatus(appointmentId, changeTo) {
   if (!appointmentId) {
     throw new ApiError("تعذر تحديد الموعد");
