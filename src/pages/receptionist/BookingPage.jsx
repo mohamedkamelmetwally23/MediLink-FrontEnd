@@ -17,6 +17,7 @@ import {
   listDoctors,
   listPatients,
 } from "../../services/medilinkApi";
+import { translateApiErrorMessage } from "../../services/apiClient";
 import { includesSearchText } from "../../utils/searchText";
 
 const steps = [
@@ -118,7 +119,7 @@ function getIsoDate(date) {
 
 function formatApiDate(value) {
   const date = parseDate(value);
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${padDatePart(date.getDate())}`;
 }
 
 function addDays(date, days) {
@@ -174,6 +175,95 @@ function normalizeGender(value) {
   }
 
   return "";
+}
+
+function collectErrorMessages(value) {
+  if (!value) return [];
+  if (typeof value === "string" || typeof value === "number") return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(collectErrorMessages);
+  if (typeof value !== "object") return [];
+
+  return [
+    value.message,
+    value.error,
+    value.msg,
+    value.reason,
+    value.details,
+    value.errors,
+  ].flatMap(collectErrorMessages);
+}
+
+function isGenericErrorText(value) {
+  const text = String(value || "").trim().toLowerCase();
+
+  return (
+    !text ||
+    text === "حدث خطأ، حاول مرة أخرى" ||
+    text.includes("something went wrong") ||
+    text.includes("unknown error") ||
+    text.includes("internal server error")
+  );
+}
+
+function getSubmitErrorMessage(error) {
+  const backendMessages = collectErrorMessages(error?.data);
+  const clearBackendMessage = backendMessages
+    .map((message) => translateApiErrorMessage(message, ""))
+    .find((message) => !isGenericErrorText(message));
+  const rawMessage = [
+    ...backendMessages,
+    error?.originalMessage,
+    error?.message,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  const normalized = rawMessage.toLowerCase();
+
+  if (normalized.includes("receptionist")) {
+    return "هذا الحجز متاح لموظف الاستقبال فقط، من فضلك سجّل الدخول بالحساب المناسب";
+  }
+
+  if (error?.status === 401) {
+    return "انتهت جلسة الدخول، من فضلك سجّل الدخول بحساب موظف استقبال ثم حاول مرة أخرى";
+  }
+
+  if (error?.status === 403) {
+    return "عذرًا، لا يمكن إتمام الحجز من الحساب الحالي. من فضلك استخدم حساب موظف استقبال";
+  }
+
+  if (
+    normalized.includes("already") ||
+    normalized.includes("appointment") ||
+    normalized.includes("موعد") ||
+    normalized.includes("محجوز")
+  ) {
+    return clearBackendMessage || "يبدو أن لدى هذا المريض حجزًا بالفعل أو أن الموعد غير متاح حاليًا";
+  }
+
+  if (normalized.includes("doctor") && normalized.includes("not")) {
+    return "لم نتمكن من تحديد الطبيب، من فضلك اختر الطبيب مرة أخرى";
+  }
+
+  if (error?.status === 400 || error?.status === 422) {
+    return clearBackendMessage
+      ? `برجاء مراجعة بيانات الحجز: ${clearBackendMessage}`
+      : "برجاء مراجعة الطبيب والتاريخ والوقت وبيانات المريض ثم المحاولة مرة أخرى";
+  }
+
+  if (error?.status === 404) {
+    return clearBackendMessage || "لم نتمكن من العثور على الطبيب أو المريض، من فضلك راجع بيانات الحجز";
+  }
+
+  if (error?.status >= 500) {
+    return clearBackendMessage
+      ? `لم نتمكن من إتمام الحجز: ${clearBackendMessage}`
+      : `لم نتمكن من حفظ الحجز حاليًا بسبب مشكلة في الخادم (كود ${error.status}). من فضلك راجع البيانات أو جرّب موعدًا آخر`;
+  }
+
+  if (clearBackendMessage) return clearBackendMessage;
+  if (!isGenericErrorText(error?.message)) return error.message;
+
+  return `لم نتمكن من تأكيد الحجز${error?.status ? `، كود الحالة ${error.status}` : ""}. من فضلك حاول مرة أخرى`;
 }
 
 function normalizeSlotStatus(status = "") {
@@ -724,6 +814,7 @@ export default function ReceptionistBookingPage() {
     setSubmitError("");
 
     const payload = {
+      doctorIds: getDoctorBookingIds(selectedDoctor),
       firstName: patientNameParts.firstName,
       lastName: patientNameParts.lastName,
       phone: patientPhone.trim(),
@@ -756,7 +847,13 @@ export default function ReceptionistBookingPage() {
       const created = await bookAppointmentByReceptionist(payload);
       completeBooking(created);
     } catch (error) {
-      setSubmitError(error.message || "تعذر تأكيد الحجز");
+      console.error("Receptionist booking failed", {
+        status: error?.status,
+        data: error?.data,
+        message: error?.message,
+        originalMessage: error?.originalMessage,
+      });
+      setSubmitError(getSubmitErrorMessage(error));
     } finally {
       setSubmitting(false);
     }

@@ -6,21 +6,130 @@ export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, "")}/api/v1`;
 
 const TOKEN_KEYS = ["medilinkToken", "token", "accessToken"];
 
+function getStatusErrorFallback(status) {
+  if (status === 400) {
+    return "برجاء مراجعة البيانات المدخلة ثم المحاولة مرة أخرى";
+  }
+
+  if (status === 401) {
+    return "انتهت جلسة الدخول، من فضلك سجّل الدخول مرة أخرى";
+  }
+
+  if (status === 403) {
+    return "عذرًا، هذا الإجراء متاح لحسابات محددة فقط";
+  }
+
+  if (status === 404) {
+    return "لم يتم العثور على البيانات المطلوبة";
+  }
+
+  if (status === 409) {
+    return "يوجد حجز مشابه أو تعارض في الموعد، من فضلك راجع بيانات الحجز";
+  }
+
+  if (status === 422) {
+    return "برجاء استكمال البيانات المطلوبة ومراجعتها";
+  }
+
+  if (status === 429) {
+    return "تم إرسال طلبات كثيرة، انتظر قليلًا ثم حاول مرة أخرى";
+  }
+
+  if (status >= 500) {
+    return `لم نتمكن من تنفيذ الطلب حاليًا بسبب مشكلة في الخادم (كود ${status})`;
+  }
+
+  return "لم نتمكن من تنفيذ الطلب، من فضلك حاول مرة أخرى";
+}
+
 export class ApiError extends Error {
   constructor(message, { status, data } = {}) {
-    super(translateApiErrorMessage(message, "حدث خطأ، حاول مرة أخرى"));
+    super(translateApiErrorMessage(message, getStatusErrorFallback(status)));
     this.name = "ApiError";
+    this.originalMessage = message;
     this.status = status;
     this.data = data;
   }
 }
 
+function normalizeTokenRole(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function decodeJwtPayload(token) {
+  const [, payload] = String(token || "").split(".");
+  if (!payload) return null;
+
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`)
+        .join(""),
+    );
+
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(payload) {
+  if (!payload?.exp) return false;
+  return Number(payload.exp) * 1000 <= Date.now();
+}
+
+function getTokenRoles(payload) {
+  if (!payload || typeof payload !== "object") return [];
+
+  return [
+    payload.role,
+    payload.userRole,
+    payload.accountRole,
+    payload.type,
+    payload.user?.role,
+    payload.data?.role,
+    payload.data?.user?.role,
+  ]
+    .filter(Boolean)
+    .map(normalizeTokenRole);
+}
+
 export function getStoredToken() {
   if (typeof localStorage === "undefined") return "";
 
-  for (const key of TOKEN_KEYS) {
-    const token = localStorage.getItem(key);
-    if (token) return token;
+  const storedTokens = TOKEN_KEYS.map((key) => ({
+    key,
+    token: localStorage.getItem(key),
+  })).filter((item) => item.token);
+  const requestedRole = normalizeTokenRole(localStorage.getItem("medilinkRole"));
+
+  if (requestedRole) {
+    const roleMatchedToken = storedTokens.find(({ token }) => {
+      const payload = decodeJwtPayload(token);
+      return (
+        payload &&
+        !isTokenExpired(payload) &&
+        getTokenRoles(payload).includes(requestedRole)
+      );
+    });
+
+    if (roleMatchedToken) return roleMatchedToken.token;
+  }
+
+  const activeToken = storedTokens.find(({ token }) => {
+    const payload = decodeJwtPayload(token);
+    return !payload || !isTokenExpired(payload);
+  });
+
+  if (activeToken) return activeToken.token;
+
+  if (storedTokens[0]) {
+    return storedTokens[0].token;
   }
 
   return "";
@@ -83,6 +192,14 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
       normalized.includes("not available"))
   ) {
     return "هذا الموعد غير متاح الآن، اختر موعدًا آخر";
+  }
+
+  if (
+    normalized.includes("doctor") &&
+    normalized.includes("available") &&
+    normalized.includes("time")
+  ) {
+    return "الطبيب غير متاح في هذا الموعد، من فضلك اختر موعدًا آخر";
   }
 
   if (
@@ -159,7 +276,19 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     normalized.includes("jwt") ||
     normalized.includes("token expired")
   ) {
-    return "انتهت الجلسة أو غير مصرح لك، سجل الدخول مرة أخرى";
+    return "انتهت جلسة الدخول، من فضلك سجّل الدخول مرة أخرى";
+  }
+
+  if (
+    normalized.includes("receptionist") &&
+    (normalized.includes("only") ||
+      normalized.includes("must") ||
+      normalized.includes("required") ||
+      normalized.includes("allowed") ||
+      normalized.includes("authorized") ||
+      normalized.includes("permission"))
+  ) {
+    return "هذا الإجراء متاح لموظف الاستقبال فقط، من فضلك سجّل الدخول بالحساب المناسب";
   }
 
   if (
@@ -167,7 +296,7 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     normalized.includes("permission") ||
     normalized.includes("access denied")
   ) {
-    return "ليس لديك صلاحية لتنفيذ هذا الإجراء";
+    return "عذرًا، لا يمكن تنفيذ هذا الإجراء من الحساب الحالي";
   }
 
   if (
@@ -175,14 +304,14 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     normalized.includes("missing") ||
     normalized.includes("must provide")
   ) {
-    return "يرجى إكمال البيانات المطلوبة";
+    return "برجاء استكمال البيانات المطلوبة";
   }
 
   if (
     normalized.includes("invalid") ||
     normalized.includes("not valid")
   ) {
-    return "البيانات غير صحيحة، راجعها وحاول مرة أخرى";
+    return "برجاء مراجعة البيانات المدخلة والمحاولة مرة أخرى";
   }
 
   if (
@@ -220,9 +349,10 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
   if (
     normalized.includes("internal server error") ||
     normalized.includes("server error") ||
+    normalized.includes("something went wrong") ||
     normalized === "unknown error"
   ) {
-    return "حدث خطأ في الخادم، حاول مرة أخرى";
+    return "لم نتمكن من تنفيذ الطلب حاليًا، من فضلك راجع البيانات وحاول مرة أخرى";
   }
 
   return fallback || "حدث خطأ، حاول مرة أخرى";

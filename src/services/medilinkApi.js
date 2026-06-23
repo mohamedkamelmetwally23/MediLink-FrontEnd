@@ -3047,9 +3047,9 @@ export async function completeAppointment(id, values = {}) {
   );
 }
 
-export async function bookAppointmentByReceptionist(values) {
+function buildReceptionistBookingPayload(values, doctorId) {
   const payload = {
-    doctorId: String(values.doctorId || ""),
+    doctorId: String(doctorId || ""),
     date: String(values.date || ""),
     slotTime: normalizeTime(values.slotTime),
     reason: String(values.reason || "").trim(),
@@ -3078,14 +3078,62 @@ export async function bookAppointmentByReceptionist(values) {
     throw new ApiError("بيانات الحجز غير مكتملة");
   }
 
-  const response = await apiRequest("/appointments/bookByReceptionist", {
-    method: "POST",
-    body: payload,
-  });
+  return payload;
+}
 
-  return normalizeAppointment(
-    findEntity(response, ["appointment", "booking", "reservation"]),
+function shouldRetryReceptionistBooking(error) {
+  if (!(error instanceof ApiError)) return false;
+
+  if (error.status >= 500) return true;
+
+  const message = String(
+    error.data?.message || error.data?.error || error.message || "",
+  ).toLowerCase();
+  const isAppointmentBusinessError =
+    message.includes("already") ||
+    message.includes("slot") ||
+    message.includes("appointment") ||
+    message.includes("موعد") ||
+    message.includes("محجوز") ||
+    message.includes("غير متاح");
+
+  if (isAppointmentBusinessError) return false;
+
+  return [400, 404].includes(error.status);
+}
+
+export async function bookAppointmentByReceptionist(values) {
+  const doctorIds = Array.from(
+    new Set(
+      [values.doctorId, ...(values.doctorIds || [])]
+        .filter(Boolean)
+        .map(String),
+    ),
   );
+  let lastError;
+
+  for (const doctorId of doctorIds) {
+    const payload = buildReceptionistBookingPayload(values, doctorId);
+
+    try {
+      const response = await apiRequest("/appointments/bookByReceptionist", {
+        method: "POST",
+        body: payload,
+      });
+
+      return normalizeAppointment(
+        findEntity(response, ["appointment", "booking", "reservation"]),
+      );
+    } catch (error) {
+      lastError = error;
+
+      if (!shouldRetryReceptionistBooking(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new ApiError("تعذر تأكيد الحجز");
 }
 
 export async function bookAppointmentByPatient(values) {

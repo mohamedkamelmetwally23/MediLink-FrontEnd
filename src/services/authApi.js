@@ -451,6 +451,8 @@ export function saveAuthSession(data) {
 
   if (token) {
     localStorage.setItem("medilinkToken", token);
+    localStorage.setItem("token", token);
+    localStorage.setItem("accessToken", token);
   }
 
   if (user) {
