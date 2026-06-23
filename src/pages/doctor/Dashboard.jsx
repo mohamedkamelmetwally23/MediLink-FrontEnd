@@ -405,7 +405,7 @@ export default function DoctorDashboard() {
     {
       title: "إجمالي المرضى",
       value: doctorPatientsCount ?? getUniquePatientsCount(appointments),
-      subtitle: "من رقم البلان",
+      subtitle: "حسب عدد الخطط العلاجية",
     },
     {
       title: "مواعيد اليوم",
@@ -722,7 +722,7 @@ function AppointmentsToday({ appointments, loading }) {
   return (
     <DashboardCard
       title="مواعيد اليوم"
-      action={<CardLink to="/doctor/appointments" />}
+      action={<CardLink to="/doctor/appointments?view=day&date=today" />}
       className="min-h-[270px] overflow-hidden"
     >
       {loading ? (
