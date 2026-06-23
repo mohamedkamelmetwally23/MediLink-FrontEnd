@@ -1810,45 +1810,54 @@ function normalizeUserAppointmentCounts(response) {
     return null;
   };
 
+  const totalAppointments =
+    findCount([
+      "totalAppointments",
+      "appointmentsCount",
+      "appointmentCount",
+      "totalCount",
+      "count",
+      "total",
+    ]) ?? 0;
+  const completedAppointments =
+    findCount([
+      "completedAppointments",
+      "completedAppointmentsCount",
+      "completedAppointmentCount",
+      "completedCount",
+      "completed",
+    ]) ?? 0;
+  const cancelledAppointments =
+    findCount([
+      "cancelledAppointments",
+      "canceledAppointments",
+      "cancelledAppointmentsCount",
+      "canceledAppointmentsCount",
+      "cancelledAppointmentCount",
+      "canceledAppointmentCount",
+      "cancelledCount",
+      "canceledCount",
+      "cancelled",
+      "canceled",
+    ]) ?? 0;
+  const pendingAppointments =
+    findCount([
+      "pendingAppointments",
+      "pendingAppointmentsCount",
+      "pendingAppointmentCount",
+      "pendingCount",
+      "pending",
+    ]) ?? 0;
+
   return {
-    total:
-      findCount([
-        "totalAppointments",
-        "appointmentsCount",
-        "appointmentCount",
-        "totalCount",
-        "count",
-        "total",
-      ]) ?? 0,
-    completed:
-      findCount([
-        "completedAppointments",
-        "completedAppointmentsCount",
-        "completedAppointmentCount",
-        "completedCount",
-        "completed",
-      ]) ?? 0,
-    cancelled:
-      findCount([
-        "cancelledAppointments",
-        "canceledAppointments",
-        "cancelledAppointmentsCount",
-        "canceledAppointmentsCount",
-        "cancelledAppointmentCount",
-        "canceledAppointmentCount",
-        "cancelledCount",
-        "canceledCount",
-        "cancelled",
-        "canceled",
-      ]) ?? 0,
-    pending:
-      findCount([
-        "pendingAppointments",
-        "pendingAppointmentsCount",
-        "pendingAppointmentCount",
-        "pendingCount",
-        "pending",
-      ]) ?? 0,
+    total: totalAppointments,
+    completed: completedAppointments,
+    cancelled: cancelledAppointments,
+    pending: pendingAppointments,
+    totalAppointments,
+    completedAppointments,
+    cancelledAppointments,
+    pendingAppointments,
   };
 }
 

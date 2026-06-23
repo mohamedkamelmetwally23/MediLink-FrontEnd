@@ -188,7 +188,7 @@ export default function ReceptionistPatientProfilePage() {
     },
     {
       label: "الحجوزات المكتملة",
-      value: appointmentCounts?.completed ?? 0,
+      value: appointmentCounts?.completedAppointments ?? 0,
       icon: ClipboardList,
     },
     {
