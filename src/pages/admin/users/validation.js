@@ -64,6 +64,10 @@ function getAge(birthDate) {
   return age;
 }
 
+function getDoctorMaxExperience(age) {
+  return Number.isInteger(age) ? Math.max(0, age - 27) : 60;
+}
+
 function validateNameLengths(values, errors) {
   if (!errors.firstName && values.firstName.trim().length > nameMaxLength) {
     errors.firstName = `الاسم الأول لا يزيد عن ${nameMaxLength} حرف.`;
@@ -150,12 +154,13 @@ export function validateDoctor(values, options) {
 
   const experienceText = String(values.experience ?? "").trim();
   const experience = Number(experienceText);
+  const maxExperience = getDoctorMaxExperience(age);
   if (!experienceText) {
     errors.experience = "سنوات الخبرة مطلوبة";
   } else if (!Number.isInteger(experience) || experience < 0 || experience > 60) {
     errors.experience = "ادخل رقم صحيح";
-  } else if (Number.isInteger(age) && experience > age) {
-    errors.experience = "سنوات الخبرة لا يمكن أن تكون أكبر من العمر.";
+  } else if (Number.isInteger(age) && experience > maxExperience) {
+    errors.experience = `سنوات الخبرة لا يمكن أن تزيد عن ${maxExperience} سنة حسب تاريخ الميلاد.`;
   }
 
   return errors;
