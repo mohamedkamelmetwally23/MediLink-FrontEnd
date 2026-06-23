@@ -18,9 +18,9 @@ import {
 } from "../services/chatApi";
 import {
   bookAppointmentByPatient,
+  getBookedAppointmentsForPatient,
   getCurrentAuthUser,
   isAppointmentSlotAvailable,
-  listAppointments,
   listDoctorAvailableSlots,
   listDoctors,
 } from "../services/medilinkApi";
@@ -176,7 +176,13 @@ function getDoctorName(doctor) {
 }
 
 function getDoctorSpecialty(doctor) {
-  return doctor.specialty || doctor.specializationName || "طبيب عام";
+  return (
+    doctor.specialty ||
+    doctor.specializationName ||
+    doctor.specialization?.name ||
+    (typeof doctor.specialization === "string" ? doctor.specialization : "") ||
+    "طبيب عام"
+  );
 }
 
 function getDoctorImageUrl(doctor) {
@@ -190,7 +196,12 @@ function toChatDoctor(doctor) {
     name: getDoctorName(doctor),
     specialty: getDoctorSpecialty(doctor),
     image: getDoctorImageUrl(doctor),
-    consultationFee: doctor.consultationFee || doctor.price || doctor.fee || null,
+    consultationFee:
+      doctor.consultationFee ||
+      doctor.specialization?.consultationFee ||
+      doctor.price ||
+      doctor.fee ||
+      null,
   };
 }
 
@@ -201,15 +212,21 @@ function getSpecialtyOptions(doctors) {
 function resolveSpecialty(raw, options) {
   const normalized = normalizeText(raw);
   if (!normalized || normalized.includes("عام")) return "";
-  return (
-    options.find((o) => normalizeText(o) === normalized) ||
-    options.find(
-      (o) =>
-        normalizeText(o).includes(normalized) ||
-        normalized.includes(normalizeText(o)),
-    ) ||
-    ""
+  // 1. Exact match
+  const exact = options.find((o) => normalizeText(o) === normalized);
+  if (exact) return exact;
+  // 2. Substring match (one fully contains the other)
+  const sub = options.find(
+    (o) => normalizeText(o).includes(normalized) || normalized.includes(normalizeText(o)),
   );
+  if (sub) return sub;
+  // 3. Word-level match — any meaningful word from the query appears in the specialty
+  const words = normalized.split(/\s+/).filter((w) => w.length > 2);
+  if (!words.length) return "";
+  return options.find((o) => {
+    const on = normalizeText(o);
+    return words.some((w) => on.includes(w));
+  }) || "";
 }
 
 function getAvailableDoctorRecommendations(specialty, doctors, appointments) {
@@ -221,7 +238,7 @@ function getAvailableDoctorRecommendations(specialty, doctors, appointments) {
           normalizeText(specialty).includes(normalizeText(d.specialty)),
       )
     : chatDoctors;
-  const selected = filtered.length > 0 ? filtered : chatDoctors;
+  const selected = filtered.length > 0 ? filtered : (specialty ? [] : chatDoctors);
   return selected.slice(0, 3).map((d) => ({ ...d, slots: buildSlotsForDoctor(d, appointments) }));
 }
 
@@ -241,6 +258,11 @@ function getUserName(user) {
     [p?.firstName, p?.lastName].filter(Boolean).join(" ").trim() ||
     "مريض ميديلينك"
   );
+}
+
+function getUserImage(user) {
+  const p = getProfileFromUser(user);
+  return p?.photo || p?.image || p?.avatar || user?.photo || user?.image || "";
 }
 
 function getUserPhone(user) {
@@ -319,36 +341,6 @@ function isSlotSelectable(slot, fallbackDate = "") {
 
 // ─── inline booking stepper ───────────────────────────────────────────────────
 
-function InlineBookingStepper({ step }) {
-  const labels = ["التاريخ", "السبب", "الدفع", "تأكيد"];
-  return (
-    <div className="mb-3 flex items-start">
-      {labels.map((label, i) => {
-        const n = i + 1;
-        const done = step > n;
-        const active = step === n;
-        return (
-          <div key={n} className="relative flex flex-1 flex-col items-center">
-            {i > 0 && (
-              <span
-                className={`absolute right-1/2 top-2.75 h-0.5 w-full ${step >= n ? "bg-[#05ADE8]" : "bg-gray-200 dark:bg-[#555]"}`}
-              />
-            )}
-            <span
-              className={`relative z-10 flex h-5.5 w-5.5 items-center justify-center rounded-full border-2 text-[10px] font-bold
-                ${done ? "border-[#05ADE8] bg-[#05ADE8] text-white" : active ? "border-[#05ADE8] bg-white text-[#05ADE8] dark:bg-[#303030]" : "border-gray-300 bg-white text-gray-400 dark:bg-[#303030]"}`}
-            >
-              {done ? <FiCheck className="h-3 w-3" /> : n}
-            </span>
-            <span className={`mt-1 text-[9px] text-center leading-tight ${active ? "font-semibold text-[#05ADE8]" : "text-gray-400"}`}>
-              {label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── inline booking flow ──────────────────────────────────────────────────────
 
@@ -387,22 +379,28 @@ function InlineBookingFlow({ booking, onUpdate, onConfirm }) {
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-[#BFEAF8] bg-white shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]">
-      {/* Doctor mini strip */}
-      <div className="flex items-center gap-2.5 border-b border-gray-100 bg-[#F5FBFD] px-3 py-2.5 dark:border-[#3A3A3A] dark:bg-[#262626]">
-        <img src={doctor.image} alt={doctor.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12px] font-semibold text-gray-900 dark:text-[#F0F0F0]">{doctor.name}</p>
-          <p className="truncate text-[10px] text-gray-500 dark:text-[#D2D2D2]">{doctor.specialty}</p>
+      {/* Doctor header — gradient with photo */}
+      <div className="relative bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-3 pb-3 pt-3">
+        <div className="flex items-center gap-3">
+          <img
+            src={doctor.image}
+            alt={doctor.name}
+            onError={(e) => { e.currentTarget.src = defaultDoctorAvatar; }}
+            className="h-12 w-12 shrink-0 rounded-full border-2 border-white/60 object-cover shadow-md"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-bold text-white">{doctor.name}</p>
+            <p className="truncate text-[11px] text-white/80">{doctor.specialty}</p>
+          </div>
+          {doctor.consultationFee && (
+            <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+              {doctor.consultationFee} ج.م
+            </span>
+          )}
         </div>
-        {doctor.consultationFee && (
-          <span className="shrink-0 rounded-full bg-[#EAF8FC] px-2 py-0.5 text-[10px] font-bold text-[#05ADE8]">
-            {doctor.consultationFee} ج.م
-          </span>
-        )}
       </div>
 
       <div className="p-3">
-        <InlineBookingStepper step={step} />
 
       {/* ── Step 1: Date & Time ── */}
       {step === 1 && (
@@ -589,19 +587,84 @@ function InlineBookingFlow({ booking, onUpdate, onConfirm }) {
   );
 }
 
+// ─── markdown renderer ────────────────────────────────────────────────────────
+
+function renderInline(str) {
+  const parts = str.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderMarkdown(text) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  const elements = [];
+  let listItems = [];
+  let listType = null;
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    const Tag = listType === "ol" ? "ol" : "ul";
+    const cls = listType === "ol"
+      ? "list-decimal space-y-1 pr-5 my-1"
+      : "list-disc space-y-1 pr-5 my-1";
+    elements.push(<Tag key={`list-${elements.length}`} className={cls}>{listItems}</Tag>);
+    listItems = [];
+    listType = null;
+  };
+
+  lines.forEach((line, i) => {
+    const numbered = /^(\d+)[.)]\s+(.+)$/.exec(line);
+    const bullet = /^[-•*]\s+(.+)$/.exec(line);
+
+    if (numbered) {
+      if (listType !== "ol") { flushList(); listType = "ol"; }
+      listItems.push(<li key={i} className="leading-6">{renderInline(numbered[2])}</li>);
+    } else if (bullet) {
+      if (listType !== "ul") { flushList(); listType = "ul"; }
+      listItems.push(<li key={i} className="leading-6">{renderInline(bullet[1])}</li>);
+    } else {
+      flushList();
+      if (line.trim()) {
+        elements.push(<p key={i} className="leading-6">{renderInline(line)}</p>);
+      } else if (elements.length > 0) {
+        elements.push(<div key={`br-${i}`} className="h-1" />);
+      }
+    }
+  });
+
+  flushList();
+  return <div className="space-y-0.5 text-sm">{elements}</div>;
+}
+
 // ─── sub-components ──────────────────────────────────────────────────────────
 
 function AssistantAvatar() {
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#DDF6FD] text-[10px] font-bold text-[#05ADE8]">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#05ADE8] to-[#6CCCC8] text-[10px] font-bold text-white shadow-sm">
       AI
     </span>
   );
 }
 
-function UserAvatar() {
+function UserAvatar({ image }) {
+  const [imgError, setImgError] = useState(false);
+  if (image && !imgError) {
+    return (
+      <img
+        src={image}
+        alt="صورة المريض"
+        onError={() => setImgError(true)}
+        className="h-8 w-8 shrink-0 rounded-full object-cover shadow-sm"
+      />
+    );
+  }
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-[#3A3A3A] dark:text-[#D2D2D2]">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-gray-300 to-gray-400 text-white dark:from-[#4A4A4A] dark:to-[#3A3A3A]">
       <FiUser className="h-4 w-4" />
     </span>
   );
@@ -610,51 +673,57 @@ function UserAvatar() {
 function DoctorCards({ doctors, onBookDoctor }) {
   if (doctors.length === 0) {
     return (
-      <div className="rounded-2xl rounded-tr-sm border border-gray-100 bg-white px-3 py-2 text-sm leading-6 text-gray-500 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#D2D2D2]">
+      <div className="rounded-2xl border border-gray-100 bg-white px-3 py-3 text-sm text-gray-500 shadow-sm dark:border-[#3A3A3A] dark:bg-[#2A2A2A] dark:text-[#D2D2D2]">
         مفيش أطباء متاحين في هذا التخصص دلوقتي.
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2">
+    <div className="grid grid-cols-1 gap-3">
       {doctors.map((doctor) => (
         <div
           key={doctor.id}
-          className="rounded-lg border border-gray-100 bg-white p-2 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]"
+          className="overflow-hidden rounded-2xl border border-[#BFEAF8] bg-white shadow-md dark:border-[#3A3A3A] dark:bg-[#2A2A2A]"
         >
-          <div className="flex items-center gap-2">
+          {/* Gradient header with doctor image overlapping */}
+          <div className="relative h-16 bg-linear-to-r from-[#05ADE8] to-[#6CCCC8]">
             <img
               src={doctor.image}
               alt={doctor.name}
-              className="h-14 w-14 shrink-0 rounded-full object-cover"
+              onError={(e) => { e.currentTarget.src = defaultDoctorAvatar; }}
+              className="absolute -bottom-6 right-3 h-16 w-16 rounded-full border-[3px] border-white object-cover shadow-md dark:border-[#2A2A2A]"
             />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-gray-900 dark:text-[#F0F0F0]">
-                {doctor.name}
-              </p>
-              <p className="truncate text-[11px] text-gray-500 dark:text-[#D2D2D2]">
-                {doctor.specialty}
-              </p>
-              {doctor.consultationFee && (
-                <p className="text-[11px] font-semibold text-[#05ADE8]">
-                  {doctor.consultationFee} ج.م
-                </p>
-              )}
-              <div className="mt-0.5 flex gap-0.5 text-[10px] text-yellow-400">
-                {[1, 2, 3, 4, 5].map((s) => <FaStar key={s} />)}
-              </div>
-            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onBookDoctor(doctor)}
-            className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-[11px] font-semibold text-white transition hover:opacity-90"
-          >
-            <FiCalendar className="h-3 w-3" />
-            احجز مع الدكتور
-          </button>
+          {/* Body */}
+          <div className="px-3 pb-3 pt-8 text-right">
+            <p className="text-[13px] font-bold text-gray-900 dark:text-[#F0F0F0]">
+              {doctor.name}
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500 dark:text-[#A0A0A0]">
+              {doctor.specialty}
+            </p>
+            <div className="mt-1.5 flex items-center justify-end gap-2">
+              <div className="flex gap-0.5 text-[10px] text-yellow-400">
+                {[1, 2, 3, 4, 5].map((s) => <FaStar key={s} />)}
+              </div>
+              {doctor.consultationFee && (
+                <span className="rounded-full bg-[#EAF8FC] px-2 py-0.5 text-[10px] font-bold text-[#05ADE8] dark:bg-[#1A3A40]">
+                  {doctor.consultationFee} ج.م
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onBookDoctor(doctor)}
+              className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-[12px] font-bold text-white shadow-sm transition hover:opacity-90 hover:shadow-md"
+            >
+              <FiCalendar className="h-3.5 w-3.5" />
+              احجز مع الدكتور
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -670,47 +739,70 @@ function AppointmentsList({ appointments }) {
     );
   }
 
+  const statusMap = {
+    confirmed: { label: "مؤكد", color: "text-[#05ADE8] bg-[#EAF8FC]" },
+    completed: { label: "مكتمل", color: "text-green-600 bg-green-50" },
+    cancelled: { label: "ملغي", color: "text-red-500 bg-red-50" },
+    pending:   { label: "قيد الانتظار", color: "text-yellow-600 bg-yellow-50" },
+  };
+
   return (
-    <div className="space-y-2">
-      {appointments.map((appointment) => (
-        <div
-          key={appointment.id}
-          className="rounded-lg border border-gray-100 bg-white p-3 text-right shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]"
-        >
-          <p className="text-sm font-semibold text-gray-900 dark:text-[#F0F0F0]">
-            {appointment.doctor || "طبيب ميديلينك"}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-[#D2D2D2]">
-            {formatDate(appointment.date)} — {formatTime(appointment.time)}
-          </p>
-          <p className="mt-1 text-xs font-semibold capitalize text-[#129a55]">
-            {appointment.status === "completed" ? "مكتمل" : "مؤكد"}
-          </p>
-        </div>
-      ))}
+    <div className="space-y-2.5">
+      {appointments.map((appt) => {
+        const st = statusMap[appt.status] || { label: appt.status || "مؤكد", color: "text-[#05ADE8] bg-[#EAF8FC]" };
+        return (
+          <div
+            key={appt.id}
+            className="overflow-hidden rounded-2xl border border-[#BFEAF8] bg-white shadow-md dark:border-[#3A3A3A] dark:bg-[#2A2A2A]"
+          >
+            <div className="bg-linear-to-r from-[#05ADE8]/10 to-[#6CCCC8]/10 px-3 py-2 border-b border-[#E0F5FD] dark:border-[#3A3A3A]">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${st.color}`}>
+                  {st.label}
+                </span>
+                <p className="text-[13px] font-bold text-gray-900 dark:text-[#F0F0F0]">
+                  {appt.doctor || "طبيب ميديلينك"}
+                </p>
+              </div>
+              {appt.specialty && (
+                <p className="mt-0.5 text-right text-[11px] text-gray-500 dark:text-[#A0A0A0]">{appt.specialty}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 text-right">
+              <span className="text-[11px] text-gray-500 dark:text-[#A0A0A0]">{formatTime(appt.time)}</span>
+              <span className="text-[12px] font-semibold text-gray-700 dark:text-[#D2D2D2]">{formatDate(appt.date)}</span>
+            </div>
+            {appt.reason && (
+              <p className="border-t border-gray-100 px-3 py-1.5 text-right text-[11px] text-gray-500 dark:border-[#3A3A3A] dark:text-[#A0A0A0]">
+                {appt.reason}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function Message({ message, onBookDoctor, onBookingUpdate, onBookingConfirm }) {
+function Message({ message, onBookDoctor, onBookingUpdate, onBookingConfirm, userImage }) {
   if (message.type === "user") {
     return (
-      <div className="flex items-start justify-end gap-2">
-        <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-[#EAF8FC] px-3 py-2 text-sm leading-6 text-gray-800 dark:bg-[#303030] dark:text-[#F0F0F0]">
+      <div className="flex items-end justify-end gap-2">
+        <div className="max-w-[78%] rounded-2xl rounded-br-sm bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-3.5 py-2.5 text-sm leading-6 text-white shadow-md">
           {message.text}
         </div>
-        <UserAvatar />
+        <UserAvatar image={userImage} />
       </div>
     );
   }
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex items-end gap-2">
       <AssistantAvatar />
       <div className="max-w-[90%] w-full space-y-2">
         {message.type === "assistant" && (
-          <div className="rounded-2xl rounded-tr-sm border border-gray-100 bg-white px-3 py-2 text-sm leading-6 text-gray-700 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]">
-            {message.text}
+          <div className="rounded-2xl rounded-bl-sm border border-gray-100 bg-white px-3.5 py-2.5 text-sm text-gray-700 shadow-md dark:border-[#3A3A3A] dark:bg-[#2A2A2A] dark:text-[#F0F0F0]">
+            {renderMarkdown(message.text)}
           </div>
         )}
         {message.type === "doctors" && (
@@ -763,6 +855,8 @@ export default function AiAgent({ onClose, initialMessage }) {
   const [messages, setMessages] = useState(() => loadStoredMessages(getCurrentAuthUser()));
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const sync = () => {
@@ -777,6 +871,10 @@ export default function AiAgent({ onClose, initialMessage }) {
       window.removeEventListener("medilink-auth-change", sync);
     };
   }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Save chat history to localStorage whenever messages change
   useEffect(() => {
@@ -799,7 +897,7 @@ export default function AiAgent({ onClose, initialMessage }) {
       setIsLoadingData(true);
       const [doctorsResult, appointmentsResult] = await Promise.allSettled([
         listDoctors(),
-        listAppointments(),
+        getBookedAppointmentsForPatient(),
       ]);
       if (!mounted) return;
       if (doctorsResult.status === "fulfilled") setDoctors(doctorsResult.value);
@@ -868,11 +966,12 @@ export default function AiAgent({ onClose, initialMessage }) {
   // ── message handlers ────────────────────────────────────────────────────────
 
   const handleAppointmentsRequest = () => {
-    const patientAppointments = filterPatientAppointments(appointments, currentUser);
     setMessages((prev) => [
       ...prev,
-      { id: createId("assistant"), type: "assistant", text: "دي حجوزاتك المسجلة:" },
-      { id: createId("appointments"), type: "appointments", appointments: patientAppointments },
+      { id: createId("assistant"), type: "assistant", text: appointments.length > 0 ? "دي حجوزاتك المسجلة:" : "مفيش حجوزات مسجلة لحسابك لحد دلوقتي." },
+      ...(appointments.length > 0
+        ? [{ id: createId("appointments"), type: "appointments", appointments }]
+        : []),
     ]);
   };
 
@@ -892,28 +991,33 @@ export default function AiAgent({ onClose, initialMessage }) {
       triage = { needed: "", specialty: "", available: false };
     }
 
-    const matched = resolveSpecialty(
+    // Try triage result, then fall back to direct text search against specialty list
+    let matched = resolveSpecialty(
       triage.specialty || (triage.available ? triage.needed : ""),
       specialtyOptions,
     );
+    if (!matched) matched = resolveSpecialty(text, specialtyOptions);
 
     let responseText;
     let doctorsToShow = [];
 
     if (matched) {
-      responseText = `التخصص المناسب ليك هو: **${matched}**. اختار موعد مناسب:`;
       doctorsToShow = getAvailableDoctorRecommendations(matched, doctors, appointments);
+      if (doctorsToShow.length > 0) {
+        responseText = `التخصص المناسب ليك هو: **${matched}**. اختار موعد مناسب:`;
+      } else {
+        responseText = `مفيش دكاترة متاحين في تخصص **${matched}** دلوقتي. تواصل مع الاستقبال للمساعدة.`;
+      }
     } else if (triage.needed) {
       const allSpecialties = specialtyOptions.join("، ");
       responseText = allSpecialties
-        ? `مش عندنا دكتور ${triage.needed} في العيادة دلوقتي. الأقسام المتاحة عندنا: ${allSpecialties}. تقدر تحجز مع أي منهم:`
+        ? `مش عندنا دكتور ${triage.needed} في العيادة دلوقتي.\nالأقسام المتاحة عندنا:\n${specialtyOptions.map((s) => `- ${s}`).join("\n")}\n\nقولي أنهي تخصص منهم محتاجه.`
         : `مش عندنا دكتور ${triage.needed} في العيادة دلوقتي. تواصل مع الاستقبال للمساعدة.`;
-      doctorsToShow = allSpecialties
-        ? getAvailableDoctorRecommendations("", doctors, appointments)
-        : [];
     } else {
-      responseText = "اتفضل الأطباء المتاحين:";
-      doctorsToShow = getAvailableDoctorRecommendations("", doctors, appointments);
+      const allSpecialties = specialtyOptions.join("، ");
+      responseText = allSpecialties
+        ? `الأقسام المتاحة عندنا:\n${specialtyOptions.map((s) => `- ${s}`).join("\n")}\n\nقولي أنهي تخصص محتاجه وهجيبلك الدكاترة المتاحين.`
+        : "مفيش أطباء متاحين دلوقتي. تواصل مع الاستقبال للمساعدة.";
     }
 
     setMessages((prev) => {
@@ -935,13 +1039,26 @@ export default function AiAgent({ onClose, initialMessage }) {
 
     try {
       const response = await sendToChatProxy(text, history);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingId
-            ? { ...m, text: response.text || "مش قادر أجاوب دلوقتي، جرب تاني." }
-            : m,
-        ),
-      );
+      const responseText = response.text || "مش قادر أجاوب دلوقتي، جرب تاني.";
+
+      setMessages((prev) => {
+        const updated = prev.map((m) =>
+          m.id === loadingId ? { ...m, text: responseText } : m,
+        );
+        // If user's message matches a known specialty, append doctor cards automatically
+        const specialtyOptions = getSpecialtyOptions(doctors);
+        const matched = resolveSpecialty(text, specialtyOptions);
+        if (matched) {
+          const doctorsToShow = getAvailableDoctorRecommendations(matched, doctors, appointments);
+          if (doctorsToShow.length > 0) {
+            return [
+              ...updated,
+              { id: createId("doctors"), type: "doctors", doctors: doctorsToShow },
+            ];
+          }
+        }
+        return updated;
+      });
     } catch (error) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -1005,6 +1122,37 @@ export default function AiAgent({ onClose, initialMessage }) {
     if (isRecording) stopRecording(); else startRecording();
   };
 
+  // ── queue check ─────────────────────────────────────────────────────────────
+
+  const handleQueueCheck = () => {
+    const today = getIsoDate(new Date());
+    const todayAll = appointments
+      .filter((a) => a.date === today)
+      .sort((a, b) => (toMinutes(a.time) || 0) - (toMinutes(b.time) || 0));
+
+    const userAppts = filterPatientAppointments(todayAll, currentUser);
+    const next = userAppts.find((a) => !isSlotPast(a.date, a.time));
+
+    let text;
+    if (!next) {
+      text = "مفيش موعد ليك النهارده في الكلينيك.";
+    } else {
+      const before = todayAll.filter(
+        (a) =>
+          a.doctorId === next.doctorId &&
+          (toMinutes(a.time) || 0) < (toMinutes(next.time) || 0),
+      ).length;
+      const waitMins = before * 15;
+      text = `موعدك مع **${next.doctor || "الدكتور"}** الساعة **${formatTime(next.time)}**.\n\nفي ${before} مريض${before !== 1 ? " قبلك" : " قبلك"} — وقت الانتظار المتوقع **${waitMins} دقيقة** تقريباً.`;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      { id: createId("user"), type: "user", text: "وقت انتظاري كام؟" },
+      { id: createId("assistant"), type: "assistant", text },
+    ]);
+  };
+
   // ── send ────────────────────────────────────────────────────────────────────
 
   const handleSend = async (overrideText) => {
@@ -1065,7 +1213,7 @@ export default function AiAgent({ onClose, initialMessage }) {
         <ThemeLogo alt="ميديلينك" className="h-8 w-auto object-contain" />
       </header>
 
-      <main className="relative flex-1 overflow-y-auto bg-[#F5FBFD] px-4 py-4 dark:bg-[#1F1F1F]">
+      <main className="relative flex-1 overflow-y-auto bg-[#F0F9FD] px-4 py-4 dark:bg-[#1A1A1A]" style={{backgroundImage: "radial-gradient(circle at 20% 50%, rgba(5,173,232,0.04) 0%, transparent 60%), radial-gradient(circle at 80% 20%, rgba(108,204,200,0.04) 0%, transparent 50%)"}}>
         <div className={!isLoggedIn ? "opacity-60" : ""}>
           <div className="space-y-4">
             {messages.map((m) => (
@@ -1075,8 +1223,10 @@ export default function AiAgent({ onClose, initialMessage }) {
                 onBookDoctor={handleBookDoctor}
                 onBookingUpdate={updateBookingMessage}
                 onBookingConfirm={confirmBooking}
+                userImage={getUserImage(currentUser)}
               />
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -1092,9 +1242,32 @@ export default function AiAgent({ onClose, initialMessage }) {
         )}
       </main>
 
-      <footer className="shrink-0 border-t border-gray-100 bg-white p-3 dark:border-[#3A3A3A] dark:bg-[#252525]">
-        <div className="rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]">
+      <footer className="shrink-0 border-t border-gray-100 bg-white dark:border-[#3A3A3A] dark:bg-[#252525]">
+        {/* ── Quick action chips ── */}
+        {isLoggedIn && (
+          <div className="flex gap-2 overflow-x-auto px-3 pt-2.5 pb-1 scrollbar-none">
+            {[
+              { icon: "📅", label: "مواعيدي",       action: () => handleSend("مواعيدي") },
+              { icon: "🏥", label: "احجز موعد",     action: () => handleSend("احجز موعد") },
+              { icon: "⏳", label: "وقت انتظاري",   action: handleQueueCheck },
+              { icon: "🤒", label: "عندي عرض",      action: () => { setMessage("عندي "); inputRef.current?.focus(); } },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                disabled={isSending}
+                onClick={chip.action}
+                className="shrink-0 rounded-full border border-[#BFEAF8] bg-white px-3 py-1 text-[11px] font-medium text-gray-600 transition hover:border-[#05ADE8] hover:bg-[#EAF8FC] hover:text-[#05ADE8] disabled:opacity-50 dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#D2D2D2]"
+              >
+                {chip.icon} {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-gray-200 bg-white mx-3 mb-3 mt-1 px-3 py-2 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]">
           <input
+            ref={inputRef}
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
