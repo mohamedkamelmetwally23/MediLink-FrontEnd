@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +19,20 @@ import { includesSearchText } from "../../utils/searchText";
 const pageSize = 10;
 const appointmentsCacheKey = "medilink-appointments-cache-receptionist";
 const sharedAppointmentsCacheKey = "medilink-appointments-cache";
+
+function getIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getRequestedDateFilter(searchParams) {
+  const requestedDate = searchParams.get("date");
+
+  if (requestedDate === "today") return getIsoDate(new Date());
+  return requestedDate || "";
+}
 
 const bookingStatusLabels = {
   confirmed: "تم التأكيد",
@@ -92,17 +107,24 @@ function saveCachedAppointments(appointments) {
 }
 
 export default function ReceptionistAppointmentsPage() {
+  const [searchParams] = useSearchParams();
+  const requestedDateFilter = getRequestedDateFilter(searchParams);
   const cachedAppointments = useMemo(() => readCachedAppointments(), []);
   const [appointments, setAppointments] = useState(() => cachedAppointments);
   const [search, setSearch] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => requestedDateFilter);
   const [bookingFilter, setBookingFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(() => cachedAppointments.length === 0);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setDateFilter(requestedDateFilter);
+    setCurrentPage(1);
+  }, [requestedDateFilter]);
 
   useEffect(() => {
     let mounted = true;

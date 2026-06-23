@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Check,
-  CheckCircle2,
   ChevronRight,
-  Clock3,
   CreditCard,
   HandCoins,
   Search,
@@ -496,7 +494,6 @@ export default function ReceptionistBookingPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [paymentStatus, setPaymentStatus] = useState("paid");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [createdAppointment, setCreatedAppointment] = useState(null);
@@ -663,9 +660,7 @@ export default function ReceptionistBookingPage() {
         slot.time === selectedTime &&
         isSlotAvailableForDate(slot, selectedDate, currentDateTime),
     );
-  const canContinuePayment = Boolean(
-    paymentStatus && (paymentStatus === "unpaid" || paymentMethod),
-  );
+  const canContinuePayment = Boolean(paymentMethod);
 
   const fillPatientFields = useCallback((patient, phoneValue = "") => {
     const name = getPersonName(patient);
@@ -728,7 +723,6 @@ export default function ReceptionistBookingPage() {
     setSubmitting(true);
     setSubmitError("");
 
-    const isPaidPayment = paymentStatus === "paid";
     const payload = {
       firstName: patientNameParts.firstName,
       lastName: patientNameParts.lastName,
@@ -741,9 +735,6 @@ export default function ReceptionistBookingPage() {
       date: formatApiDate(selectedDate),
       slotTime: selectedTime,
       reason: bookingReason.trim(),
-      paymentMethod: isPaidPayment ? paymentMethod : "unpaid",
-      paymentStatus,
-      amount: isPaidPayment ? consultationFee : 0,
     };
 
     const completeBooking = (created = {}) => {
@@ -754,9 +745,9 @@ export default function ReceptionistBookingPage() {
         doctorName: created.doctor || getPersonName(selectedDoctor),
         patientName: created.patient || patientName,
         slotTime: created.time || created.slotTime || payload.slotTime,
-        paymentMethod: payload.paymentMethod,
-        paymentStatus,
-        amount: payload.amount,
+        paymentMethod,
+        paymentStatus: "paid",
+        amount: consultationFee,
       });
       setCurrentStep(4);
     };
@@ -850,12 +841,10 @@ export default function ReceptionistBookingPage() {
             {currentStep === 3 && (
               <PaymentStep
                 paymentMethod={paymentMethod}
-                paymentStatus={paymentStatus}
                 submitting={submitting}
                 error={submitError}
                 canContinue={canContinuePayment}
                 onPaymentMethodChange={setPaymentMethod}
-                onPaymentStatusChange={setPaymentStatus}
                 onCancel={() => setCurrentStep(2)}
                 onNext={handleSubmitBooking}
               />
@@ -1243,17 +1232,15 @@ function BookingDetailsStep({
 
 function PaymentStep({
   paymentMethod,
-  paymentStatus,
   submitting,
   error,
   canContinue,
   onPaymentMethodChange,
-  onPaymentStatusChange,
   onCancel,
   onNext,
 }) {
-  const isPaid = paymentStatus === "paid";
-  const isUnpaid = paymentStatus === "unpaid";
+  const isPaid = Boolean(paymentMethod);
+  const isUnpaid = false;
 
   return (
     <div className="mx-auto max-w-[900px]">
@@ -1277,10 +1264,7 @@ function PaymentStep({
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => {
-                    onPaymentMethodChange(option.id);
-                    onPaymentStatusChange("paid");
-                  }}
+                  onClick={() => onPaymentMethodChange(option.id)}
                   className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-[8px] border px-4 text-right transition ${
                     isSelected
                       ? "border-[#24bdd9] bg-[#f0fcff] text-[#27343a] shadow-[0_8px_18px_rgba(35,189,217,0.12)] dark:bg-[#24484b] dark:text-white"
@@ -1302,30 +1286,24 @@ function PaymentStep({
 
         <FormCard className="min-h-[138px] px-5 py-5" title="معلومات الدفع">
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => onPaymentStatusChange("paid")}
+            <span
               className={`flex h-[52px] items-center justify-center gap-2 rounded-[8px] border text-[13px] font-bold transition ${
                 isPaid
                   ? "border-[#24bdd9] bg-[#f0fcff] text-[#27343a] shadow-[0_8px_18px_rgba(35,189,217,0.1)] dark:bg-[#24484b] dark:text-white"
                   : "border-transparent bg-[#f4f4f4] text-[#8b969c] hover:bg-[#eefbfc] dark:bg-white/10 dark:text-gray-300"
               }`}
             >
-              <CheckCircle2 size={20} strokeWidth={2.2} />
               <span>مدفوع</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onPaymentStatusChange("unpaid")}
+            </span>
+            <span
               className={`flex h-[52px] items-center justify-center gap-2 rounded-[8px] border text-[13px] font-bold transition ${
                 isUnpaid
                   ? "border-[#f6b63a] bg-[#fff8e8] text-[#7c5a10] shadow-[0_8px_18px_rgba(246,182,58,0.12)] dark:bg-[#4b422a] dark:text-[#ffd782]"
                   : "border-transparent bg-[#f4f4f4] text-[#8b969c] hover:bg-[#fff8e8] dark:bg-white/10 dark:text-gray-300"
               }`}
             >
-              <Clock3 size={20} strokeWidth={2.2} />
               <span>غير مدفوع</span>
-            </button>
+            </span>
           </div>
         </FormCard>
       </div>

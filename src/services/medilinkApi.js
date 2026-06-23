@@ -3060,10 +3060,6 @@ export async function bookAppointmentByReceptionist(values) {
     day: Number(values.day),
     month: Number(values.month),
     year: Number(values.year),
-    paymentMethod: values.paymentMethod,
-    paymentStatus: values.paymentStatus,
-    amount: values.amount,
-    depositAmount: values.amount,
   };
 
   if (

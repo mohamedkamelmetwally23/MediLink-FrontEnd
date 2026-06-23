@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Banknote,
   CalendarCheck,
@@ -324,6 +325,7 @@ function sortAppointmentsByTime(appointments) {
 }
 
 export default function ReceptionistDashboard() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState("all");
@@ -539,13 +541,9 @@ export default function ReceptionistDashboard() {
               onDateTimeFilterChange={setTableDateTimeFilter}
               onBookingFilterChange={setTableBookingFilter}
               onPaymentFilterChange={setTablePaymentFilter}
-              onShowAll={() => {
-                setShowAllAppointments(true);
-                setTableDoctorFilter("");
-                setTableDateTimeFilter("");
-                setTableBookingFilter("");
-                setTablePaymentFilter("");
-              }}
+              onShowAll={() =>
+                navigate(`/receptionist/schedule?view=day&date=${todayIso}`)
+              }
             />
           </section>
 
