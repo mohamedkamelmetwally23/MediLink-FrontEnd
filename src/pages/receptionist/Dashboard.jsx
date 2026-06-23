@@ -10,7 +10,13 @@ import {
 import patientAvatar from "../../assets/landingPage/admin.png";
 import doctorAvatar from "../../assets/landingPage/doctor1.png";
 import CustomSelect from "../../components/admin/CustomSelect";
-import { getClinicProfits, listAppointments, listDoctors } from "../../services/medilinkApi";
+import {
+  changeAppointmentQueueStatus,
+  getClinicProfits,
+  getDoctorQueueByReceptionist,
+  listAppointments,
+  listDoctorsForReceptionistQueue,
+} from "../../services/medilinkApi";
 
 const statusLabels = {
   pending: "انتظار",
@@ -161,35 +167,15 @@ function getDoctorName(doctor) {
   );
 }
 
-function getDoctorOptions(doctors, appointments) {
-  const byName = new Map();
-
-  doctors
+function getDoctorOptions(doctors) {
+  return doctors
     .map((doctor) => ({
-      id: doctor.id,
+      id: doctor.queueDoctorId,
       name: getDoctorName(doctor),
       specialty: doctor.specialty || "طبيب",
       image: getDoctorImage(doctor),
     }))
-    .filter((doctor) => doctor.name)
-    .forEach((doctor) => {
-      if (!byName.has(doctor.name)) {
-        byName.set(doctor.name, doctor);
-      }
-    });
-
-  appointments.forEach((appointment) => {
-    if (!appointment.doctor || byName.has(appointment.doctor)) return;
-
-    byName.set(appointment.doctor, {
-      id: appointment.doctor,
-      name: appointment.doctor,
-      specialty: appointment.specialty || "طبيب",
-      image: doctorAvatar,
-    });
-  });
-
-  return Array.from(byName.values());
+    .filter((doctor) => doctor.id && doctor.name);
 }
 
 function sortAppointmentsByTime(appointments) {
@@ -198,14 +184,14 @@ function sortAppointmentsByTime(appointments) {
   );
 }
 
-function isQueuedAppointment(appointment) {
-  return !["completed", "cancelled"].includes(appointment.status);
-}
-
 export default function ReceptionistDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState("all");
+  const [doctorQueue, setDoctorQueue] = useState([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState("");
+  const [queueActionLoading, setQueueActionLoading] = useState(false);
   const [tableDoctorFilter, setTableDoctorFilter] = useState("");
   const [tableDateTimeFilter, setTableDateTimeFilter] = useState("");
   const [tableBookingFilter, setTableBookingFilter] = useState("");
@@ -217,7 +203,10 @@ export default function ReceptionistDashboard() {
   useEffect(() => {
     let mounted = true;
 
-    Promise.allSettled([listAppointments(), listDoctors()])
+    Promise.allSettled([
+      listAppointments(),
+      listDoctorsForReceptionistQueue(),
+    ])
       .then(([appointmentsResult, doctorsResult]) => {
         if (!mounted) return;
 
@@ -242,6 +231,30 @@ export default function ReceptionistDashboard() {
   }, []);
 
   useEffect(() => {
+    if (selectedDoctor === "all") return undefined;
+
+    let mounted = true;
+
+    getDoctorQueueByReceptionist(selectedDoctor)
+      .then((queue) => {
+        if (mounted) setDoctorQueue(queue);
+      })
+      .catch((error) => {
+        if (mounted) {
+          setDoctorQueue([]);
+          setQueueError(error?.message || "تعذر تحميل قائمة الانتظار");
+        }
+      })
+      .finally(() => {
+        if (mounted) setQueueLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedDoctor]);
+
+  useEffect(() => {
     let mounted = true;
 
     getClinicProfits()
@@ -256,8 +269,8 @@ export default function ReceptionistDashboard() {
   }, []);
 
   const doctorOptions = useMemo(
-    () => getDoctorOptions(doctors, appointments),
-    [doctors, appointments],
+    () => getDoctorOptions(doctors),
+    [doctors],
   );
   const todayAppointments = useMemo(
     () =>
@@ -288,19 +301,10 @@ export default function ReceptionistDashboard() {
 
     return Array.from(byKey, ([value, label]) => ({ value, label }));
   }, [todayAppointments]);
-  const filteredQueue = useMemo(
-    () =>
-      todayAppointments.filter(
-        (appointment) =>
-          isQueuedAppointment(appointment) &&
-          (selectedDoctor === "all" || appointment.doctor === selectedDoctor),
-      ),
-    [selectedDoctor, todayAppointments],
-  );
   const selectedDoctorInfo =
-    doctorOptions.find((doctor) => doctor.name === selectedDoctor) || null;
-  const currentAppointment = filteredQueue[0] || null;
-  const nextQueueAppointments = filteredQueue.slice(1, 6);
+    doctorOptions.find((doctor) => String(doctor.id) === selectedDoctor) || null;
+  const currentAppointment = doctorQueue[0] || null;
+  const nextQueueAppointments = doctorQueue.slice(1, 6);
   const tableAppointments = useMemo(
     () =>
       todayAppointments
@@ -343,6 +347,33 @@ export default function ReceptionistDashboard() {
       : 0,
   };
 
+  const handleDoctorChange = (doctorId) => {
+    setSelectedDoctor(doctorId);
+    setDoctorQueue([]);
+    setQueueError("");
+    setQueueLoading(doctorId !== "all");
+  };
+
+  const handleQueueAction = async (changeTo) => {
+    if (!currentAppointment || queueActionLoading) return;
+
+    setQueueActionLoading(true);
+    setQueueError("");
+
+    try {
+      await changeAppointmentQueueStatus(
+        currentAppointment.queueAppointmentId || currentAppointment.id,
+        changeTo,
+      );
+      const nextQueue = await getDoctorQueueByReceptionist(selectedDoctor);
+      setDoctorQueue(nextQueue);
+    } catch (error) {
+      setQueueError(error?.message || "تعذر تحديث حالة الموعد");
+    } finally {
+      setQueueActionLoading(false);
+    }
+  };
+
   return (
     <section className="min-h-screen bg-[#f8fcfd] text-[#27343a] dark:bg-[#2e2e2e] dark:text-white">
       <Header />
@@ -376,12 +407,16 @@ export default function ReceptionistDashboard() {
           <QueuePanel
             currentAppointment={currentAppointment}
             doctorOptions={doctorOptions}
-            loading={loading}
+            loading={queueLoading}
             nextQueueAppointments={nextQueueAppointments}
-            queueCount={filteredQueue.length}
+            queueCount={doctorQueue.length}
+            queueError={queueError}
+            actionLoading={queueActionLoading}
             selectedDoctor={selectedDoctor}
             selectedDoctorInfo={selectedDoctorInfo}
-            onDoctorChange={setSelectedDoctor}
+            onDoctorChange={handleDoctorChange}
+            onConfirm={() => handleQueueAction("مؤكد")}
+            onSkip={() => handleQueueAction("ملغى")}
           />
         </div>
       </main>
@@ -449,9 +484,13 @@ function QueuePanel({
   loading,
   nextQueueAppointments,
   queueCount,
+  queueError,
+  actionLoading,
   selectedDoctor,
   selectedDoctorInfo,
   onDoctorChange,
+  onConfirm,
+  onSkip,
 }) {
   return (
     <aside className="rounded-[8px] bg-white p-3 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]" dir="rtl">
@@ -469,7 +508,7 @@ function QueuePanel({
         >
           <option value="all">عرض الكل</option>
           {doctorOptions.map((doctor) => (
-            <option key={doctor.id || doctor.name} value={doctor.name}>
+            <option key={doctor.id} value={String(doctor.id)}>
               {doctor.name}
             </option>
           ))}
@@ -486,8 +525,21 @@ function QueuePanel({
       <section className="mt-2 rounded-[8px] bg-[#effbfc] p-2 dark:bg-[#24484b]">
         {loading ? (
           <div className="h-[100px] animate-pulse rounded-[8px] bg-white/75 dark:bg-white/10" />
+        ) : queueError ? (
+          <div className="grid min-h-[100px] place-items-center px-3 text-center text-[12px] font-bold text-red-500">
+            {queueError}
+          </div>
+        ) : selectedDoctor === "all" ? (
+          <div className="grid min-h-[100px] place-items-center text-center text-[12px] font-bold text-[#7c8a91] dark:text-gray-200">
+            اختر طبيبًا لعرض قائمة الانتظار
+          </div>
         ) : currentAppointment ? (
-          <CurrentPatient appointment={currentAppointment} />
+          <CurrentPatient
+            appointment={currentAppointment}
+            actionLoading={actionLoading}
+            onConfirm={onConfirm}
+            onSkip={onSkip}
+          />
         ) : (
           <div className="grid min-h-[100px] place-items-center text-center text-[12px] font-bold text-[#7c8a91] dark:text-gray-200">
             لا يوجد دور حالي
@@ -517,7 +569,12 @@ function QueuePanel({
   );
 }
 
-function CurrentPatient({ appointment }) {
+function CurrentPatient({
+  appointment,
+  actionLoading,
+  onConfirm,
+  onSkip,
+}) {
   return (
     <article>
       <div className="flex items-center gap-3">
@@ -539,13 +596,17 @@ function CurrentPatient({ appointment }) {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
-          className="h-[34px] rounded-[7px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-bold text-white transition hover:brightness-105"
+          onClick={onConfirm}
+          disabled={actionLoading}
+          className="h-[34px] rounded-[7px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[12px] font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          تأكيد
+          {actionLoading ? "جاري التحديث..." : "تأكيد"}
         </button>
         <button
           type="button"
-          className="h-[34px] rounded-[7px] bg-[#b9c1c5] text-[12px] font-bold text-white transition hover:bg-[#a9b2b7]"
+          onClick={onSkip}
+          disabled={actionLoading}
+          className="h-[34px] rounded-[7px] bg-[#b9c1c5] text-[12px] font-bold text-white transition hover:bg-[#a9b2b7] disabled:cursor-not-allowed disabled:opacity-60"
         >
           تخطي
         </button>
