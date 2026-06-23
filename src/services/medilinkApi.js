@@ -1068,6 +1068,20 @@ export async function listDoctors() {
   return hydratedDoctors.map(normalizeDoctor);
 }
 
+export async function listDoctorsForReceptionistQueue() {
+  const response = await apiRequest("/doctors?limit=500");
+  const doctors = findArray(response, ["doctors", "doctor"]);
+
+  return doctors.map((doctor) => {
+    const normalizedDoctor = normalizeDoctor(doctor);
+
+    return {
+      ...normalizedDoctor,
+      queueDoctorId: doctor?._id || doctor?.id || normalizedDoctor.profileId,
+    };
+  });
+}
+
 export async function getDoctor(id) {
   const doctorId = encodeURIComponent(id);
   const doctor = await entityFromPaths(
@@ -2768,6 +2782,44 @@ export async function listAppointments() {
   ]);
 
   return appointments.map(normalizeAppointment);
+}
+
+export async function getDoctorQueueByReceptionist(doctorId) {
+  if (!doctorId) return [];
+
+  const response = await apiRequest(
+    `/appointments/getDoctorQueueByRecepionist/${encodeURIComponent(doctorId)}`,
+  );
+  const appointments = findArray(response, [
+    "appointments",
+    "appointment",
+    "queue",
+    "doctorQueue",
+    "waitingList",
+    "bookings",
+    "results",
+    "docs",
+    "items",
+  ]);
+
+  return appointments.map((appointment) => ({
+    ...normalizeAppointment(appointment),
+    queueAppointmentId: appointment?._id || appointment?.id || getId(appointment),
+  }));
+}
+
+export async function changeAppointmentQueueStatus(appointmentId, changeTo) {
+  if (!appointmentId) {
+    throw new ApiError("تعذر تحديد الموعد");
+  }
+
+  return apiRequest(
+    `/appointments/changeStatus/${encodeURIComponent(appointmentId)}`,
+    {
+      method: "PATCH",
+      body: { changeTo },
+    },
+  );
 }
 
 function isEmptyDatedAppointmentsError(error) {
