@@ -124,7 +124,22 @@ function formatShortTimeRange(value) {
 }
 
 function formatDateTime(appointment) {
-  return `اليوم ${formatTime(appointment.time)}`;
+  const todayIso = getIsoDate(new Date());
+  const timeText = formatTime(appointment.time);
+
+  if (!appointment.date || appointment.date === todayIso) {
+    return `اليوم ${timeText}`;
+  }
+
+  const date = new Date(`${appointment.date}T12:00:00`);
+  const dateText = Number.isNaN(date.getTime())
+    ? appointment.date
+    : date.toLocaleDateString("ar-EG", {
+        day: "numeric",
+        month: "short",
+      });
+
+  return `${dateText} ${timeText}`;
 }
 
 function getAppointmentDateTimeKey(appointment) {
@@ -196,6 +211,7 @@ export default function ReceptionistDashboard() {
   const [tableDateTimeFilter, setTableDateTimeFilter] = useState("");
   const [tableBookingFilter, setTableBookingFilter] = useState("");
   const [tablePaymentFilter, setTablePaymentFilter] = useState("");
+  const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [loading, setLoading] = useState(true);
   const [clinicProfits, setClinicProfits] = useState(null);
   const todayIso = getIsoDate(new Date());
@@ -279,60 +295,71 @@ export default function ReceptionistDashboard() {
       ),
     [appointments, todayIso],
   );
+  const dashboardAppointments = useMemo(
+    () =>
+      showAllAppointments
+        ? sortAppointmentsByTime(appointments)
+        : todayAppointments,
+    [appointments, showAllAppointments, todayAppointments],
+  );
   const tableDoctorOptions = useMemo(
     () =>
       Array.from(
         new Set(
-          todayAppointments
+          dashboardAppointments
             .map((appointment) => appointment.doctor)
             .filter(Boolean),
         ),
       ),
-    [todayAppointments],
+    [dashboardAppointments],
   );
   const tableDateTimeOptions = useMemo(() => {
     const byKey = new Map();
 
-    todayAppointments.forEach((appointment) => {
+    dashboardAppointments.forEach((appointment) => {
       const key = getAppointmentDateTimeKey(appointment);
       if (!key || byKey.has(key)) return;
       byKey.set(key, formatDateTime(appointment));
     });
 
     return Array.from(byKey, ([value, label]) => ({ value, label }));
-  }, [todayAppointments]);
+  }, [dashboardAppointments]);
   const selectedDoctorInfo =
     doctorOptions.find((doctor) => String(doctor.id) === selectedDoctor) || null;
   const currentAppointment = doctorQueue[0] || null;
   const nextQueueAppointments = doctorQueue.slice(1, 6);
   const tableAppointments = useMemo(
-    () =>
-      todayAppointments
-        .filter((appointment) => {
-          const matchesDoctor =
-            !tableDoctorFilter || appointment.doctor === tableDoctorFilter;
-          const matchesDateTime =
-            !tableDateTimeFilter ||
-            getAppointmentDateTimeKey(appointment) === tableDateTimeFilter;
-          const matchesBooking =
-            !tableBookingFilter || appointment.status === tableBookingFilter;
-          const matchesPayment =
-            !tablePaymentFilter || appointment.payment === tablePaymentFilter;
+    () => {
+      const filteredAppointments = dashboardAppointments.filter((appointment) => {
+        const matchesDoctor =
+          !tableDoctorFilter || appointment.doctor === tableDoctorFilter;
+        const matchesDateTime =
+          !tableDateTimeFilter ||
+          getAppointmentDateTimeKey(appointment) === tableDateTimeFilter;
+        const matchesBooking =
+          !tableBookingFilter || appointment.status === tableBookingFilter;
+        const matchesPayment =
+          !tablePaymentFilter || appointment.payment === tablePaymentFilter;
 
-          return (
-            matchesDoctor &&
-            matchesDateTime &&
-            matchesBooking &&
-            matchesPayment
-          );
-        })
-        .slice(0, 10),
+        return (
+          matchesDoctor &&
+          matchesDateTime &&
+          matchesBooking &&
+          matchesPayment
+        );
+      });
+
+      return showAllAppointments
+        ? filteredAppointments
+        : filteredAppointments.slice(0, 10);
+    },
     [
+      dashboardAppointments,
+      showAllAppointments,
       tableBookingFilter,
       tableDateTimeFilter,
       tableDoctorFilter,
       tablePaymentFilter,
-      todayAppointments,
     ],
   );
   const stats = {
@@ -391,11 +418,13 @@ export default function ReceptionistDashboard() {
               dateTimeOptions={tableDateTimeOptions}
               bookingFilter={tableBookingFilter}
               paymentFilter={tablePaymentFilter}
+              showAll={showAllAppointments}
               onDoctorFilterChange={setTableDoctorFilter}
               onDateTimeFilterChange={setTableDateTimeFilter}
               onBookingFilterChange={setTableBookingFilter}
               onPaymentFilterChange={setTablePaymentFilter}
-              onClearFilters={() => {
+              onShowAll={() => {
+                setShowAllAppointments(true);
                 setTableDoctorFilter("");
                 setTableDateTimeFilter("");
                 setTableBookingFilter("");
@@ -645,23 +674,24 @@ function TodayAppointmentsTable({
   dateTimeOptions,
   bookingFilter,
   paymentFilter,
+  showAll,
   onDoctorFilterChange,
   onDateTimeFilterChange,
   onBookingFilterChange,
   onPaymentFilterChange,
-  onClearFilters,
+  onShowAll,
 }) {
   return (
     <section className="overflow-hidden rounded-[8px] bg-white shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <h2 className="text-[14px] font-bold text-[#27343a] dark:text-white">
-          مواعيد اليوم
+          {showAll ? "كل المواعيد" : "مواعيد اليوم"}
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={onClearFilters}
+            onClick={onShowAll}
             className="flex h-[36px] items-center gap-1 rounded-[7px] px-2 text-[12px] font-bold text-[#66757d] transition hover:bg-[#f2fbfd] hover:text-[#19aeca] dark:text-gray-200 dark:hover:bg-white/10"
           >
             <span>عرض الكل</span>
@@ -728,7 +758,7 @@ function TodayAppointmentsTable({
             <TableLoading />
           ) : appointments.length === 0 ? (
             <div className="grid min-h-[280px] place-items-center text-[13px] font-bold text-[#8a98a0] dark:text-gray-200">
-              لا توجد مواعيد اليوم
+              {showAll ? "لا توجد مواعيد حتى الآن" : "لا توجد مواعيد اليوم"}
             </div>
           ) : (
             appointments.map((appointment) => (

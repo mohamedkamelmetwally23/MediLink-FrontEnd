@@ -1527,16 +1527,19 @@ function DiagnosisStep({
       </div>
 
       <div className="mt-[48px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
-        {canGoNext && (
-          <button
-            type="button"
-            className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-            onClick={onNext}
-          >
-            <ArrowLeft size={23} strokeWidth={2.2} />
-            التالي
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!canGoNext}
+          className={`flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] text-[16px] font-medium text-white shadow-sm transition sm:text-[18px] ${
+            canGoNext
+              ? "bg-gradient-to-l from-[#67cbc5] to-[#0aace0] hover:brightness-105"
+              : "cursor-not-allowed bg-gray-300 hover:bg-gray-300"
+          }`}
+          onClick={onNext}
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          التالي
+        </button>
         <button
           type="button"
           className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"
@@ -1719,16 +1722,19 @@ function MedicinesStep({
       </section>
 
       <div className="mt-[63px] grid gap-[12px] sm:grid-cols-2" dir="ltr">
-        {canGoNext && (
-          <button
-            type="button"
-            className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] bg-gradient-to-l from-[#67cbc5] to-[#0aace0] text-[16px] font-medium text-white shadow-sm transition hover:brightness-105 sm:text-[18px]"
-            onClick={onNext}
-          >
-            <ArrowLeft size={23} strokeWidth={2.2} />
-            التالي
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!canGoNext}
+          className={`flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] text-[16px] font-medium text-white shadow-sm transition sm:text-[18px] ${
+            canGoNext
+              ? "bg-gradient-to-l from-[#67cbc5] to-[#0aace0] hover:brightness-105"
+              : "cursor-not-allowed bg-gray-300 hover:bg-gray-300"
+          }`}
+          onClick={onNext}
+        >
+          <ArrowLeft size={23} strokeWidth={2.2} />
+          التالي
+        </button>
         <button
           type="button"
           className="flex h-[54px] items-center justify-center gap-[12px] rounded-[10px] border-2 border-[#12b8df] bg-white text-[16px] font-medium text-[#21bdd7] transition hover:bg-[#effcff] dark:bg-transparent dark:hover:bg-white/5 sm:text-[18px]"

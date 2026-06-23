@@ -1,9 +1,10 @@
 import { LogOut, X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 export default function LogoutConfirmModal({ open, onCancel, onConfirm }) {
   if (!open) return null;
 
-  return (
+  const modal = (
     <div
       className="fixed inset-0 z-[1000] grid place-items-center bg-black/45 px-4"
       dir="rtl"
@@ -48,4 +49,6 @@ export default function LogoutConfirmModal({ open, onCancel, onConfirm }) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
