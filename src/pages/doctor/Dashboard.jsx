@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Banknote,
   CalendarCheck,
   CalendarDays,
   ChevronLeft,
-  Clock3,
+  TrendingDown,
+  TrendingUp,
   UserRound,
 } from "lucide-react";
 import {
@@ -56,22 +58,22 @@ const statusMeta = {
 
 const statStyles = [
   {
+    icon: CalendarDays,
+    color: "text-[#1976d2]",
+    bg: "bg-[#eef6ff]",
+  },
+  {
     icon: UserRound,
     color: "text-[#4fc5b9]",
     bg: "bg-[#effcfa]",
   },
   {
     icon: CalendarCheck,
-    color: "text-[#1976d2]",
-    bg: "bg-[#eef6ff]",
-  },
-  {
-    icon: CalendarDays,
     color: "text-[#ffb21d]",
     bg: "bg-[#fff4dc]",
   },
   {
-    icon: Clock3,
+    icon: Banknote,
     color: "text-[#4bb543]",
     bg: "bg-[#effbe9]",
   },
@@ -280,6 +282,113 @@ function buildWeeklyStates(appointments) {
     .filter((item) => item.count > 0);
 }
 
+function getAppointmentDateForStats(appointment) {
+  return parseDate(
+    appointment.date ||
+      appointment.appointmentDate ||
+      appointment.raw?.appointmentDate ||
+      appointment.raw?.date ||
+      appointment.raw?.createdAt ||
+      "",
+  );
+}
+
+function isSameCalendarDay(date, target) {
+  return (
+    date &&
+    target &&
+    date.getFullYear() === target.getFullYear() &&
+    date.getMonth() === target.getMonth() &&
+    date.getDate() === target.getDate()
+  );
+}
+
+function isSameCalendarMonth(date, target) {
+  return (
+    date &&
+    target &&
+    date.getFullYear() === target.getFullYear() &&
+    date.getMonth() === target.getMonth()
+  );
+}
+
+function getPreviousDay(date) {
+  const previousDay = new Date(date);
+  previousDay.setDate(date.getDate() - 1);
+  return previousDay;
+}
+
+function getPreviousMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() - 1, 1);
+}
+
+function filterAppointmentsByMonth(appointments, targetMonth) {
+  return appointments.filter((appointment) =>
+    isSameCalendarMonth(getAppointmentDateForStats(appointment), targetMonth),
+  );
+}
+
+function countAppointmentsByDay(appointments, targetDay) {
+  return appointments.filter((appointment) =>
+    isSameCalendarDay(getAppointmentDateForStats(appointment), targetDay),
+  ).length;
+}
+
+function getAppointmentRevenue(appointment) {
+  const raw = appointment.raw || {};
+  return (
+    Number(
+      raw.amount ??
+        raw.total ??
+        raw.price ??
+        raw.fee ??
+        raw.consultationFee ??
+        appointment.amount ??
+        0,
+    ) || 0
+  );
+}
+
+function sumAppointmentsRevenue(appointments) {
+  return appointments.reduce(
+    (total, appointment) => total + getAppointmentRevenue(appointment),
+    0,
+  );
+}
+
+function buildStatTrend(current, previous, label) {
+  const change =
+    previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+  const rounded = Math.round(Math.abs(change));
+
+  return {
+    label,
+    percent: `${change > 0 ? "+" : change < 0 ? "-" : ""}${rounded}%`,
+    direction: change < 0 ? "down" : "up",
+  };
+}
+
+function formatStatValue(value) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
+function getArabicDashboardError(error, fallback) {
+  const message = String(error?.message || "").trim();
+
+  if (!message) return fallback;
+  if (/[\u0600-\u06FF]/.test(message)) return message;
+  if (/network|fetch|timeout|failed/i.test(message)) {
+    return "تعذر الاتصال بالخادم، حاول مرة أخرى";
+  }
+  if (/unauthorized|forbidden|token|auth/i.test(message)) {
+    return "انتهت الجلسة، سجل الدخول مرة أخرى";
+  }
+
+  return fallback;
+}
+
 function mergeDashboardAppointments(...groups) {
   const appointmentsByKey = new Map();
 
@@ -381,10 +490,6 @@ export default function DoctorDashboard() {
     color: isDark ? "#f9fafb" : "#2f3a40",
   };
   const todayIso = getIsoDate(new Date());
-  const availableSlots = useMemo(
-    () => flattenAvailableSlots(availableSlotDays),
-    [availableSlotDays],
-  );
   const todayAppointments = useMemo(
     () =>
       appointments
@@ -401,26 +506,66 @@ export default function DoctorDashboard() {
     [appointments],
   );
   const maxChartValue = Math.max(4, ...monthlyBookings.map((item) => item.value));
+  const statPeriods = useMemo(() => {
+    const today = new Date();
+    const previousDay = getPreviousDay(today);
+    const previousMonth = getPreviousMonth(today);
+    const currentMonthAppointments = filterAppointmentsByMonth(appointments, today);
+    const previousMonthAppointments = filterAppointmentsByMonth(
+      appointments,
+      previousMonth,
+    );
+    const todayCount = todayAppointments.length;
+    const previousDayCount = countAppointmentsByDay(appointments, previousDay);
+    const currentMonthRevenue = sumAppointmentsRevenue(currentMonthAppointments);
+    const previousMonthRevenue = sumAppointmentsRevenue(previousMonthAppointments);
+
+    return {
+      todayCount,
+      previousDayCount,
+      currentMonthAppointments,
+      previousMonthAppointments,
+      currentMonthRevenue,
+      previousMonthRevenue,
+    };
+  }, [appointments, todayAppointments]);
+  const totalRevenue = sumAppointmentsRevenue(appointments);
   const dashboardStats = [
+    {
+      title: "مواعيد اليوم",
+      value: statPeriods.todayCount,
+      trend: buildStatTrend(
+        statPeriods.todayCount,
+        statPeriods.previousDayCount,
+        "عن اليوم الماضي",
+      ),
+    },
     {
       title: "إجمالي المرضى",
       value: doctorPatientsCount ?? getUniquePatientsCount(appointments),
-      subtitle: "حسب عدد الخطط العلاجية",
-    },
-    {
-      title: "مواعيد اليوم",
-      value: todayAppointments.length,
-      subtitle: "من حجوزات اليوم",
+      trend: buildStatTrend(
+        getUniquePatientsCount(statPeriods.currentMonthAppointments),
+        getUniquePatientsCount(statPeriods.previousMonthAppointments),
+        "عن الشهر الماضي",
+      ),
     },
     {
       title: "إجمالي الحجوزات",
       value: appointments.length,
-      subtitle: "كل المواعيد المرتبطة بك",
+      trend: buildStatTrend(
+        statPeriods.currentMonthAppointments.length,
+        statPeriods.previousMonthAppointments.length,
+        "عن الشهر الماضي",
+      ),
     },
     {
-      title: "المواعيد المتاحة",
-      value: availableSlots.length,
-      subtitle: "من جدول الأوقات المتاحة",
+      title: "إجمالي الإيرادات",
+      value: totalRevenue,
+      trend: buildStatTrend(
+        statPeriods.currentMonthRevenue,
+        statPeriods.previousMonthRevenue,
+        "عن الشهر الماضي",
+      ),
     },
   ].map((item, index) => ({ ...item, ...statStyles[index] }));
 
@@ -473,7 +618,10 @@ export default function DoctorDashboard() {
         .catch((activityError) => {
           if (mounted) {
             setActivitiesError(
-              activityError?.message || "تعذر تحميل سجل النشاطات",
+              getArabicDashboardError(
+                activityError,
+                "تعذر تحميل سجل النشاطات",
+              ),
             );
           }
         })
@@ -558,7 +706,7 @@ export default function DoctorDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2 xl:grid-cols-4" dir="rtl">
           {dashboardStats.map((item) => (
             <StatCard key={item.title} loading={loading} {...item} />
           ))}
@@ -660,27 +808,37 @@ function Header({ doctorName }) {
   );
 }
 
-function StatCard({ title, value, subtitle, icon: Icon, color, bg, loading }) {
+function StatCard({ title, value, trend, icon: Icon, color, bg, loading }) {
+  const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp;
+  const trendColor =
+    trend?.direction === "down" ? "text-[#e53935]" : "text-[#4bb543]";
+
   return (
-    <article className="relative h-[132px] rounded-[8px] bg-white pb-[15px] pl-[30px] pr-[20px] pt-[20px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+    <article className="relative min-h-[148px] rounded-[12px] bg-white px-[22px] py-[20px] shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <span
-        className={`absolute left-[30px] top-1/2 grid h-[46px] w-[46px] -translate-y-1/2 place-items-center rounded-[8px] ${bg} ${color}`}
+        className={`absolute left-[24px] top-[28px] grid h-[58px] w-[58px] place-items-center rounded-[14px] ${bg} ${color}`}
       >
-        <Icon size={24} strokeWidth={2} />
+        <Icon size={30} strokeWidth={2} />
       </span>
 
       <div className="text-right" dir="rtl">
-        <p className="text-[13px] leading-5 text-[#333] dark:text-gray-100">
+        <p className="text-[18px] font-medium leading-7 text-[#333] dark:text-gray-100">
           {title}
         </p>
-        <h3 className="text-[17px] font-bold leading-6 text-[#2e2e2e] dark:text-white">
-          {loading ? "..." : value}
+        <h3 className="mt-[8px] text-[30px] font-bold leading-9 text-[#2e2e2e] dark:text-white">
+          {loading ? "..." : formatStatValue(value)}
         </h3>
       </div>
 
-      <p className="mt-[28px] text-right text-[10px] leading-4 text-[#777] dark:text-gray-300">
-        {subtitle}
-      </p>
+      {trend && (
+        <div className="mt-[26px] flex items-center justify-start gap-[8px] text-[15px] font-medium">
+          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
+          <span dir="ltr" className={trendColor}>
+            {trend.percent}
+          </span>
+          <TrendIcon size={18} strokeWidth={2.4} className={trendColor} />
+        </div>
+      )}
     </article>
   );
 }

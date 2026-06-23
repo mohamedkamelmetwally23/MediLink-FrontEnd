@@ -68,6 +68,7 @@ const fallbackPatients = {
 
 const MAX_MEDICAL_TEXT_LENGTH = 500;
 const MAX_MEDICINE_FIELD_LENGTH = 50;
+const MEDICINE_FIELD_ORDER = ["name", "dose", "schedule", "duration"];
 
 function limitText(value, maxLength) {
   return String(value || "").slice(0, maxLength);
@@ -318,6 +319,32 @@ function createEmptyMedicineRow(id = Date.now()) {
     schedule: "",
     duration: "",
   };
+}
+
+function isMedicineRowStarted(row) {
+  return MEDICINE_FIELD_ORDER.some((field) => String(row[field] || "").trim());
+}
+
+function isMedicineRowComplete(row) {
+  return MEDICINE_FIELD_ORDER.every((field) => String(row[field] || "").trim());
+}
+
+function getArabicPatientProfileError(error, fallback) {
+  const message = String(error?.message || "").trim();
+
+  if (!message) return fallback;
+  if (/[\u0600-\u06FF]/.test(message)) return message;
+  if (/network|fetch|timeout|failed/i.test(message)) {
+    return "تعذر الاتصال بالخادم، حاول مرة أخرى";
+  }
+  if (/appointment|booking|visit/i.test(message)) {
+    return "تعذر تحديث بيانات الزيارة، حاول مرة أخرى";
+  }
+  if (/unauthorized|forbidden|token|auth/i.test(message)) {
+    return "انتهت الجلسة، سجل الدخول مرة أخرى";
+  }
+
+  return fallback;
 }
 
 const menuItems = [
@@ -582,11 +609,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
       currentAppointment?.id ||
       location.state?.appointmentId ||
       "";
-    const medicines = medicineRows.filter((row) =>
-      [row.name, row.dose, row.schedule, row.duration].some((value) =>
-        String(value || "").trim(),
-      ),
-    );
+    const medicines = medicineRows.filter(isMedicineRowComplete);
     if (!appointmentId) {
       toast.error("جاري تحميل بيانات الموعد، حاول مرة أخرى");
       return;
@@ -608,7 +631,9 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
       toast.success("تم إنهاء الزيارة وحفظ البيانات");
       window.location.replace("/doctor/dashboard");
     } catch (error) {
-      toast.error(error.message || "تعذر حفظ بيانات الزيارة");
+      toast.error(
+        getArabicPatientProfileError(error, "تعذر حفظ بيانات الزيارة"),
+      );
     } finally {
       setIsSavingVisit(false);
     }
@@ -1333,7 +1358,7 @@ function DiagnosisStep({
   const diagnosisRef = useRef(diagnosis);
   // First recording fills the diagnosis; every recording after it becomes a note.
   const hasDiagnosisRef = useRef(Boolean(diagnosis && diagnosis.trim()));
-  const canGoNext = diagnosis.trim().length > 0;
+  const canGoNext = diagnosis.trim().length > 0 && notes.trim().length > 0;
 
   useEffect(() => {
     notesRef.current = notes;
@@ -1565,11 +1590,45 @@ function MedicinesStep({
   onNext,
 }) {
   const dateInputRef = useRef(null);
-  const canGoNext = medicineRows.some((row) =>
-    [row.name, row.dose, row.schedule, row.duration].some((value) =>
-      String(value || "").trim(),
-    ),
-  );
+  const medicineInputRefs = useRef({});
+  const startedMedicineRows = medicineRows.filter(isMedicineRowStarted);
+  const canGoNext =
+    startedMedicineRows.length > 0 &&
+    startedMedicineRows.every(isMedicineRowComplete);
+
+  const setMedicineInputRef = (rowId, field) => (node) => {
+    const key = `${rowId}-${field}`;
+
+    if (node) {
+      medicineInputRefs.current[key] = node;
+    } else {
+      delete medicineInputRefs.current[key];
+    }
+  };
+
+  const focusMedicineInput = (rowId, field) => {
+    window.setTimeout(() => {
+      medicineInputRefs.current[`${rowId}-${field}`]?.focus();
+    }, 0);
+  };
+
+  const handleMedicineEnter = (event, rowId, field) => {
+    event.preventDefault();
+
+    const rowIndex = medicineRows.findIndex((row) => row.id === rowId);
+    const fieldIndex = MEDICINE_FIELD_ORDER.indexOf(field);
+    const nextField = MEDICINE_FIELD_ORDER[fieldIndex + 1];
+
+    if (nextField) {
+      focusMedicineInput(rowId, nextField);
+      return;
+    }
+
+    const nextRow = medicineRows[rowIndex + 1];
+    if (nextRow) {
+      focusMedicineInput(nextRow.id, MEDICINE_FIELD_ORDER[0]);
+    }
+  };
 
   const updateMedicine = (id, key, value) => {
     onMedicineRowsChange((currentRows) =>
@@ -1582,13 +1641,7 @@ function MedicinesStep({
   const addMedicine = () => {
     onMedicineRowsChange((currentRows) => [
       ...currentRows,
-      {
-        id: Date.now(),
-        name: "",
-        dose: "",
-        schedule: "",
-        duration: "",
-      },
+      createEmptyMedicineRow(),
     ]);
   };
 
@@ -1675,19 +1728,27 @@ function MedicinesStep({
                   </button>
                   <MedicineInput
                     value={row.duration}
+                    inputRef={setMedicineInputRef(row.id, "duration")}
                     onChange={(value) => updateMedicine(row.id, "duration", value)}
+                    onEnter={(event) => handleMedicineEnter(event, row.id, "duration")}
                   />
                   <MedicineInput
                     value={row.schedule}
+                    inputRef={setMedicineInputRef(row.id, "schedule")}
                     onChange={(value) => updateMedicine(row.id, "schedule", value)}
+                    onEnter={(event) => handleMedicineEnter(event, row.id, "schedule")}
                   />
                   <MedicineInput
                     value={row.dose}
+                    inputRef={setMedicineInputRef(row.id, "dose")}
                     onChange={(value) => updateMedicine(row.id, "dose", value)}
+                    onEnter={(event) => handleMedicineEnter(event, row.id, "dose")}
                   />
                   <MedicineInput
                     value={row.name}
+                    inputRef={setMedicineInputRef(row.id, "name")}
                     onChange={(value) => updateMedicine(row.id, "name", value)}
+                    onEnter={(event) => handleMedicineEnter(event, row.id, "name")}
                     dir="ltr"
                   />
                 </div>
@@ -1748,13 +1809,19 @@ function MedicinesStep({
   );
 }
 
-function MedicineInput({ value, onChange, dir = "rtl" }) {
+function MedicineInput({ value, onChange, onEnter, inputRef, dir = "rtl" }) {
   return (
     <input
+      ref={inputRef}
       value={value}
       onChange={(event) =>
         onChange(limitText(event.target.value, MAX_MEDICINE_FIELD_LENGTH))
       }
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          onEnter?.(event);
+        }
+      }}
       maxLength={MAX_MEDICINE_FIELD_LENGTH}
       dir={dir}
       className="h-[52px] min-w-0 rounded-[8px] bg-[#fafafa] px-[14px] text-right text-[18px] text-[#333] outline-none dark:bg-[#3d3d3d] dark:text-gray-100 sm:text-[20px]"
@@ -1770,11 +1837,7 @@ function SummaryStep({
   onFinish,
   isSaving,
 }) {
-  const visibleMedicineRows = medicineRows.filter((row) =>
-    [row.name, row.dose, row.schedule, row.duration].some((value) =>
-      String(value || "").trim(),
-    ),
-  );
+  const visibleMedicineRows = medicineRows.filter(isMedicineRowComplete);
 
   return (
     <section className="mt-[48px] min-h-[720px] lg:mt-[82px]">
