@@ -13,7 +13,8 @@ import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
   deletePatient,
-  listPatients,
+  getUserAppointmentsCount,
+  listPatientsForReceptionist,
   updatePatient,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
@@ -79,11 +80,37 @@ export default function ReceptionistPatientsPage() {
   useEffect(() => {
     let mounted = true;
 
-    listPatients()
-      .then((items) => {
+    listPatientsForReceptionist()
+      .then(async (items) => {
+        const patientsWithCounts = await Promise.all(
+          items.map(async (patient) => {
+            const userId =
+              patient.userId ||
+              patient.raw?.user?._id ||
+              patient.raw?.user?.id ||
+              "";
+
+            if (!userId) return patient;
+
+            try {
+              const counts = await getUserAppointmentsCount(userId);
+              return {
+                ...patient,
+                appointmentCounts: counts,
+                casesCount: counts.completed,
+                appointmentsCount: counts.total,
+                completedAppointmentsCount: counts.completed,
+                cancelledAppointmentsCount: counts.cancelled,
+              };
+            } catch {
+              return patient;
+            }
+          }),
+        );
+
         if (!mounted) return;
-        saveCachedPatients(items);
-        setPatients(items);
+        saveCachedPatients(patientsWithCounts);
+        setPatients(patientsWithCounts);
       })
       .catch(() => {
         if (!mounted) return;
@@ -381,6 +408,11 @@ function PatientRow({
   onToggleStatus,
 }) {
   const status = getActiveStatus(patient);
+  const activityUserId =
+    patient.userId ||
+    patient.raw?.user?._id ||
+    patient.raw?.user?.id ||
+    "";
 
   return (
     <div
@@ -425,7 +457,7 @@ function PatientRow({
         </button>
       </div>
       <Link
-        to={`/receptionist/patients/${patient.id}/profile`}
+        to={`/receptionist/patients/${patient.id}/profile?userId=${encodeURIComponent(activityUserId)}`}
         aria-label="عرض المريض"
         className="grid h-full place-items-center text-[#333] transition hover:text-[#24b9d6] dark:text-white"
       >

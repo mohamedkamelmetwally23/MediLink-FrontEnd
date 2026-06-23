@@ -1589,6 +1589,18 @@ export async function listPatients() {
   }
 }
 
+export async function listPatientsForReceptionist() {
+  const response = await apiRequest("/patient?limit=50");
+  const patients = findArray(response, [
+    "patients",
+    "patient",
+    "allPatients",
+    "allPatient",
+  ]);
+
+  return patients.map(normalizePatient);
+}
+
 function patientFromDoctorPatientItem(item = {}) {
   const source =
     item.patient ||

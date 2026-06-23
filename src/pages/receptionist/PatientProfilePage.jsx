@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CalendarCheck, ChevronRight, ClipboardList, UserRound } from "lucide-react";
 import patientAvatar from "../../assets/landingPage/admin.png";
-import { listPatients } from "../../services/medilinkApi";
+import ActivityList from "../../components/admin/ActivityList";
+import {
+  getUserAppointmentsCount,
+  listPatientActivities,
+  listPatientsForReceptionist,
+} from "../../services/medilinkApi";
 
 const fallbackPatient = {
   id: "demo-patient-profile",
@@ -91,13 +96,18 @@ function isPermissionError(error) {
 
 export default function ReceptionistPatientProfilePage() {
   const { patientId } = useParams();
+  const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [appointmentCounts, setAppointmentCounts] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
-    listPatients()
+    listPatientsForReceptionist()
       .then((items) => {
         if (mounted) setPatients(items);
       })
@@ -122,6 +132,45 @@ export default function ReceptionistPatientProfilePage() {
       ) || fallbackPatient,
     [patientId, patients],
   );
+  const patientUserId =
+    searchParams.get("userId") ||
+    patient.userId ||
+    patient.raw?.user?._id ||
+    patient.raw?.user?.id ||
+    "";
+
+  useEffect(() => {
+    if (!patientUserId) return undefined;
+
+    let mounted = true;
+
+    Promise.allSettled([
+      getUserAppointmentsCount(patientUserId),
+      listPatientActivities(patientUserId, 500),
+    ]).then(([countsResult, activitiesResult]) => {
+      if (!mounted) return;
+
+      if (countsResult.status === "fulfilled") {
+        setAppointmentCounts(countsResult.value);
+      }
+
+      if (activitiesResult.status === "fulfilled") {
+        setActivities(activitiesResult.value);
+        setActivitiesError("");
+      } else {
+        setActivitiesError(
+          activitiesResult.reason?.message ||
+            "تعذر تحميل سجل نشاطات المريض",
+        );
+      }
+
+      setActivitiesLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [patientUserId]);
 
   const infoRows = [
     ["تاريخ الميلاد", formatDate(patient.birthDate)],
@@ -134,17 +183,17 @@ export default function ReceptionistPatientProfilePage() {
   const stats = [
     {
       label: "إجمالي الحجوزات",
-      value: patient.appointmentsCount ?? patient.casesCount ?? 0,
+      value: appointmentCounts?.total ?? 0,
       icon: CalendarCheck,
     },
     {
       label: "الحجوزات المكتملة",
-      value: patient.completedAppointmentsCount ?? 0,
+      value: appointmentCounts?.completed ?? 0,
       icon: ClipboardList,
     },
     {
       label: "الحجوزات الملغية",
-      value: patient.cancelledAppointmentsCount ?? 0,
+      value: appointmentCounts?.cancelled ?? 0,
       icon: UserRound,
     },
   ];
@@ -222,28 +271,17 @@ export default function ReceptionistPatientProfilePage() {
           </section>
         </div>
 
-        <section className="mt-4 rounded-[8px] bg-white p-4 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
-          <h2 className="mb-3 text-right text-[14px] font-bold">
-            النشاط الأخير
+        <section className="mt-4 overflow-hidden rounded-[8px] bg-white py-4 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
+          <h2 className="mb-3 px-6 text-right text-[14px] font-bold">
+            سجل نشاطات المريض
           </h2>
-          <div className="space-y-2">
-            {[
-              "تم حجز موعد جديد",
-              "تم تحديث بيانات المريض",
-              "تم إلغاء حجز سابق",
-              "تم تسجيل دخول للحساب",
-            ].map((activity) => (
-              <div
-                key={activity}
-                className="flex items-center justify-between rounded-[7px] bg-[#f7fbfc] px-3 py-2 text-[12px] dark:bg-white/10"
-              >
-                <span className="font-bold">{activity}</span>
-                <span className="text-[#8a98a0] dark:text-gray-300">
-                  منذ 3 أيام
-                </span>
-              </div>
-            ))}
-          </div>
+          <ActivityList
+            activities={activities}
+            loading={activitiesLoading}
+            error={activitiesError}
+            showRole={false}
+            showActorName={false}
+          />
         </section>
 
         {loading && (

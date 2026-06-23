@@ -261,7 +261,7 @@ export default function ReceptionistDoctorProfilePage() {
               />
               <MiniStat
                 icon={CalendarCheck}
-                label="الحجوزات المكتملة"
+                label="إجمالي الحجوزات"
                 value={completedAppointments ?? 0}
               />
               <MiniStat
