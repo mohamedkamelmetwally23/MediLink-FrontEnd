@@ -44,6 +44,78 @@ function getDateYearsAgo(years, daysToAdd = 0) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function getAge(birthDate) {
+  const date = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return Number.NaN;
+
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDifference = today.getMonth() - date.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < date.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+function getDoctorMaxExperience(birthDate) {
+  const age = getAge(birthDate);
+  return Number.isInteger(age) ? Math.max(0, age - 27) : 60;
+}
+
+function normalizeDateInputValue(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getInitialFormValues(initialData) {
+  const nextValues = { ...initialValues, ...initialData };
+
+  return {
+    ...nextValues,
+    birthDate: normalizeDateInputValue(nextValues.birthDate),
+    experience: nextValues.experience ?? nextValues.experienceYears ?? "",
+  };
+}
+
+function isPhoneAlreadyExistsError(error) {
+  const details = [
+    error?.message,
+    error?.originalMessage,
+    error?.data,
+  ]
+    .map((item) => {
+      if (!item) return "";
+      return typeof item === "string" ? item : JSON.stringify(item);
+    })
+    .join(" ")
+    .toLowerCase();
+
+  const mentionsPhone =
+    details.includes("phone") ||
+    details.includes("mobile") ||
+    details.includes("رقم الهاتف") ||
+    details.includes("الهاتف");
+  const mentionsDuplicate =
+    details.includes("exist") ||
+    details.includes("already") ||
+    details.includes("duplicate") ||
+    details.includes("registered") ||
+    details.includes("used") ||
+    details.includes("موجود") ||
+    details.includes("مستخدم");
+
+  return mentionsPhone && mentionsDuplicate;
+}
+
 function hasCreateInput(values) {
   return [
     values.firstName,
@@ -71,13 +143,13 @@ export default function DoctorForm({
 }) {
   const navigate = useNavigate();
   const { specialties, getSpecialtyId } = useSpecialtiesStore();
-  const [values, setValues] = useState({ ...initialValues, ...initialData });
+  const [values, setValues] = useState(() => getInitialFormValues(initialData));
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const maxExperience = getDoctorMaxExperience(values.birthDate);
   const validationOptions = {
     requirePassword: mode === "create",
-    requireBirthDate: mode === "create",
-    ignoreBirthDate: mode === "edit",
+    requireBirthDate: true,
     minAge: 27,
     requireStatus: mode === "create",
   };
@@ -114,6 +186,11 @@ export default function DoctorForm({
         });
         navigate(returnTo);
       } catch (error) {
+        if (mode === "create" && isPhoneAlreadyExistsError(error)) {
+          setErrors({ phone: "رقم الهاتف موجود" });
+          return;
+        }
+
         setErrors({
           general: error.message || "تعذر حفظ بيانات الطبيب",
         });
@@ -134,7 +211,7 @@ export default function DoctorForm({
           : "أدخل بيانات المستخدم ودوره ومواعيد العمل لإضافته إلى النظام.")
       }
     >
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
+      <form noValidate onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
         <Field label="الاسم الأول" error={errors.firstName}>
           <TextInput
             value={values.firstName}
@@ -170,17 +247,16 @@ export default function DoctorForm({
           </SelectInput>
         </Field>
 
-        {mode === "create" && (
-          <Field label="تاريخ الميلاد" error={errors.birthDate} className="lg:col-span-2">
-            <DateInput
-              value={values.birthDate}
-              min={getDateYearsAgo(76, 1)}
-              max={getDateYearsAgo(27)}
-              error={errors.birthDate}
-              onChange={(event) => setField("birthDate", event.target.value)}
-            />
-          </Field>
-        )}
+        <Field label="تاريخ الميلاد" error={errors.birthDate} className="lg:col-span-2">
+          <DateInput
+            value={values.birthDate}
+            min={getDateYearsAgo(76, 1)}
+            max={getDateYearsAgo(27)}
+            error={errors.birthDate}
+            disabled={mode === "edit"}
+            onChange={(event) => setField("birthDate", event.target.value)}
+          />
+        </Field>
 
         <Field label="رقم الهاتف" error={errors.phone} className="lg:col-span-2">
           <TextInput
@@ -198,7 +274,10 @@ export default function DoctorForm({
               <TextInput
                 value={values.experience}
                 error={errors.experience}
+                type="number"
                 inputMode="numeric"
+                min={0}
+                max={maxExperience}
                 className="pl-16"
                 onChange={(event) => setField("experience", event.target.value)}
               />

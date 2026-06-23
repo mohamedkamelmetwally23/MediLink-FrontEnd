@@ -1,6 +1,12 @@
 import { FaStar } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../hooks/useDoctors";
+import {
+  defaultDoctorAvatar,
+  getDoctorImage,
+  getDoctorName,
+  getDoctorRating,
+  useDoctors,
+} from "../hooks/useDoctors";
 
 function DoctorsSkeleton() {
   return (
@@ -91,7 +97,17 @@ export default function Doctors() {
                 onClick={() => openDoctorProfile(doctor)}
                 className="reveal-item flex min-h-[280px] w-[255px] shrink-0 snap-start flex-col items-center overflow-hidden rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] px-5 pb-5 pt-3 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#494949] dark:to-[#383838]"
               >
-                <img src={getDoctorImage(doctor, index)} alt={getDoctorName(doctor)} className="h-40 w-full object-contain object-bottom" />
+                <img
+                  src={getDoctorImage(doctor)}
+                  alt={getDoctorName(doctor)}
+                  className="h-40 w-full rounded-2xl object-contain object-bottom"
+                  onError={(event) => {
+                    if (event.currentTarget.dataset.fallbackApplied) return;
+
+                    event.currentTarget.dataset.fallbackApplied = "true";
+                    event.currentTarget.src = defaultDoctorAvatar;
+                  }}
+                />
                 <p className="mt-2 text-lg font-bold dark:text-[#F0F0F0]">{getDoctorName(doctor)}</p>
                 <p className="min-h-9 text-xs leading-5 text-[#6D6D6D] dark:text-[#BDBDBD]">{doctor.specialty || "طب عام"}</p>
                 <div className="mt-auto flex items-center gap-3 text-sm text-[#555555] dark:text-[#E0E0E0]">

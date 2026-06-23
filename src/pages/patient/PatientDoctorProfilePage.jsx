@@ -132,7 +132,7 @@ function DoctorProfile({ doctor, canBook, onBook }) {
 
   return (
     <main className="mx-auto w-full max-w-[1280px] px-4 py-10 sm:px-6 md:py-14 lg:px-10">
-      <section className="grid overflow-hidden rounded-3xl bg-[#EFFBFA] px-5 pt-7 dark:bg-[#354746] sm:px-8 md:grid-cols-[1fr_.9fr] md:items-center md:px-12 md:pt-0 lg:min-h-[430px]">
+      <section className="grid overflow-hidden rounded-3xl bg-[#EFFBFA] px-5 pt-7 dark:bg-[#354746] sm:px-8 md:grid-cols-[1fr_.9fr] md:items-stretch md:px-12 md:pt-0 lg:min-h-[430px]">
         <div className="order-2 pb-9 text-center md:order-1 md:py-12">
           <h1 className="text-3xl font-extrabold sm:text-4xl lg:text-5xl">{getDoctorName(doctor)}</h1>
           <p className="mt-3 text-xl text-[#8A8A8A] dark:text-[#C8D5D4] sm:text-2xl">{doctor.specialty || "طب عام"}</p>
@@ -154,11 +154,11 @@ function DoctorProfile({ doctor, canBook, onBook }) {
           )}
         </div>
 
-        <div className="relative order-1 mx-auto flex h-[300px] w-full max-w-[430px] items-end justify-center md:order-2 md:h-[430px]">
+        <div className="relative order-1 mx-auto flex h-[300px] w-full max-w-[430px] items-stretch justify-center py-4 md:order-2 md:h-full md:min-h-[430px] md:py-5">
           <span className="absolute right-[10%] top-[20%] size-32 rounded-full bg-[#20B7D8] sm:size-44" />
           <span className="absolute left-[10%] top-[20%] size-12 rounded-full bg-[#2364AA]" />
           <span className="absolute bottom-[8%] left-[7%] size-24 rounded-full bg-[#74D2DF]" />
-          <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="relative z-10 h-[96%] w-full object-contain object-bottom" />
+          <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="relative z-10 h-full w-full rounded-2xl object-cover object-center" />
         </div>
       </section>
 

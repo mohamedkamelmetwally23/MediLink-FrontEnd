@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import avatar from "../../assets/patient departement/default-patient-avatar.svg";
+import { clearAuthSession } from "../../services/authApi";
 import {
+  deletePatient,
   getCurrentAuthUser,
   getCurrentUser,
   getMyPatientProfile,
@@ -137,6 +139,9 @@ export default function PatientProfilePage() {
   const [medicalReportsList, setMedicalReportsList] = useState([]);
   const [files, setFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null);
+  const patientProfileId = routePatientId || currentPatientId(authUser);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -228,6 +233,23 @@ export default function PatientProfilePage() {
     }
   };
 
+  const confirmDeleteAccount = async () => {
+    if (!patientProfileId) return;
+
+    setIsDeletingAccount(true);
+    try {
+      await deletePatient(patientProfileId);
+      clearAuthSession();
+      toast.success("تم حذف الحساب بنجاح");
+      navigate("/login", { replace: true });
+    } catch (error) {
+      toast.error(error.message || "تعذر حذف الحساب، حاول مرة أخرى");
+      setDeleteAccountOpen(false);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-[#FCFCFC] text-[#333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]"
@@ -237,31 +259,31 @@ export default function PatientProfilePage() {
       <main className="mx-auto w-full max-w-[1280px] px-4 py-12 sm:px-6 md:py-16 lg:px-10">
         <section className="rounded-2xl bg-white px-4 py-10 shadow-[0_4px_24px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:px-8 md:px-12">
           <PatientSummary patient={patient} />
-          <PatientStats patient={patient} />
-
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {[
-              { label: "احجز موعد جديد", action: () => window.dispatchEvent(new CustomEvent("medilink-open-assistant", { detail: { message: "احجز موعد" } })), primary: true },
-              { label: "مواعيدي", action: () => changeTab("appointments") },
-              { label: "الملفات الطبية", action: () => changeTab("files") },
-              { label: "السجل المرضي", action: () => changeTab("records") },
-              { label: "الوصفات الطبية", action: () => changeTab("prescriptions") },
-              { label: "معلوماتي", action: () => changeTab("extra") },
-            ].map(({ label, action, primary }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={action}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                  primary
-                    ? "bg-[#20B7D5] text-white hover:brightness-105"
-                    : "border border-[#20B7D5]/60 text-[#20B7D5] hover:bg-[#20B7D5]/10 dark:border-[#20B7D5]/40"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="mx-auto mt-6 grid max-w-[1050px] gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/patient/${encodeURIComponent(patientProfileId)}/profile/edit`,
+                )
+              }
+              className="h-12 rounded-xl border-2 border-[#20B7D5] font-bold text-[#20B7D5] transition hover:bg-[#20B7D5]/10 dark:border-[#63D0DB] dark:text-[#63D0DB]"
+            >
+              تعديل البيانات الشخصية
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/patient/${encodeURIComponent(patientProfileId)}/profile/change-password`,
+                )
+              }
+              className="h-12 rounded-xl border-2 border-[#20B7D5] font-bold text-[#20B7D5] transition hover:bg-[#20B7D5]/10 dark:border-[#63D0DB] dark:text-[#63D0DB]"
+            >
+              تغيير كلمة المرور
+            </button>
           </div>
+          <PatientStats patient={patient} />
 
           <ProfileTabs activeTab={activeTab} onChange={changeTab} />
 
@@ -349,17 +371,24 @@ export default function PatientProfilePage() {
             )}
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 space-y-4">
             <button
               type="button"
               onClick={() =>
                 navigate(
-                  `/patient/${routePatientId}/patientinformation?edit=true`,
+                  `/patient/${encodeURIComponent(patientProfileId)}/patientinformation?edit=true`,
                 )
               }
-              className="w-full rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]"
+              className="h-12 w-full rounded-xl border-2 border-[#20B7D5] font-bold text-[#20B7D5] transition hover:bg-[#20B7D5]/10 dark:border-[#63D0DB] dark:text-[#63D0DB]"
             >
-              تعديل البيانات
+              تعديل المعلومات
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteAccountOpen(true)}
+              className="h-12 w-full rounded-xl border-2 border-[#D92727] font-bold text-[#D92727] transition hover:bg-red-50 dark:hover:bg-red-950/20"
+            >
+              حذف الحساب
             </button>
           </div>
         </section>
@@ -414,6 +443,39 @@ export default function PatientProfilePage() {
                 type="button"
                 disabled={isCancelling}
                 onClick={() => setCancelTarget(null)}
+                className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-[#555] transition hover:bg-gray-50 disabled:opacity-60 dark:border-[#555] dark:text-[#ccc] dark:hover:bg-[#444]"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteAccountOpen && (
+        <div
+          className="fixed inset-0 z-[200] grid place-items-center bg-black/50 px-4"
+          dir="rtl"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-7 text-center shadow-2xl dark:bg-[#383838]">
+            <p className="text-lg font-bold text-[#333] dark:text-white">
+              حذف الحساب
+            </p>
+            <p className="mt-2 text-sm text-[#666] dark:text-[#ccc]">
+              هل أنت متأكد من حذف حسابك؟ لا يمكن التراجع عن هذه الخطوة.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={confirmDeleteAccount}
+                className="h-11 rounded-xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {isDeletingAccount ? "جاري الحذف..." : "نعم، حذف"}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => setDeleteAccountOpen(false)}
                 className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-[#555] transition hover:bg-gray-50 disabled:opacity-60 dark:border-[#555] dark:text-[#ccc] dark:hover:bg-[#444]"
               >
                 تراجع

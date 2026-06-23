@@ -175,8 +175,7 @@ export function PatientEditProfilePage() {
 
           <div className="mt-6"><EditField label="رقم الهاتف" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value.replace(/\D/g, "") }))} inputMode="tel" disabled /></div>
 
-          <button type="button" onClick={() => navigate(`/patient/${encodeURIComponent(patientId)}/profile/change-password`)} className={`mt-8 h-13 w-full rounded-xl font-bold text-white ${gradient}`}>تغيير كلمة المرور</button>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <button type="button" onClick={() => navigate(-1)} className="h-13 rounded-xl border-2 border-[#20B7D5] font-bold text-[#20B7D5]">إلغاء</button>
             <button type="button" disabled={!canSave || saving} onClick={save} className={`h-13 rounded-xl font-bold text-white disabled:bg-[#BDBDBD] ${canSave ? gradient : ""}`}>{saving ? "جاري الحفظ..." : "حفظ التعديلات"}</button>
           </div>
