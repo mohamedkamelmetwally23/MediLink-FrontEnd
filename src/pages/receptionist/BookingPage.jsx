@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Banknote,
+  CalendarDays,
   Check,
+  CheckCircle2,
   ChevronRight,
+  Clock3,
   CreditCard,
+  HandCoins,
   Search,
   ShieldCheck,
-  Smartphone,
+  WalletCards,
   UserRound,
 } from "lucide-react";
 import {
@@ -44,27 +47,42 @@ const paymentOptions = [
   {
     id: "cash",
     label: "دفع كاش داخل العيادة",
-    icon: Banknote,
+    icon: HandCoins,
     hint: "",
   },
   {
     id: "card",
     label: "بطاقة بنكية",
     icon: CreditCard,
-    hint: "VISA",
+    hint: "",
   },
   {
     id: "wallet",
     label: "محفظة إلكترونية",
-    icon: Smartphone,
-    hint: "meza",
+    icon: WalletCards,
+    hint: "",
   },
   {
     id: "instapay",
     label: "انستا باي",
     icon: ShieldCheck,
-    hint: "instapay",
+    hint: "",
   },
+];
+
+const months = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
 ];
 
 function getPersonName(person = {}) {
@@ -72,6 +90,16 @@ function getPersonName(person = {}) {
     person.name ||
     [person.firstName, person.lastName].filter(Boolean).join(" ").trim()
   );
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function getBirthDateInputValue({ day, month, year }) {
+  if (!day || !month || !year) return "";
+
+  return `${year}-${padDatePart(month)}-${padDatePart(day)}`;
 }
 
 function splitPatientName(name = "") {
@@ -134,6 +162,20 @@ function formatMonthYear(value) {
   const month = date.toLocaleDateString("ar-EG", { month: "long" });
 
   return `${month} ${date.getFullYear()}`;
+}
+
+function normalizeGender(value) {
+  const gender = String(value || "").trim().toLowerCase();
+
+  if (gender === "female" || gender === "أنثى" || gender === "انثى") {
+    return "female";
+  }
+
+  if (gender === "male" || gender === "ذكر") {
+    return "male";
+  }
+
+  return "";
 }
 
 function normalizeSlotStatus(status = "") {
@@ -454,6 +496,7 @@ export default function ReceptionistBookingPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentStatus, setPaymentStatus] = useState("paid");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [createdAppointment, setCreatedAppointment] = useState(null);
@@ -620,7 +663,9 @@ export default function ReceptionistBookingPage() {
         slot.time === selectedTime &&
         isSlotAvailableForDate(slot, selectedDate, currentDateTime),
     );
-  const canContinuePayment = Boolean(paymentMethod);
+  const canContinuePayment = Boolean(
+    paymentStatus && (paymentStatus === "unpaid" || paymentMethod),
+  );
 
   const fillPatientFields = useCallback((patient, phoneValue = "") => {
     const name = getPersonName(patient);
@@ -629,7 +674,7 @@ export default function ReceptionistBookingPage() {
     setSelectedPatient(patient);
     setPatientName(name);
     setPatientPhone(phoneValue || getPatientPhone(patient));
-    setPatientGender(patient.gender || "");
+    setPatientGender(normalizeGender(patient.gender));
     setBirthDay(birthDate.day);
     setBirthMonth(birthDate.month);
     setBirthYear(birthDate.year);
@@ -683,6 +728,7 @@ export default function ReceptionistBookingPage() {
     setSubmitting(true);
     setSubmitError("");
 
+    const isPaidPayment = paymentStatus === "paid";
     const payload = {
       firstName: patientNameParts.firstName,
       lastName: patientNameParts.lastName,
@@ -695,6 +741,9 @@ export default function ReceptionistBookingPage() {
       date: formatApiDate(selectedDate),
       slotTime: selectedTime,
       reason: bookingReason.trim(),
+      paymentMethod: isPaidPayment ? paymentMethod : "unpaid",
+      paymentStatus,
+      amount: isPaidPayment ? consultationFee : 0,
     };
 
     const completeBooking = (created = {}) => {
@@ -705,9 +754,9 @@ export default function ReceptionistBookingPage() {
         doctorName: created.doctor || getPersonName(selectedDoctor),
         patientName: created.patient || patientName,
         slotTime: created.time || created.slotTime || payload.slotTime,
-        paymentMethod,
-        paymentStatus: "paid",
-        amount: consultationFee,
+        paymentMethod: payload.paymentMethod,
+        paymentStatus,
+        amount: payload.amount,
       });
       setCurrentStep(4);
     };
@@ -801,10 +850,12 @@ export default function ReceptionistBookingPage() {
             {currentStep === 3 && (
               <PaymentStep
                 paymentMethod={paymentMethod}
+                paymentStatus={paymentStatus}
                 submitting={submitting}
                 error={submitError}
                 canContinue={canContinuePayment}
                 onPaymentMethodChange={setPaymentMethod}
+                onPaymentStatusChange={setPaymentStatus}
                 onCancel={() => setCurrentStep(2)}
                 onNext={handleSubmitBooking}
               />
@@ -892,11 +943,33 @@ function PatientStep({
   onBirthYearChange,
   onNext,
 }) {
+  const birthDateInputRef = useRef(null);
   const nameParts = splitPatientName(patientName);
   const updatePatientName = (nextParts) => {
     onPatientNameChange(
       [nextParts.firstName, nextParts.lastName].filter(Boolean).join(" "),
     );
+  };
+  const openBirthDatePicker = () => {
+    const input = birthDateInputRef.current;
+
+    if (!input) return;
+
+    input.focus({ preventScroll: true });
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.click();
+  };
+  const handleBirthDateChange = (event) => {
+    const [year = "", month = "", day = ""] = event.target.value.split("-");
+
+    onBirthDayChange(day ? String(Number(day)) : "");
+    onBirthMonthChange(month ? String(Number(month)) : "");
+    onBirthYearChange(year);
   };
 
   return (
@@ -930,39 +1003,20 @@ function PatientStep({
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <SelectField
+            <GenderButtonField
               label="النوع"
               value={patientGender}
               onChange={onPatientGenderChange}
-            >
-              <option value="">اختر النوع</option>
-              <option value="male">male</option>
-              <option value="female">female</option>
-            </SelectField>
+            />
 
-            <div className="grid grid-cols-3 gap-3">
-              <InputField
-                label="اليوم"
-                value={birthDay}
-                onChange={onBirthDayChange}
-                placeholder="25"
-                type="number"
-              />
-              <InputField
-                label="الشهر"
-                value={birthMonth}
-                onChange={onBirthMonthChange}
-                placeholder="2"
-                type="number"
-              />
-              <InputField
-                label="السنة"
-                value={birthYear}
-                onChange={onBirthYearChange}
-                placeholder="2002"
-                type="number"
-              />
-            </div>
+            <BirthDateField
+              inputRef={birthDateInputRef}
+              day={birthDay}
+              month={birthMonth}
+              year={birthYear}
+              onOpen={openBirthDatePicker}
+              onChange={handleBirthDateChange}
+            />
           </div>
 
           <PrimaryButton disabled={!canContinue} onClick={onNext}>
@@ -1171,7 +1225,7 @@ function BookingDetailsStep({
               label="سبب الزيارة"
               value={reason}
               onChange={onReasonChange}
-              placeholder="reason is this"
+              placeholder="اكتب سبب الزيارة هنا"
             />
           </FormCard>
         </div>
@@ -1189,15 +1243,17 @@ function BookingDetailsStep({
 
 function PaymentStep({
   paymentMethod,
+  paymentStatus,
   submitting,
   error,
   canContinue,
   onPaymentMethodChange,
+  onPaymentStatusChange,
   onCancel,
   onNext,
 }) {
-  const isPaid = Boolean(paymentMethod);
-  const isUnpaid = false;
+  const isPaid = paymentStatus === "paid";
+  const isUnpaid = paymentStatus === "unpaid";
 
   return (
     <div className="mx-auto max-w-[900px]">
@@ -1215,23 +1271,28 @@ function PaymentStep({
           <div className="space-y-4">
             {paymentOptions.map((option) => {
               const Icon = option.icon;
-              const isSelected = paymentMethod === option.id;
+              const isSelected = isPaid && paymentMethod === option.id;
 
               return (
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => onPaymentMethodChange(option.id)}
-                  className={`flex h-[44px] w-full items-center justify-between rounded-[5px] border px-4 text-right transition ${
+                  onClick={() => {
+                    onPaymentMethodChange(option.id);
+                    onPaymentStatusChange("paid");
+                  }}
+                  className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-[8px] border px-4 text-right transition ${
                     isSelected
-                      ? "border-[#24bdd9] bg-white text-[#27343a] shadow-[0_5px_14px_rgba(35,189,217,0.08)]"
-                      : "border-[#edf1f3] bg-white text-[#59666c] hover:border-[#bdeaf3] dark:border-white/10 dark:bg-[#454545] dark:text-gray-200"
+                      ? "border-[#24bdd9] bg-[#f0fcff] text-[#27343a] shadow-[0_8px_18px_rgba(35,189,217,0.12)] dark:bg-[#24484b] dark:text-white"
+                      : "border-[#edf1f3] bg-white text-[#59666c] hover:border-[#bdeaf3] hover:bg-[#fbfeff] dark:border-white/10 dark:bg-[#454545] dark:text-gray-200"
                   }`}
                 >
-                  <span className="text-[12px] font-bold">{option.label}</span>
-                  <span className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#2dbfd9]">
+                  <span className="text-[13px] font-bold">{option.label}</span>
+                  <span className="flex items-center gap-2 text-[10px] font-extrabold text-[#2dbfd9]">
                     {option.hint && <span>{option.hint}</span>}
-                    <Icon size={17} />
+                    <span className="grid h-9 w-9 place-items-center rounded-[9px] bg-[#e8fbff] text-[#10b7d8] dark:bg-white/10">
+                      <Icon size={22} strokeWidth={2.1} />
+                    </span>
                   </span>
                 </button>
               );
@@ -1241,24 +1302,30 @@ function PaymentStep({
 
         <FormCard className="min-h-[138px] px-5 py-5" title="معلومات الدفع">
           <div className="grid grid-cols-2 gap-3">
-            <span
-              className={`flex h-[44px] items-center justify-center rounded-[5px] border text-[12px] font-bold ${
+            <button
+              type="button"
+              onClick={() => onPaymentStatusChange("paid")}
+              className={`flex h-[52px] items-center justify-center gap-2 rounded-[8px] border text-[13px] font-bold transition ${
                 isPaid
-                  ? "border-[#24bdd9] bg-white text-[#27343a]"
-                  : "border-transparent bg-[#f4f4f4] text-[#8b969c] dark:bg-white/10 dark:text-gray-300"
+                  ? "border-[#24bdd9] bg-[#f0fcff] text-[#27343a] shadow-[0_8px_18px_rgba(35,189,217,0.1)] dark:bg-[#24484b] dark:text-white"
+                  : "border-transparent bg-[#f4f4f4] text-[#8b969c] hover:bg-[#eefbfc] dark:bg-white/10 dark:text-gray-300"
               }`}
             >
-              تم الدفع
-            </span>
-            <span
-              className={`flex h-[44px] items-center justify-center rounded-[5px] border text-[12px] font-bold ${
+              <CheckCircle2 size={20} strokeWidth={2.2} />
+              <span>مدفوع</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onPaymentStatusChange("unpaid")}
+              className={`flex h-[52px] items-center justify-center gap-2 rounded-[8px] border text-[13px] font-bold transition ${
                 isUnpaid
-                  ? "border-[#24bdd9] bg-white text-[#27343a]"
-                  : "border-transparent bg-[#f4f4f4] text-[#8b969c] dark:bg-white/10 dark:text-gray-300"
+                  ? "border-[#f6b63a] bg-[#fff8e8] text-[#7c5a10] shadow-[0_8px_18px_rgba(246,182,58,0.12)] dark:bg-[#4b422a] dark:text-[#ffd782]"
+                  : "border-transparent bg-[#f4f4f4] text-[#8b969c] hover:bg-[#fff8e8] dark:bg-white/10 dark:text-gray-300"
               }`}
             >
-              غير مدفوع
-            </span>
+              <Clock3 size={20} strokeWidth={2.2} />
+              <span>غير مدفوع</span>
+            </button>
           </div>
         </FormCard>
       </div>
@@ -1367,20 +1434,90 @@ function InputField({
   );
 }
 
-function SelectField({ label, value, onChange, children }) {
+function BirthDateSegment({ value, placeholder, onClick }) {
   return (
-    <label className="block text-right">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-[46px] w-full items-center justify-end rounded-[8px] border border-transparent bg-[#f0f0f0] px-3 text-right text-[13px] font-bold text-[#27343a] outline-none transition hover:border-[#23bfdd] hover:bg-[#f4fcff] dark:bg-[#4b4b4b] dark:text-white"
+    >
+      <span className={value ? "" : "text-[#a7b0b5]"}>
+        {value || placeholder}
+      </span>
+    </button>
+  );
+}
+
+function BirthDateField({ inputRef, day, month, year, onOpen, onChange }) {
+  const selectedMonth = month ? months[Number(month) - 1] : "";
+
+  return (
+    <div className="block text-right">
+      <span className="mb-2 block text-[13px] font-bold text-[#555] dark:text-gray-200">
+        تاريخ الميلاد
+      </span>
+      <div className="relative grid grid-cols-[1fr_1fr_1fr_46px] gap-3">
+        <BirthDateSegment value={day} placeholder="اليوم" onClick={onOpen} />
+        <BirthDateSegment
+          value={selectedMonth}
+          placeholder="الشهر"
+          onClick={onOpen}
+        />
+        <BirthDateSegment value={year} placeholder="السنة" onClick={onOpen} />
+
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label="فتح تقويم تاريخ الميلاد"
+          className="grid h-[46px] place-items-center rounded-[8px] border border-transparent bg-[#f0f0f0] text-[#66757c] outline-none transition hover:border-[#23bfdd] hover:text-[#0fb8e8] dark:bg-[#4b4b4b] dark:text-gray-200"
+        >
+          <CalendarDays size={19} strokeWidth={2} />
+        </button>
+
+        <input
+          ref={inputRef}
+          type="date"
+          value={getBirthDateInputValue({ day, month, year })}
+          onChange={onChange}
+          min="1900-01-01"
+          max={getIsoDate(new Date())}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="absolute left-3 top-1/2 h-px w-px -translate-y-1/2 opacity-0"
+        />
+      </div>
+    </div>
+  );
+}
+
+function GenderButtonField({ label, value, onChange }) {
+  const options = [
+    { value: "female", label: "أنثى" },
+    { value: "male", label: "ذكر" },
+  ];
+
+  return (
+    <div className="block text-right">
       <span className="mb-2 block text-[13px] font-bold text-[#555] dark:text-gray-200">
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        className="h-[46px] w-full rounded-[4px] border border-transparent bg-[#f0f0f0] px-4 text-right text-[13px] font-bold text-[#27343a] outline-none transition focus:border-[#23bfdd] dark:bg-[#4b4b4b] dark:text-white"
-      >
-        {children}
-      </select>
-    </label>
+      <div className="grid grid-cols-2 gap-3">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange?.(option.value)}
+            className={
+              value === option.value
+                ? "h-[46px] rounded-[8px] border border-transparent bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(24,184,216,0.2)] transition hover:brightness-105"
+                : "h-[46px] rounded-[8px] border border-[#d8d8d8] bg-white text-[13px] font-bold text-[#27343a] transition hover:border-[#23bfdd] hover:bg-[#f4fcff] dark:border-white/15 dark:bg-[#4b4b4b] dark:text-white dark:hover:bg-[#555]"
+            }
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1395,6 +1532,7 @@ function TextAreaField({ label, value, onChange, placeholder = "" }) {
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
         rows={3}
+        dir="rtl"
         className="min-h-[92px] w-full resize-none rounded-[4px] border border-transparent bg-[#f0f0f0] px-4 py-3 text-right text-[13px] font-bold text-[#27343a] outline-none transition placeholder:text-[#a7b0b5] focus:border-[#23bfdd] dark:bg-[#4b4b4b] dark:text-white"
       />
     </label>

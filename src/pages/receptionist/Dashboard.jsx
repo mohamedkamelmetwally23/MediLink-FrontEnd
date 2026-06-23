@@ -4,7 +4,6 @@ import {
   CalendarCheck,
   ChevronLeft,
   Receipt,
-  TrendingUp,
   XCircle,
 } from "lucide-react";
 import patientAvatar from "../../assets/landingPage/admin.png";
@@ -12,7 +11,6 @@ import doctorAvatar from "../../assets/landingPage/doctor1.png";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
   changeAppointmentQueueStatus,
-  getClinicProfits,
   getDoctorQueueByReceptionist,
   listAppointments,
   listDoctorsForReceptionistQueue,
@@ -73,14 +71,6 @@ const statCards = [
     label: "الحجوزات المدفوعة",
     icon: Receipt,
     iconClass: "bg-[#fff3e8] text-[#e07b22]",
-    trend: "",
-    trendClass: "",
-  },
-  {
-    key: "avgFee",
-    label: "متوسط رسوم الموعد",
-    icon: TrendingUp,
-    iconClass: "bg-[#f5ebff] text-[#9b22bf]",
     trend: "",
     trendClass: "",
   },
@@ -151,6 +141,140 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-US").format(value || 0);
 }
 
+function formatStatNumber(value) {
+  const number = Number(value) || 0;
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: Number.isInteger(number) ? 0 : 2,
+  }).format(number);
+}
+
+function getPaymentStatus(appointment) {
+  const raw = appointment.raw || {};
+  const payment = raw.payment || raw.deposit || {};
+
+  return String(
+    payment.status ||
+      raw.paymentStatus ||
+      raw.depositStatus ||
+      appointment.payment ||
+      "",
+  ).toLowerCase();
+}
+
+function isPaidAppointment(appointment) {
+  const status = getPaymentStatus(appointment);
+
+  return (
+    appointment.payment === "paid" ||
+    status === "paid" ||
+    status === "paid_demo" ||
+    status === "success" ||
+    status === "completed"
+  );
+}
+
+function getDoctorLookupIds(doctor = {}) {
+  return [
+    doctor.id,
+    doctor.userId,
+    doctor.profileId,
+    doctor.queueDoctorId,
+    doctor.raw?._id,
+    doctor.raw?.id,
+    doctor.raw?.user?._id,
+    doctor.raw?.user?.id,
+    doctor.raw?.doctor?._id,
+    doctor.raw?.doctor?.id,
+    doctor.raw?.doctorProfile?._id,
+    doctor.raw?.doctorProfile?.id,
+  ]
+    .filter(Boolean)
+    .map(String);
+}
+
+function getEntityId(value) {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+
+  return (
+    value._id ||
+    value.id ||
+    value.user?._id ||
+    value.user?.id ||
+    value.account?._id ||
+    value.account?.id ||
+    ""
+  );
+}
+
+function getAppointmentDoctorLookupIds(appointment = {}) {
+  const raw = appointment.raw || {};
+  const doctor = raw.doctor || raw.doctorId || {};
+
+  return [
+    appointment.doctorId,
+    raw.doctorId,
+    getEntityId(raw.doctor),
+    getEntityId(raw.doctorId),
+    raw.doctor?._id,
+    raw.doctor?.id,
+    raw.doctor?.user?._id,
+    raw.doctor?.user?.id,
+    getEntityId(raw.doctorProfile),
+    raw.doctorProfile?._id,
+    raw.doctorProfile?.id,
+    getEntityId(doctor),
+    doctor?._id,
+    doctor?.id,
+    doctor?.user?._id,
+    doctor?.user?.id,
+  ]
+    .filter(Boolean)
+    .map(String);
+}
+
+function getDoctorFeeLookup(doctors) {
+  const lookup = new Map();
+
+  doctors.forEach((doctor) => {
+    const fee = Number(doctor.consultationFee) || 100;
+    const name = getDoctorName(doctor);
+
+    getDoctorLookupIds(doctor).forEach((id) => lookup.set(id, fee));
+    if (name) lookup.set(name, fee);
+  });
+
+  return lookup;
+}
+
+function getAppointmentRevenue(appointment, doctorFeeLookup = new Map()) {
+  const raw = appointment.raw || {};
+  const payment = raw.payment || raw.deposit || {};
+  const directAmount =
+    Number(
+      payment.amount ??
+        payment.total ??
+        raw.depositAmount ??
+        raw.amount ??
+        raw.total ??
+        raw.price ??
+        raw.fee ??
+        raw.consultationFee ??
+        appointment.amount ??
+        0,
+    ) || 0;
+
+  if (directAmount > 0) return directAmount;
+
+  for (const id of getAppointmentDoctorLookupIds(appointment)) {
+    const fee = Number(doctorFeeLookup.get(id)) || 0;
+    if (fee > 0) return fee;
+  }
+
+  return Number(doctorFeeLookup.get(appointment.doctor)) || 0;
+}
+
 function getPatientImage(appointment) {
   const patient = appointment.raw?.patient || appointment.raw?.patientId || {};
   const user = patient.user || patient.account || patient;
@@ -213,7 +337,6 @@ export default function ReceptionistDashboard() {
   const [tablePaymentFilter, setTablePaymentFilter] = useState("");
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [clinicProfits, setClinicProfits] = useState(null);
   const todayIso = getIsoDate(new Date());
 
   useEffect(() => {
@@ -270,20 +393,6 @@ export default function ReceptionistDashboard() {
     };
   }, [selectedDoctor]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    getClinicProfits()
-      .then((profits) => {
-        if (mounted) setClinicProfits(profits);
-      })
-      .catch(() => {});
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const doctorOptions = useMemo(
     () => getDoctorOptions(doctors),
     [doctors],
@@ -295,6 +404,7 @@ export default function ReceptionistDashboard() {
       ),
     [appointments, todayIso],
   );
+  const doctorFeeLookup = useMemo(() => getDoctorFeeLookup(doctors), [doctors]);
   const dashboardAppointments = useMemo(
     () =>
       showAllAppointments
@@ -362,17 +472,23 @@ export default function ReceptionistDashboard() {
       tablePaymentFilter,
     ],
   );
-  const stats = {
-    bookings: todayAppointments.length,
-    cancelled: todayAppointments.filter(
-      (appointment) => appointment.status === "cancelled",
-    ).length,
-    revenue: clinicProfits?.totalProfit ?? 0,
-    appointmentCount: clinicProfits?.appointmentCount ?? 0,
-    avgFee: clinicProfits?.avgFeePerAppointment != null
-      ? Number(clinicProfits.avgFeePerAppointment).toFixed(2)
-      : 0,
-  };
+  const stats = useMemo(() => {
+    const paidAppointments = todayAppointments.filter(isPaidAppointment);
+    const revenue = paidAppointments.reduce(
+      (total, appointment) =>
+        total + getAppointmentRevenue(appointment, doctorFeeLookup),
+      0,
+    );
+
+    return {
+      bookings: todayAppointments.length,
+      cancelled: todayAppointments.filter(
+        (appointment) => appointment.status === "cancelled",
+      ).length,
+      revenue,
+      appointmentCount: paidAppointments.length,
+    };
+  }, [doctorFeeLookup, todayAppointments]);
 
   const handleDoctorChange = (doctorId) => {
     setSelectedDoctor(doctorId);
@@ -470,7 +586,7 @@ function Header() {
 
 function StatsGrid({ stats, loading }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4" dir="rtl">
       {statCards.map((card) => (
         <StatCard
           key={card.key}
@@ -484,25 +600,30 @@ function StatsGrid({ stats, loading }) {
 
 function StatCard({ label, value, icon: Icon, iconClass, trend, trendClass }) {
   return (
-    <article className="min-h-[92px] rounded-[8px] bg-white p-4 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-right">
-          <p className="text-[11px] font-bold text-[#7f8c93] dark:text-gray-300">
-            {label}
-          </p>
-          <strong className="mt-1 block text-[20px] leading-6 text-[#27343a] dark:text-white">
-            {typeof value === "number" ? formatNumber(value) : value}
-          </strong>
-        </div>
-        <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-[8px] ${iconClass}`}
-        >
-          <Icon size={19} strokeWidth={1.9} />
-        </span>
+    <article className="relative min-h-[148px] rounded-[12px] bg-white px-[22px] py-[20px] shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+      <span
+        className={`absolute left-[24px] top-[28px] grid h-[58px] w-[58px] place-items-center rounded-[14px] ${iconClass}`}
+      >
+        <Icon size={30} strokeWidth={2} />
+      </span>
+
+      <div className="text-right" dir="rtl">
+        <p className="text-[18px] font-medium leading-7 text-[#333] dark:text-gray-100">
+          {label}
+        </p>
+        <strong className="mt-[8px] block text-[30px] font-bold leading-9 text-[#2e2e2e] dark:text-white">
+          {typeof value === "number" ? formatStatNumber(value) : value}
+        </strong>
       </div>
-      <p className={`mt-3 text-[10px] font-bold ${trendClass}`}>
-        {trend}
-      </p>
+
+      {trend && (
+        <p
+          className={`mt-[26px] flex items-center justify-start text-right text-[15px] font-medium ${trendClass}`}
+          dir="rtl"
+        >
+          {trend}
+        </p>
+      )}
     </article>
   );
 }

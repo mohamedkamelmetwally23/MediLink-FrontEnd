@@ -8,7 +8,7 @@ const TOKEN_KEYS = ["medilinkToken", "token", "accessToken"];
 
 export class ApiError extends Error {
   constructor(message, { status, data } = {}) {
-    super(message);
+    super(translateApiErrorMessage(message, "حدث خطأ، حاول مرة أخرى"));
     this.name = "ApiError";
     this.status = status;
     this.data = data;
@@ -41,7 +41,7 @@ function getErrorMessage(data, fallback) {
   return translateApiErrorMessage(message, fallback);
 }
 
-function translateApiErrorMessage(message, fallback) {
+export function translateApiErrorMessage(message, fallback = "حدث خطأ، حاول مرة أخرى") {
   if (!message) return fallback;
 
   const text = String(message).trim();
@@ -50,21 +50,182 @@ function translateApiErrorMessage(message, fallback) {
   const normalized = text.toLowerCase();
 
   if (
-    normalized.includes("already have an appointment") &&
-    normalized.includes("this doctor") &&
+    normalized.includes("patient") &&
+    normalized.includes("already") &&
+    normalized.includes("appointment") &&
+    normalized.includes("doctor") &&
+    normalized.includes("today")
+  ) {
+    return "هذا المريض لديه موعد بالفعل مع هذا الطبيب اليوم";
+  }
+
+  if (
+    normalized.includes("already") &&
+    normalized.includes("appointment") &&
+    normalized.includes("doctor") &&
     normalized.includes("today")
   ) {
     return "لديك موعد بالفعل مع هذا الطبيب اليوم";
   }
 
   if (
-    normalized.includes("already have an appointment") &&
+    normalized.includes("already") &&
+    normalized.includes("appointment") &&
     normalized.includes("this time")
   ) {
     return "لديك موعد بالفعل في هذا الوقت";
   }
 
-  return text || fallback;
+  if (
+    normalized.includes("slot") &&
+    (normalized.includes("booked") ||
+      normalized.includes("unavailable") ||
+      normalized.includes("not available"))
+  ) {
+    return "هذا الموعد غير متاح الآن، اختر موعدًا آخر";
+  }
+
+  if (
+    normalized.includes("appointment") &&
+    (normalized.includes("not found") || normalized.includes("does not exist"))
+  ) {
+    return "تعذر العثور على الموعد";
+  }
+
+  if (
+    (normalized.includes("patient") || normalized.includes("user")) &&
+    (normalized.includes("not found") || normalized.includes("does not exist"))
+  ) {
+    return normalized.includes("patient")
+      ? "تعذر العثور على المريض"
+      : "تعذر العثور على المستخدم";
+  }
+
+  if (
+    normalized.includes("doctor") &&
+    (normalized.includes("not found") || normalized.includes("does not exist"))
+  ) {
+    return "تعذر العثور على الطبيب";
+  }
+
+  if (
+    normalized.includes("phone") &&
+    (normalized.includes("exist") ||
+      normalized.includes("already") ||
+      normalized.includes("registered") ||
+      normalized.includes("used"))
+  ) {
+    return "رقم الهاتف مستخدم بالفعل";
+  }
+
+  if (
+    normalized.includes("email") &&
+    (normalized.includes("exist") ||
+      normalized.includes("already") ||
+      normalized.includes("registered") ||
+      normalized.includes("used"))
+  ) {
+    return "البريد الإلكتروني مستخدم بالفعل";
+  }
+
+  if (
+    normalized.includes("password") &&
+    (normalized.includes("incorrect") ||
+      normalized.includes("wrong") ||
+      normalized.includes("invalid"))
+  ) {
+    return "كلمة المرور غير صحيحة";
+  }
+
+  if (
+    normalized.includes("confirm") &&
+    normalized.includes("password")
+  ) {
+    return "تأكيد كلمة المرور غير صحيح";
+  }
+
+  if (
+    normalized.includes("otp") ||
+    normalized.includes("verification code") ||
+    normalized.includes("invalid code")
+  ) {
+    return "كود التحقق غير صحيح";
+  }
+
+  if (
+    normalized.includes("unauthorized") ||
+    normalized.includes("not authorized") ||
+    normalized.includes("invalid token") ||
+    normalized.includes("jwt") ||
+    normalized.includes("token expired")
+  ) {
+    return "انتهت الجلسة أو غير مصرح لك، سجل الدخول مرة أخرى";
+  }
+
+  if (
+    normalized.includes("forbidden") ||
+    normalized.includes("permission") ||
+    normalized.includes("access denied")
+  ) {
+    return "ليس لديك صلاحية لتنفيذ هذا الإجراء";
+  }
+
+  if (
+    normalized.includes("required") ||
+    normalized.includes("missing") ||
+    normalized.includes("must provide")
+  ) {
+    return "يرجى إكمال البيانات المطلوبة";
+  }
+
+  if (
+    normalized.includes("invalid") ||
+    normalized.includes("not valid")
+  ) {
+    return "البيانات غير صحيحة، راجعها وحاول مرة أخرى";
+  }
+
+  if (
+    normalized.includes("duplicate") ||
+    normalized.includes("already exists") ||
+    normalized.includes("already exist")
+  ) {
+    return "هذه البيانات موجودة بالفعل";
+  }
+
+  if (
+    normalized.includes("file too large") ||
+    normalized.includes("max file") ||
+    normalized.includes("maximum file") ||
+    normalized.includes("payload too large")
+  ) {
+    return "حجم الملف أكبر من المسموح";
+  }
+
+  if (
+    normalized.includes("network") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("connection")
+  ) {
+    return "تعذر الاتصال بالخادم، حاول مرة أخرى";
+  }
+
+  if (
+    normalized.includes("timeout") ||
+    normalized.includes("timed out")
+  ) {
+    return "انتهت مهلة الاتصال بالخادم، حاول مرة أخرى";
+  }
+
+  if (
+    normalized.includes("internal server error") ||
+    normalized.includes("server error") ||
+    normalized === "unknown error"
+  ) {
+    return "حدث خطأ في الخادم، حاول مرة أخرى";
+  }
+
+  return fallback || "حدث خطأ، حاول مرة أخرى";
 }
 
 async function parseResponse(response) {

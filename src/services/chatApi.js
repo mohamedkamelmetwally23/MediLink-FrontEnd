@@ -1,6 +1,8 @@
+import { translateApiErrorMessage } from "./apiClient";
+
 export class ChatProxyError extends Error {
   constructor(message, { status, code, kind } = {}) {
-    super(message);
+    super(translateApiErrorMessage(message, "حدث خطأ في المساعد الذكي، حاول مرة أخرى"));
     this.name = "ChatProxyError";
     this.status = status;
     this.code = code;

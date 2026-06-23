@@ -1,11 +1,14 @@
-import { API_BASE_URL as API_ROOT } from "./apiClient";
+import {
+  API_BASE_URL as API_ROOT,
+  translateApiErrorMessage,
+} from "./apiClient";
 
 const API_BASE_URL = `${API_ROOT}/users`;
 export const inactiveAccountMessage =
   "هذا الحساب غير مفعل. برجاء التواصل مع الإدارة لتفعيل الحساب.";
 
 function createAuthError(message, status) {
-  const error = new Error(message);
+  const error = new Error(translateApiErrorMessage(message, "حدث خطأ، حاول مرة أخرى"));
   error.status = status;
   return error;
 }
@@ -79,7 +82,7 @@ function toArabicErrorMessage(message, fallback) {
     return "البيانات غير صحيحة";
   }
 
-  return fallback;
+  return translateApiErrorMessage(text, fallback);
 }
 
 async function request(path, body, options = {}) {

@@ -95,10 +95,10 @@ const monthNames = [
 ];
 
 const appointmentRangeOptions = [
-  { id: "day", label: "يوم" },
-  { id: "week", label: "أسبوع" },
-  { id: "month", label: "شهر" },
-  { id: "year", label: "سنة" },
+  { id: "day", label: "في اليوم" },
+  { id: "week", label: "في الأسبوع" },
+  { id: "month", label: "في الشهر" },
+  { id: "year", label: "في السنة" },
 ];
 
 const doctorPeriodOptions = [
@@ -117,6 +117,14 @@ function getDoctorChartTitle(selectedPeriod) {
   return periodLabel
     ? `عدد الحجوزات لكل طبيب ${periodLabel}`
     : "عدد الحجوزات لكل طبيب";
+}
+
+function getAppointmentChartTitle(selectedRange) {
+  const rangeLabel = appointmentRangeOptions.find(
+    (option) => option.id === selectedRange,
+  )?.label;
+
+  return rangeLabel ? `عدد الحجوزات ${rangeLabel}` : "عدد الحجوزات";
 }
 
 function getAuthUserDisplayName(user, fallback = "المستخدم") {
@@ -247,6 +255,31 @@ function formatDayLabel(date) {
   return `${date.getDate()} ${monthNames[date.getMonth()]}`;
 }
 
+function formatHourLabel(hour) {
+  const hourNumber = Number(hour) || 0;
+  const hour12 = hourNumber % 12 || 12;
+  const period = hourNumber >= 12 ? "م" : "ص";
+
+  return `${hour12} ${period}`;
+}
+
+function getAppointmentHour(appointment) {
+  const rawTime =
+    appointment.time ||
+    appointment.appointmentTime ||
+    appointment.raw?.time ||
+    appointment.raw?.appointmentTime ||
+    appointment.raw?.slotTime ||
+    appointment.raw?.slot?.time ||
+    "";
+  const hour = Number(String(rawTime).split(":")[0]);
+
+  if (Number.isFinite(hour)) return hour;
+
+  const date = getAppointmentDate(appointment);
+  return date ? date.getHours() : null;
+}
+
 function getLatestAppointmentDate(appointments) {
   return appointments.reduce((latest, appointment) => {
     const date = getAppointmentDate(appointment);
@@ -306,27 +339,101 @@ function getAppointmentBucket(date, range) {
   };
 }
 
+function getAppointmentBucketForAppointment(appointment, date, range) {
+  if (range === "day") {
+    const hour = getAppointmentHour(appointment);
+    if (hour === null) return null;
+
+    return {
+      key: String(hour).padStart(2, "0"),
+      label: formatHourLabel(hour),
+    };
+  }
+
+  return getAppointmentBucket(date, range);
+}
+
+function buildAppointmentBuckets(range, anchorDate) {
+  if (range === "day") {
+    return Array.from({ length: 14 }, (_, index) => {
+      const hour = index + 8;
+
+      return {
+        key: String(hour).padStart(2, "0"),
+        label: formatHourLabel(hour),
+        value: 0,
+      };
+    });
+  }
+
+  if (range === "week") {
+    const start = getWeekStart(anchorDate);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+
+      return {
+        ...getAppointmentBucket(date, range),
+        value: 0,
+      };
+    });
+  }
+
+  if (range === "month") {
+    const daysInMonth = new Date(
+      anchorDate.getFullYear(),
+      anchorDate.getMonth() + 1,
+      0,
+    ).getDate();
+
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), index + 1);
+
+      return {
+        ...getAppointmentBucket(date, range),
+        value: 0,
+      };
+    });
+  }
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(anchorDate.getFullYear(), index, 1);
+
+    return {
+      ...getAppointmentBucket(date, range),
+      value: 0,
+    };
+  });
+}
+
 function buildAppointmentChart(appointments, range) {
-  const counts = new Map();
   const anchorDate = getLatestAppointmentDate(appointments);
 
   if (!anchorDate) return [];
 
   const { start, end } = getCurrentRangeBounds(range, anchorDate);
+  const counts = new Map(
+    buildAppointmentBuckets(range, anchorDate).map((bucket) => [
+      bucket.key,
+      bucket,
+    ]),
+  );
 
   appointments.forEach((appointment) => {
     const date = getAppointmentDate(appointment);
     if (!date) return;
     if (date < start || date > end) return;
 
-    const bucket = getAppointmentBucket(date, range);
+    const bucket = getAppointmentBucketForAppointment(appointment, date, range);
+    if (!bucket) return;
+
     const current = counts.get(bucket.key) || { ...bucket, value: 0 };
     counts.set(bucket.key, { ...current, value: current.value + 1 });
   });
 
   return Array.from(counts.values())
-    .sort((first, second) => first.key.localeCompare(second.key))
-    .filter((item) => item.value > 0);
+    .sort((first, second) => first.key.localeCompare(second.key));
 }
 
 function getDoctorName(doctor) {
@@ -647,7 +754,7 @@ export default function Dashboard() {
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [activitiesError, setActivitiesError] = useState("");
-  const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("month");
+  const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("year");
   const [selectedDoctorId, setSelectedDoctorId] = useState("all");
   const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("all");
   const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
@@ -677,6 +784,7 @@ export default function Dashboard() {
       ),
     [dashboardAppointments, users, selectedDoctorId, selectedDoctorPeriod],
   );
+  const appointmentChartTitle = getAppointmentChartTitle(selectedAppointmentRange);
   const doctorChartTitle = getDoctorChartTitle(selectedDoctorPeriod);
   const doctorXAxisInterval = 0;
   const specializationChart = useMemo(
@@ -846,7 +954,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-2">
           <DashboardCard
-            title="عدد الحجوزات"
+            title={appointmentChartTitle}
             action={
               <RangeTabs
                 options={appointmentRangeOptions}
@@ -1171,7 +1279,7 @@ function ChartState({ text = "لا توجد بيانات من قاعدة الب�
 
 function RangeTabs({ options, value, onChange }) {
   return (
-    <div className="flex h-[36px] w-[280px] overflow-hidden rounded-[9px] bg-[#fafafa] p-[2px] text-[12px] text-[#333] dark:bg-[#3f3f3f] dark:text-gray-200">
+    <div className="flex h-[36px] w-[330px] max-w-full overflow-hidden rounded-[9px] bg-[#fafafa] p-[2px] text-[12px] text-[#333] dark:bg-[#3f3f3f] dark:text-gray-200">
       {options.map((item) => (
         <button
           key={item.id}
