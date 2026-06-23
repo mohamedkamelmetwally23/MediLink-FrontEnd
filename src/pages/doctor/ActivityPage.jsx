@@ -1,20 +1,54 @@
-import { ArrowRight, Bell } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const activities = [
-  "تم إنشاء حجز موعد",
-  "تم إضافة وصفة طبية للمريض بنجاح",
-  "تم إلغاء موعد",
-  "تم إضافة سجل مرضي جديد",
-  "تم تحديث البيانات",
-  "تم تأكيد موعد جديد",
-  "تم بدء الكشف لمريض جديد",
-  "تم إضافة معلومات متابعة",
-  "تم تعديل بيانات مريض",
-  "تم إنهاء كشف اليوم",
-];
+import ActivityList from "../../components/admin/ActivityList";
+import {
+  getCurrentDoctorId,
+  getCurrentDoctorProfile,
+  listDoctorActivities,
+} from "../../services/medilinkApi";
 
 export default function DoctorActivityPage() {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentDoctorProfile()
+      .catch(() => null)
+      .then((doctor) => {
+        const doctorId =
+          doctor?.profileId ||
+          doctor?.raw?._id ||
+          doctor?.raw?.doctorProfile?._id ||
+          doctor?.id ||
+          getCurrentDoctorId();
+
+        if (!doctorId) {
+          throw new Error("تعذر تحديد رقم الطبيب");
+        }
+
+        return listDoctorActivities(doctorId, 500);
+      })
+      .then((doctorActivities) => {
+        if (mounted) setActivities(doctorActivities);
+      })
+      .catch((requestError) => {
+        if (mounted) {
+          setError(requestError?.message || "تعذر تحميل سجل النشاطات");
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <header className="relative flex min-h-[100px] items-start justify-start bg-white px-4 pt-[20px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:px-[24px]">
@@ -37,36 +71,16 @@ export default function DoctorActivityPage() {
       </header>
 
       <main className="px-4 py-[24px] sm:px-6 lg:px-[24px]">
-        <section className="min-h-[520px] rounded-[8px] bg-white px-[14px] py-[18px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-          {activities.map((text, index) => (
-            <ActivityRow key={`${text}-${index}`} text={text} />
-          ))}
+        <section className="min-h-[520px] overflow-hidden rounded-[8px] bg-white py-[18px] shadow-[0_4px_18px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+          <ActivityList
+            activities={activities}
+            loading={loading}
+            error={error}
+            showRole={false}
+            showActorName={false}
+          />
         </section>
       </main>
     </section>
-  );
-}
-
-function ActivityRow({ text }) {
-  return (
-    <div
-      className="flex h-[45px] items-center justify-between gap-4 border-b border-[#eef2f4] px-[8px] last:border-b-0 dark:border-white/15"
-      dir="ltr"
-    >
-      <span className="shrink-0 text-[9px] text-[#777] dark:text-gray-300">
-        منذ 10 دقائق
-      </span>
-      <div className="flex min-w-0 items-center gap-[10px]" dir="ltr">
-        <span
-          className="truncate text-[12px] font-medium text-[#333] dark:text-white"
-          dir="rtl"
-        >
-          {text}
-        </span>
-        <span className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full bg-[#eafbfd] text-[#19bed9]">
-          <Bell size={14} />
-        </span>
-      </div>
-    </div>
   );
 }

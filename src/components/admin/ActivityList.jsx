@@ -4,16 +4,22 @@ import { Activity, Clock3, LoaderCircle, ShieldCheck, UserRound } from "lucide-r
 const ACTIVITIES_BATCH_SIZE = 10;
 const LOAD_MORE_DELAY_MS = 1200;
 
-function formatActivityDate(value) {
-  if (!value) return "";
+function formatActivityDateTime(value) {
+  if (!value) return { date: "", time: "" };
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  if (Number.isNaN(date.getTime())) {
+    return { date: String(value), time: "" };
+  }
 
-  return new Intl.DateTimeFormat("ar-EG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return {
+    date: new Intl.DateTimeFormat("ar-EG", {
+      dateStyle: "medium",
+    }).format(date),
+    time: new Intl.DateTimeFormat("ar-EG", {
+      timeStyle: "short",
+    }).format(date),
+  };
 }
 
 function ActivityState({ children, compact }) {
@@ -109,7 +115,7 @@ export default function ActivityList({
       }
     >
       {visibleActivities.map((activityItem, index) => {
-        const formattedDate = formatActivityDate(activityItem.createdAt);
+        const formattedDateTime = formatActivityDateTime(activityItem.createdAt);
 
         return (
           <article
@@ -137,7 +143,7 @@ export default function ActivityList({
 
               {((showActorName && activityItem.actorName) ||
                 (showRole && activityItem.actorRole) ||
-                formattedDate) && (
+                formattedDateTime.date) && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#8a8a8a] dark:text-gray-300">
                   {showActorName && activityItem.actorName && (
                     <span className="flex items-center gap-1">
@@ -151,13 +157,18 @@ export default function ActivityList({
                       {activityItem.actorRole}
                     </span>
                   )}
-                  {formattedDate && (
+                  {formattedDateTime.date && (
                     <time
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-2.5"
                       dateTime={activityItem.createdAt}
                     >
                       <Clock3 size={13} />
-                      {formattedDate}
+                      <span>{formattedDateTime.date}</span>
+                      {formattedDateTime.time && (
+                        <span className="whitespace-nowrap">
+                          {formattedDateTime.time}
+                        </span>
+                      )}
                     </time>
                   )}
                 </div>

@@ -20,10 +20,12 @@ import {
   YAxis,
 } from "recharts";
 import patientAvatar from "../../assets/landingPage/admin.png";
+import ActivityList from "../../components/admin/ActivityList";
 import {
   getCurrentDoctorId,
   getCurrentDoctorProfile,
   getDoctorPatientsPlanCount,
+  listDoctorActivities,
   listDoctorAvailableSlots,
   listDoctorAppointments,
   listMyDoctorAppointments,
@@ -142,17 +144,6 @@ function formatTime(value) {
   const period = hour24 >= 12 ? "م" : "ص";
 
   return `${hour12}:${minute} ${period}`;
-}
-
-function formatDate(value) {
-  const date = parseDate(value);
-
-  if (!date) return "";
-
-  return date.toLocaleDateString("ar-EG", {
-    day: "numeric",
-    month: "long",
-  });
 }
 
 function formatMonth(date) {
@@ -377,6 +368,9 @@ export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [doctorPatientsCount, setDoctorPatientsCount] = useState(null);
   const [availableSlotDays, setAvailableSlotDays] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState("");
   const [loading] = useState(false);
   const [error, setError] = useState("");
   const axisColor = isDark ? "#f3f4f6" : "#777";
@@ -457,6 +451,35 @@ export default function DoctorDashboard() {
       doctorPromise.then((currentDoctor) => {
         if (mounted) setDoctor(currentDoctor);
       });
+
+      doctorPromise
+        .then((currentDoctor) => {
+          const doctorId =
+            currentDoctor?.profileId ||
+            currentDoctor?.raw?._id ||
+            currentDoctor?.raw?.doctorProfile?._id ||
+            currentDoctor?.id ||
+            getCurrentDoctorId();
+
+          if (!doctorId) return [];
+          return listDoctorActivities(doctorId, 500);
+        })
+        .then((doctorActivities) => {
+          if (mounted) {
+            setActivities(doctorActivities);
+            setActivitiesError("");
+          }
+        })
+        .catch((activityError) => {
+          if (mounted) {
+            setActivitiesError(
+              activityError?.message || "تعذر تحميل سجل النشاطات",
+            );
+          }
+        })
+        .finally(() => {
+          if (mounted) setActivitiesLoading(false);
+        });
 
       doctorPatientsPromise.then((count) => {
         if (mounted && Number.isFinite(Number(count))) {
@@ -611,7 +634,11 @@ export default function DoctorDashboard() {
 
         <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-[minmax(330px,0.95fr)_minmax(0,1.25fr)]">
           <WeeklyBookings states={weeklyStates} loading={loading} />
-          <AvailableSlots slots={availableSlots} loading={loading} />
+          <RecentActivities
+            activities={activities}
+            loading={activitiesLoading}
+            error={activitiesError}
+          />
         </div>
       </main>
     </section>
@@ -813,34 +840,22 @@ function WeeklyBookings({ states, loading }) {
   );
 }
 
-function AvailableSlots({ slots, loading }) {
+function RecentActivities({ activities, loading, error }) {
   return (
     <DashboardCard
-      title= "النشاط الأخير"
-      action={<CardLink to="/doctor/appointments" />}
+      title="النشاط الأخير"
+      action={<CardLink to="/doctor/activity" />}
       className="min-h-[270px] overflow-hidden"
     >
-      {loading ? (
-        <LoadingRows />
-      ) : slots.length === 0 ? (
-        <EmptyState text="لا توجد أوقات متاحة الآن" />
-      ) : (
-        <div className="space-y-[6px]">
-          {slots.slice(0, 5).map((slot) => (
-            <div
-              key={`${slot.date}-${slot.time}`}
-              className="grid min-h-[34px] grid-cols-[82px_1fr] items-center rounded-[7px] bg-[#f2fbfd] px-[10px] text-[11px] dark:bg-white/10"
-            >
-              <span className="text-left font-bold text-[#35c0d8]">
-                {formatTime(slot.time)}
-              </span>
-              <span className="truncate text-right text-[#444] dark:text-white">
-                {slot.day || formatDate(slot.date)} - {formatDate(slot.date)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <ActivityList
+        activities={activities}
+        loading={loading}
+        error={error}
+        compact
+        showRole={false}
+        showActorName={false}
+        insetItems={false}
+      />
     </DashboardCard>
   );
 }
