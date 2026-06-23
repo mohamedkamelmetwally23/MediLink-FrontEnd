@@ -12,6 +12,7 @@ import {
   getCurrentDoctorProfile,
   getCurrentUser,
   getDoctorQueueByDoctor,
+  listMyDoctorAppointments,
   updateCurrentUserPhoto,
 } from "../../../services/medilinkApi";
 import { getPatientFileSizeError } from "../../../utils/patientFileValidation";
@@ -25,6 +26,19 @@ const navItems = [
 function getTimeMinutes(time) {
   const [hours = 0, minutes = 0] = String(time || "").split(":").map(Number);
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+}
+
+function getIsoDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isWaitingAppointment(appointment) {
+  return String(appointment.status || "").trim().toLowerCase() === "pending";
 }
 
 function formatTime(value) {
@@ -143,7 +157,8 @@ function getAppointmentPatientUserId(appointment) {
 }
 
 function buildWaitingList(appointments) {
-  return appointments
+  return [...appointments]
+    .filter(isWaitingAppointment)
     .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time))
     .slice(0, 3)
     .map((appointment, index) => {
@@ -180,6 +195,28 @@ function buildWaitingList(appointments) {
     });
 }
 
+function mergeSidebarAppointments(...groups) {
+  const appointmentsByKey = new Map();
+
+  groups.flat().forEach((appointment, index) => {
+    const key =
+      appointment.id ||
+      appointment.queueAppointmentId ||
+      [
+        appointment.date,
+        appointment.time,
+        appointment.patientId || getPatientName(appointment),
+        index,
+      ]
+        .filter(Boolean)
+        .join("|");
+
+    appointmentsByKey.set(String(key), appointment);
+  });
+
+  return Array.from(appointmentsByKey.values());
+}
+
 export default function DoctorLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [doctor, setDoctor] = useState(null);
@@ -190,15 +227,21 @@ export default function DoctorLayout() {
 
     async function loadSidebarData() {
       try {
-        const [currentDoctor, appointments] = await Promise.all([
+        const todayIso = getIsoDate(new Date());
+        const [currentDoctor, queueAppointments, todayAppointments] = await Promise.all([
           getCurrentDoctorProfile().catch(() => null),
           getDoctorQueueByDoctor().catch(() => []),
+          listMyDoctorAppointments(todayIso).catch(() => []),
         ]);
 
         if (!mounted) return;
 
         setDoctor(currentDoctor);
-        setWaitingList(buildWaitingList(appointments));
+        setWaitingList(
+          buildWaitingList(
+            mergeSidebarAppointments(queueAppointments, todayAppointments),
+          ),
+        );
       } catch {
         if (!mounted) return;
 

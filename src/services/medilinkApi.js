@@ -3028,6 +3028,7 @@ export async function completeAppointment(id, values = {}) {
     name: String(medicine.name || "").trim(),
     dose: String(medicine.dose || "").trim(),
     frequency: String(medicine.frequency || medicine.schedule || "").trim(),
+    schedule: String(medicine.schedule || medicine.frequency || "").trim(),
     duration: String(medicine.duration || "").trim(),
   }));
 
@@ -3039,6 +3040,8 @@ export async function completeAppointment(id, values = {}) {
         diagnosis: String(values.diagnosis || "").trim(),
         notes: String(values.notes || "").trim(),
         medicines,
+        medications: medicines,
+        drugs: medicines,
       },
     },
   );

@@ -17,6 +17,7 @@ import {
 import { toast } from "react-toastify";
 import { transcribeAudio } from "../../services/chatApi";
 import {
+  changeAppointmentQueueStatus,
   completeAppointment,
   getCurrentPatientForDoctor,
   getMedicalReportsForPatient,
@@ -337,6 +338,9 @@ function getArabicPatientProfileError(error, fallback) {
   if (/network|fetch|timeout|failed/i.test(message)) {
     return "تعذر الاتصال بالخادم، حاول مرة أخرى";
   }
+  if (/status|pending|confirm|confirmed|waiting/i.test(message)) {
+    return "حالة الموعد لا تسمح بإنهاء الزيارة الآن، حاول تأكيد الموعد أولاً";
+  }
   if (/appointment|booking|visit/i.test(message)) {
     return "تعذر تحديث بيانات الزيارة، حاول مرة أخرى";
   }
@@ -345,6 +349,69 @@ function getArabicPatientProfileError(error, fallback) {
   }
 
   return fallback;
+}
+
+function getEntityId(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value._id || value.id || "";
+}
+
+function getAppointmentIdCandidates(...sources) {
+  const ids = [];
+  const addId = (value) => {
+    const id = getEntityId(value);
+    if (id && !ids.includes(String(id))) ids.push(String(id));
+  };
+
+  sources.forEach((source) => {
+    if (!source) return;
+    const raw = source.raw || source;
+
+    [
+      source,
+      source.appointmentId,
+      source.id,
+      source.queueAppointmentId,
+      source.queueId,
+      raw.appointmentId,
+      raw.appointment,
+      raw.bookingId,
+      raw.booking,
+      raw.reservationId,
+      raw.reservation,
+      raw.visitId,
+      raw.visit,
+      raw._id,
+      raw.id,
+    ].forEach(addId);
+  });
+
+  return ids.sort((left, right) => {
+    const leftLooksLikeObjectId = /^[a-f\d]{24}$/i.test(left);
+    const rightLooksLikeObjectId = /^[a-f\d]{24}$/i.test(right);
+
+    if (leftLooksLikeObjectId === rightLooksLikeObjectId) return 0;
+    return leftLooksLikeObjectId ? -1 : 1;
+  });
+}
+
+function appointmentNeedsConfirmationBeforeComplete(appointment) {
+  const status = String(appointment?.status || appointment?.raw?.status || "")
+    .trim()
+    .toLowerCase();
+
+  return ["pending", "waiting", "reserved", "قيد الانتظار"].includes(status);
+}
+
+async function confirmAppointmentBeforeComplete(appointmentId, appointment) {
+  if (!appointmentNeedsConfirmationBeforeComplete(appointment)) return;
+
+  try {
+    await changeAppointmentQueueStatus(appointmentId, "مؤكد");
+  } catch (error) {
+    if ([401, 403].includes(Number(error?.status))) throw error;
+  }
 }
 
 const menuItems = [
@@ -604,11 +671,17 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
   }, [startExam, patientId]);
 
   const handleFinishVisit = async () => {
-    const appointmentId =
+    const primaryAppointmentId =
       currentAppointmentId ||
       currentAppointment?.id ||
       location.state?.appointmentId ||
       "";
+    const appointmentIds = getAppointmentIdCandidates(
+      currentAppointment,
+      location.state,
+      primaryAppointmentId,
+    );
+    const appointmentId = appointmentIds[0] || primaryAppointmentId;
     const medicines = medicineRows.filter(isMedicineRowComplete);
     if (!appointmentId) {
       toast.error("جاري تحميل بيانات الموعد، حاول مرة أخرى");
@@ -618,6 +691,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
     setIsSavingVisit(true);
 
     try {
+      await confirmAppointmentBeforeComplete(appointmentId, currentAppointment);
       await completeAppointment(appointmentId, {
         diagnosis,
         notes,
