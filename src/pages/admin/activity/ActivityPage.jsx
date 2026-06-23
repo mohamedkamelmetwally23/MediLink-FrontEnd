@@ -48,7 +48,7 @@ export default function ActivityPage() {
         <Link
           to="/admin/dashboard"
           className="flex h-[38px] items-center gap-2 rounded-[8px] px-2 text-[15px] font-semibold text-[#30bfd6] transition hover:bg-[#eafbfd] dark:hover:bg-white/10"
-          dir="ltr"
+          dir="rtl"
         >
           <ArrowRight size={18} strokeWidth={2} />
           <span>رجوع</span>

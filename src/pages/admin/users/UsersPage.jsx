@@ -570,15 +570,12 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
         <h2 className="mt-[20px] text-[21px] font-bold leading-7 text-[#333] dark:text-white">
           {isActive ? "هل أنت متأكد من حظر هذا العنصر" : "هل أنت متأكد من تفعيل هذا العنصر"}
         </h2>
-        <p className="mt-2 text-[14px] text-[#777] dark:text-gray-300">
-          سيتم تحديث الحالة في قاعدة البيانات.
-        </p>
         {error && (
           <p className="mt-3 rounded-[8px] bg-[#fff0f0] px-3 py-2 text-[13px] font-medium text-[#d71919]">
             {error}
           </p>
         )}
-        <div className="mt-[18px] grid grid-cols-2 gap-[6px]" dir="ltr">
+        <div className="mt-[28px] grid grid-cols-2 gap-[6px]" dir="ltr">
           <button
             type="button"
             disabled={loading}
@@ -593,7 +590,7 @@ function ConfirmStatusModal({ user, error, loading, onCancel, onConfirm }) {
             className="h-[36px] rounded-[6px] bg-linear-to-l from-[#67d2cb] to-[#0fb8e8] text-[13px] font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
             onClick={handleCancel}
           >
-            لا
+            إلغاء
           </button>
         </div>
       </div>

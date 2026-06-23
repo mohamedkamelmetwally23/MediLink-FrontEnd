@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Receipt,
   Stethoscope,
+  TrendingDown,
+  TrendingUp,
   UserRound,
 } from "lucide-react";
 import {
@@ -171,8 +173,53 @@ function getAppointmentDate(appointment) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getUserDate(user) {
+  const raw = user.raw || {};
+  const date = new Date(
+    user.createdAt ||
+      user.registeredAt ||
+      user.registrationDate ||
+      raw.createdAt ||
+      raw.updatedAt ||
+      "",
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function getDateKey(date) {
   return date.toISOString().slice(0, 10);
+}
+
+function getPreviousMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() - 1, 1);
+}
+
+function isSameCalendarMonth(date, targetMonth) {
+  return (
+    date &&
+    targetMonth &&
+    date.getFullYear() === targetMonth.getFullYear() &&
+    date.getMonth() === targetMonth.getMonth()
+  );
+}
+
+function buildStatTrend(current, previous, label = "عن الشهر الماضي") {
+  const change =
+    previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+  const rounded = Math.round(Math.abs(change));
+
+  return {
+    label,
+    percent: `${change > 0 ? "+" : change < 0 ? "-" : ""}${rounded}%`,
+    direction: change < 0 ? "down" : "up",
+  };
+}
+
+function formatStatValue(value) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
 }
 
 function getWeekStart(date) {
@@ -413,6 +460,51 @@ export default function Dashboard() {
     (total, appointment) => total + getAppointmentRevenue(appointment),
     0,
   );
+  const statPeriods = useMemo(() => {
+    const today = new Date();
+    const previousMonth = getPreviousMonth(today);
+    const currentMonthAppointments = dashboardAppointments.filter((appointment) =>
+      isSameCalendarMonth(getAppointmentDate(appointment), today),
+    );
+    const previousMonthAppointments = dashboardAppointments.filter((appointment) =>
+      isSameCalendarMonth(getAppointmentDate(appointment), previousMonth),
+    );
+    const currentMonthUsers = users.filter((user) =>
+      isSameCalendarMonth(getUserDate(user), today),
+    );
+    const previousMonthUsers = users.filter((user) =>
+      isSameCalendarMonth(getUserDate(user), previousMonth),
+    );
+    const currentMonthDoctors = currentMonthUsers.filter((user) => user.role === "doctor");
+    const previousMonthDoctors = previousMonthUsers.filter((user) => user.role === "doctor");
+    const currentMonthRevenue = currentMonthAppointments.reduce(
+      (total, appointment) => total + getAppointmentRevenue(appointment),
+      0,
+    );
+    const previousMonthRevenue = previousMonthAppointments.reduce(
+      (total, appointment) => total + getAppointmentRevenue(appointment),
+      0,
+    );
+    const currentMonthPaid = currentMonthAppointments.filter(
+      (appointment) => appointment.payment === "paid",
+    ).length;
+    const previousMonthPaid = previousMonthAppointments.filter(
+      (appointment) => appointment.payment === "paid",
+    ).length;
+
+    return {
+      currentMonthAppointments,
+      previousMonthAppointments,
+      currentMonthUsers,
+      previousMonthUsers,
+      currentMonthDoctors,
+      previousMonthDoctors,
+      currentMonthRevenue,
+      previousMonthRevenue,
+      currentMonthPaid,
+      previousMonthPaid,
+    };
+  }, [dashboardAppointments, users]);
   const emptyAppointmentsText = !appointmentsLoaded
     ? "جاري تحميل البيانات..."
     : dashboardAppointments.length > 0
@@ -429,7 +521,29 @@ export default function Dashboard() {
 
     return {
       ...item,
-      value: String(values[index]),
+      value: values[index],
+      trend: [
+        buildStatTrend(
+          statPeriods.currentMonthUsers.length,
+          statPeriods.previousMonthUsers.length,
+        ),
+        buildStatTrend(
+          statPeriods.currentMonthAppointments.length,
+          statPeriods.previousMonthAppointments.length,
+        ),
+        buildStatTrend(
+          statPeriods.currentMonthDoctors.length,
+          statPeriods.previousMonthDoctors.length,
+        ),
+        buildStatTrend(
+          statPeriods.currentMonthRevenue,
+          statPeriods.previousMonthRevenue,
+        ),
+        buildStatTrend(
+          statPeriods.currentMonthPaid,
+          statPeriods.previousMonthPaid,
+        ),
+      ][index],
     };
   });
 
@@ -497,7 +611,7 @@ export default function Dashboard() {
       <Header />
 
       <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" dir="rtl">
           {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}
@@ -740,27 +854,37 @@ function Header() {
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, bg }) {
-  return (
-    <article className="h-[154px] rounded-[10px] bg-white px-[32px] pb-[20px] pt-[27px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <div className="flex items-start justify-between" dir="ltr">
-        <span
-          className={`grid h-[56px] w-[56px] shrink-0 place-items-center rounded-[11px] ${bg} ${color}`}
-        >
-          <Icon size={29} strokeWidth={2} />
-        </span>
+function StatCard({ title, value, trend, icon: Icon, color, bg }) {
+  const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp;
+  const trendColor =
+    trend?.direction === "down" ? "text-[#e53935]" : "text-[#4bb543]";
 
-        <div className="text-right" dir="rtl">
-          <p className="text-[17px] leading-6 text-[#333] dark:text-gray-100">
-            {title}
-          </p>
-          <h3 className="mt-1 text-[24px] font-bold leading-8 text-[#2e2e2e] dark:text-white">
-            {value}
-          </h3>
-        </div>
+  return (
+    <article className="relative min-h-[148px] rounded-[12px] bg-white px-[22px] py-[20px] shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+      <span
+        className={`absolute left-[24px] top-[28px] grid h-[58px] w-[58px] place-items-center rounded-[14px] ${bg} ${color}`}
+      >
+        <Icon size={30} strokeWidth={2} />
+      </span>
+
+      <div className="text-right" dir="rtl">
+        <p className="text-[18px] font-medium leading-7 text-[#333] dark:text-gray-100">
+          {title}
+        </p>
+        <h3 className="mt-[8px] text-[30px] font-bold leading-9 text-[#2e2e2e] dark:text-white">
+          {formatStatValue(value)}
+        </h3>
       </div>
 
-     
+      {trend && (
+        <div className="mt-[26px] flex items-center justify-start gap-[8px] text-[15px] font-medium">
+          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
+          <span dir="ltr" className={trendColor}>
+            {trend.percent}
+          </span>
+          <TrendIcon size={18} strokeWidth={2.4} className={trendColor} />
+        </div>
+      )}
     </article>
   );
 }

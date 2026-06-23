@@ -64,6 +64,7 @@ export default function DoctorActivityPage() {
         <Link
           to="/doctor/dashboard"
           className="absolute left-5 top-[26px] flex items-center gap-[6px] text-[11px] font-bold text-[#30bfd6] lg:left-[24px]"
+          dir="rtl"
         >
           <ArrowRight size={13} strokeWidth={2} />
           رجوع

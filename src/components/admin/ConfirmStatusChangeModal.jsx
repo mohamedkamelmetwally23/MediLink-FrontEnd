@@ -23,9 +23,6 @@ export default function ConfirmStatusChangeModal({
         <h2 className="mt-7 text-[25px] font-bold text-[#333] dark:text-white">
           هل أنت متأكد من {isActive ? "حظر" : "تفعيل"} هذا العنصر؟
         </h2>
-        <p className="mt-2 text-[16px] text-[#888] dark:text-gray-300">
-          سيتم تحديث الحالة في قاعدة البيانات.
-        </p>
 
         {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
 
@@ -60,7 +57,7 @@ export default function ConfirmStatusChangeModal({
             className="h-[45px] rounded-[8px] bg-gradient-to-l from-[#67d2cb] to-[#0fb8e8] font-semibold text-white disabled:opacity-60"
             onClick={onCancel}
           >
-            لا
+            إلغاء
           </button>
         </div>
       </div>

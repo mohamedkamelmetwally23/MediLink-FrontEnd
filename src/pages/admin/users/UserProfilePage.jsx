@@ -200,6 +200,7 @@ export default function UserProfilePage() {
         <button
           type="button"
           className="absolute left-6 top-[43px] flex items-center gap-3 text-[20px] font-medium text-[#30bfd6] lg:left-[32px]"
+          dir="rtl"
           onClick={handleBack}
         >
           <ArrowRight size={20} strokeWidth={2} />
@@ -611,17 +612,23 @@ function HeroCard({ profile }) {
 
 function StatsGrid({ profile }) {
   const stats = getStats(profile);
+  const gridClass =
+    stats.length === 2
+      ? "sm:grid-cols-2"
+      : stats.length === 3
+        ? "sm:grid-cols-2 xl:grid-cols-3"
+        : "sm:grid-cols-2 xl:grid-cols-4";
 
   return (
-    <div className="grid gap-[25px] sm:grid-cols-2 xl:grid-cols-4">
+    <div className={`grid w-full gap-[25px] ${gridClass}`}>
       {stats.map((stat) => (
         <section
           key={stat.label}
-          className="grid min-h-[113px] min-w-0 place-items-center overflow-hidden rounded-[8px] bg-white px-3 py-5 text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
+          className="grid min-h-[122px] min-w-0 place-items-center rounded-[8px] bg-white px-5 py-5 text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
         >
-          <div className="min-w-0 max-w-full">
-            <p className="text-[16px] leading-5 text-[#30bfd6]">{stat.label}</p>
-            <div className="mt-[13px] text-[22px] font-bold leading-7 text-[#30bfd6]">
+          <div className="min-w-0 max-w-full overflow-visible">
+            <p className="whitespace-normal break-words text-[16px] leading-5 text-[#30bfd6]">{stat.label}</p>
+            <div className="mt-[13px] whitespace-normal break-words text-[22px] font-bold leading-7 text-[#30bfd6]">
               {stat.value}
             </div>
           </div>

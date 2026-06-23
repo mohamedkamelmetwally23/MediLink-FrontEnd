@@ -451,13 +451,12 @@ function SelectionBar({ count, deletableCount, blockedCount, onClear, onDelete }
 
 function TableHeader({ allVisibleSelected, onToggleAll }) {
   return (
-    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
+    <div className="grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_118px_48px] items-center bg-[#f7f7f7] text-[17px] font-medium text-[#333] dark:bg-[#444] dark:text-white">
       <div className="flex justify-center">
         <Checkbox checked={allVisibleSelected} onClick={onToggleAll} />
       </div>
       <span className="text-center">اسم التخصص</span>
       <span className="text-center">عدد الأطباء</span>
-      <span className="text-center">عدد المواعيد</span>
       <span className="text-center">سعر الكشف</span>
       <span />
       <span />
@@ -475,7 +474,7 @@ function SpecialtyRow({
 }) {
   return (
     <div
-      className={`grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
+      className={`grid h-[56px] grid-cols-[64px_1.45fr_1fr_1fr_118px_48px] items-center border-b border-[#dddddd] text-[17px] text-[#2f2f2f] transition dark:border-white/15 dark:text-white ${
         selected ? "bg-[#eeeeee] dark:bg-white/10" : "bg-white dark:bg-[#505050]"
       }`}
     >
@@ -484,7 +483,6 @@ function SpecialtyRow({
       </div>
       <span className="truncate text-center">{specialty.name}</span>
       <span className="text-center">{specialty.doctorsCount}</span>
-      <span className="text-center">{specialty.appointmentsCount}</span>
       <span className="text-center">{specialty.price} جنيه</span>
       <div className="flex items-center justify-center gap-[12px]" dir="ltr">
         <button
