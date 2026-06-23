@@ -1,11 +1,16 @@
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, ChevronLeft, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
+import ActivityList from "../../../components/admin/ActivityList";
 import {
   getDoctor,
+  getReceptionist,
   getUserAppointmentsCount,
+  listDoctorActivities,
+  listPatientActivities,
+  listReceptionistActivities,
 } from "../../../services/medilinkApi";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
@@ -42,10 +47,13 @@ export default function UserProfilePage() {
   const storedUser = userId ? getUser(userId) : null;
   const routeRole = searchParams.get("role") || "";
   const isDoctorProfile = (storedUser?.role || routeRole) === "doctor";
+  const isReceptionistProfile =
+    (storedUser?.role || routeRole) === "receptionist";
   const canLoadAppointmentCounts = ["doctor", "patient"].includes(
     storedUser?.role || routeRole,
   );
   const [doctorDetails, setDoctorDetails] = useState(null);
+  const [receptionistDetails, setReceptionistDetails] = useState(null);
   const [appointmentCounts, setAppointmentCounts] = useState(null);
   const activeDoctorDetails =
     isDoctorProfile && doctorDetails?.routeUserId === userId
@@ -53,7 +61,12 @@ export default function UserProfilePage() {
       : null;
   const activeAppointmentCounts =
     appointmentCounts?.routeUserId === userId ? appointmentCounts.data : null;
-  const profileSource = activeDoctorDetails || storedUser;
+  const activeReceptionistDetails =
+    isReceptionistProfile && receptionistDetails?.routeUserId === userId
+      ? receptionistDetails.data
+      : null;
+  const profileSource =
+    activeDoctorDetails || activeReceptionistDetails || storedUser;
   const profile = buildProfile(
     profileSource,
     searchParams,
@@ -88,6 +101,43 @@ export default function UserProfilePage() {
       mounted = false;
     };
   }, [isDoctorProfile, storedUser, userId]);
+
+  useEffect(() => {
+    if (!userId || !isReceptionistProfile) {
+      return undefined;
+    }
+
+    let mounted = true;
+    const receptionistIds = getReceptionistProfileLookupIds(storedUser, userId);
+
+    async function loadReceptionistDetails() {
+      for (const receptionistId of receptionistIds) {
+        try {
+          const receptionist = await getReceptionist(receptionistId);
+
+          if (mounted) {
+            setReceptionistDetails({
+              routeUserId: userId,
+              data: receptionist,
+            });
+          }
+          return;
+        } catch {
+          // Try the next possible receptionist profile identifier.
+        }
+      }
+
+      if (mounted) {
+        setReceptionistDetails({ routeUserId: userId, data: null });
+      }
+    }
+
+    loadReceptionistDetails();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isReceptionistProfile, storedUser, userId]);
 
   useEffect(() => {
     if (!userId || !canLoadAppointmentCounts) {
@@ -170,7 +220,27 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        <ActivityPanel />
+        {(storedUser?.role || routeRole) === "patient" && (
+          <PatientActivityPanel
+            key={userId}
+            user={storedUser}
+            routeId={userId}
+          />
+        )}
+        {(storedUser?.role || routeRole) === "doctor" && (
+          <DoctorActivityPanel
+            key={userId}
+            user={profileSource}
+            routeId={userId}
+          />
+        )}
+        {(storedUser?.role || routeRole) === "receptionist" && (
+          <ReceptionistActivityPanel
+            key={userId}
+            receptionist={activeReceptionistDetails}
+            detailsLoaded={receptionistDetails?.routeUserId === userId}
+          />
+        )}
       </main>
     </section>
   );
@@ -279,6 +349,90 @@ function getDoctorProfileLookupIds(user, routeId) {
         .filter(Boolean)
         .map(String),
     ),
+  );
+}
+
+function getReceptionistProfileLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.profileId,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.raw?.receptionist?._id,
+        user?.raw?.receptionist?.id,
+        user?.raw?.receptionistProfile?._id,
+        user?.raw?.receptionistProfile?.id,
+        routeId,
+        user?.id,
+        user?.userId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getPatientActivityLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.profileId,
+        user?.raw?.patient?._id,
+        user?.raw?.patient?.id,
+        user?.raw?.patientProfile?._id,
+        user?.raw?.patientProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+        user?.id,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.userId,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+        routeId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getDoctorActivityLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.profileId,
+        user?.raw?.doctor?._id,
+        user?.raw?.doctor?.id,
+        user?.raw?.doctorProfile?._id,
+        user?.raw?.doctorProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+        user?.id,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.userId,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+        routeId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getReceptionistResponseUserId(receptionist) {
+  const rawUser = receptionist?.raw?.user;
+
+  if (typeof rawUser === "string") return rawUser;
+
+  return (
+    rawUser?._id ||
+    rawUser?.id ||
+    receptionist?.userId ||
+    ""
   );
 }
 
@@ -463,9 +617,9 @@ function StatsGrid({ profile }) {
       {stats.map((stat) => (
         <section
           key={stat.label}
-          className="grid min-h-[113px] place-items-center rounded-[8px] bg-white px-4 py-5 text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
+          className="grid min-h-[113px] min-w-0 place-items-center overflow-hidden rounded-[8px] bg-white px-3 py-5 text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]"
         >
-          <div>
+          <div className="min-w-0 max-w-full">
             <p className="text-[16px] leading-5 text-[#30bfd6]">{stat.label}</p>
             <div className="mt-[13px] text-[22px] font-bold leading-7 text-[#30bfd6]">
               {stat.value}
@@ -505,20 +659,26 @@ function RatingStars({ rating }) {
   const ratingValue = normalizeRatingValue(rating);
 
   return (
-    <span className="flex items-center justify-center gap-2" dir="ltr">
-      <span className="text-[18px] font-bold text-[#333] dark:text-white">
+    <span
+      className="flex max-w-full items-center justify-center gap-1"
+      dir="ltr"
+    >
+      <span className="shrink-0 text-[16px] font-bold text-[#333] dark:text-white">
         {formatRatingValue(ratingValue)}
       </span>
       {Array.from({ length: 5 }).map((_, index) => (
-        <span key={index} className="relative inline-grid h-[18px] w-[18px] place-items-center">
-          <Star size={18} className="text-[#d6d6d6]" strokeWidth={1.8} />
+        <span
+          key={index}
+          className="relative inline-grid h-[16px] w-[16px] shrink-0 place-items-center"
+        >
+          <Star size={16} className="text-[#d6d6d6]" strokeWidth={1.8} />
           <span
             className="absolute inset-0 overflow-hidden text-[#f6aa00]"
             style={{
               width: `${Math.min(Math.max(ratingValue - index, 0), 1) * 100}%`,
             }}
           >
-            <Star size={18} fill="currentColor" strokeWidth={1.8} />
+            <Star size={16} fill="currentColor" strokeWidth={1.8} />
           </span>
         </span>
       ))}
@@ -526,17 +686,199 @@ function RatingStars({ rating }) {
   );
 }
 
-function ActivityPanel() {
+function ActivityPanel({
+  activities,
+  loading,
+  error,
+  title,
+  showAll = false,
+  onShowAll,
+}) {
   return (
-    <section className="mt-[42px] rounded-[8px] bg-white px-[16px] py-[25px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
-      <h2 className="mb-[28px] text-right text-[20px] font-bold text-[#333] dark:text-white">
-        النشاط الأخير
-      </h2>
+    <section className="mt-[42px] overflow-hidden rounded-[8px] bg-white py-[25px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
+      <div className="mb-[18px] flex items-center justify-between gap-4 px-6">
+        <h2 className="text-right text-[20px] font-bold text-[#333] dark:text-white">
+          {title}
+        </h2>
 
-      <div className="grid min-h-[120px] place-items-center text-[16px] font-medium text-[#666] dark:text-gray-200">
-        لا يوجد نشاط من قاعدة البيانات حتى الآن
+        {!loading && !error && activities.length > 0 && !showAll && (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="flex items-center gap-2 text-[14px] font-semibold text-[#30bfd6] transition hover:text-[#159ab1]"
+          >
+            <span>عرض الكل</span>
+            <ChevronLeft size={19} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
+      <div className="px-6">
+        <ActivityList
+          activities={activities}
+          loading={loading}
+          error={error}
+          compact={!showAll}
+          showRole={false}
+          showActorName={false}
+          insetItems={false}
+        />
       </div>
     </section>
+  );
+}
+
+function PatientActivityPanel({ user, routeId }) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const patientIds = getPatientActivityLookupIds(user, routeId);
+
+    async function loadPatientActivities() {
+      for (const patientId of patientIds) {
+        try {
+          const patientActivities = await listPatientActivities(patientId, 500);
+
+          if (mounted) {
+            setActivities(patientActivities);
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // Try the next possible patient identifier.
+        }
+      }
+
+      if (mounted) {
+        setError("تعذر تحميل سجل نشاطات المريض");
+        setLoading(false);
+      }
+    }
+
+    loadPatientActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [routeId, user]);
+
+  return (
+    <ActivityPanel
+      activities={activities}
+      loading={loading}
+      error={error}
+      title="سجل نشاطات المريض"
+      showAll={showAll}
+      onShowAll={() => setShowAll(true)}
+    />
+  );
+}
+
+function DoctorActivityPanel({ user, routeId }) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const doctorIds = getDoctorActivityLookupIds(user, routeId);
+
+    async function loadDoctorActivities() {
+      for (const doctorId of doctorIds) {
+        try {
+          const doctorActivities = await listDoctorActivities(doctorId, 500);
+
+          if (mounted) {
+            setActivities(doctorActivities);
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // Try the next possible doctor identifier.
+        }
+      }
+
+      if (mounted) {
+        setError("تعذر تحميل سجل نشاطات الطبيب");
+        setLoading(false);
+      }
+    }
+
+    loadDoctorActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [routeId, user]);
+
+  return (
+    <ActivityPanel
+      activities={activities}
+      loading={loading}
+      error={error}
+      title="سجل نشاطات الطبيب"
+      showAll={showAll}
+      onShowAll={() => setShowAll(true)}
+    />
+  );
+}
+
+function ReceptionistActivityPanel({ receptionist, detailsLoaded }) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (!detailsLoaded) return undefined;
+
+    let mounted = true;
+    const activityUserId = getReceptionistResponseUserId(receptionist);
+
+    async function loadReceptionistActivities() {
+      if (!activityUserId) {
+        if (mounted) {
+          setError("تعذر تحديد رقم المستخدم لموظف الاستقبال");
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const receptionistActivities = await listReceptionistActivities(
+          activityUserId,
+          500,
+        );
+
+        if (mounted) setActivities(receptionistActivities);
+      } catch {
+        if (mounted) setError("تعذر تحميل سجل نشاطات موظف الاستقبال");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadReceptionistActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [detailsLoaded, receptionist]);
+
+  return (
+    <ActivityPanel
+      activities={activities}
+      loading={loading}
+      error={error}
+      title="سجل نشاطات موظف الاستقبال"
+      showAll={showAll}
+      onShowAll={() => setShowAll(true)}
+    />
   );
 }
 

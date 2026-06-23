@@ -33,6 +33,9 @@ export default function ActivityList({
   loading = false,
   error = "",
   compact = false,
+  showRole = true,
+  showActorName = true,
+  insetItems = true,
 }) {
   const [visibleCount, setVisibleCount] = useState(ACTIVITIES_BATCH_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -114,7 +117,7 @@ export default function ActivityList({
             className={`flex items-start gap-3 text-right ${
               compact
                 ? "border-b border-[#edf1f3] py-3 last:border-0 dark:border-white/10"
-                : "px-4 py-5 transition hover:bg-[#f8fcfd] dark:hover:bg-white/5 sm:px-6"
+                : `${insetItems ? "px-4 sm:px-6" : ""} py-5 transition hover:bg-[#f8fcfd] dark:hover:bg-white/5`
             }`}
             dir="rtl"
           >
@@ -132,17 +135,17 @@ export default function ActivityList({
                 {activityItem.description}
               </p>
 
-              {(activityItem.actorName ||
-                activityItem.actorRole ||
+              {((showActorName && activityItem.actorName) ||
+                (showRole && activityItem.actorRole) ||
                 formattedDate) && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#8a8a8a] dark:text-gray-300">
-                  {activityItem.actorName && (
+                  {showActorName && activityItem.actorName && (
                     <span className="flex items-center gap-1">
                       <UserRound size={13} />
                       {activityItem.actorName}
                     </span>
                   )}
-                  {activityItem.actorRole && (
+                  {showRole && activityItem.actorRole && (
                     <span className="flex items-center gap-1 text-[#22a9c2] dark:text-[#60d7ea]">
                       <ShieldCheck size={13} />
                       {activityItem.actorRole}

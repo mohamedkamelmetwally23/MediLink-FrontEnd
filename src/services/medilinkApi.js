@@ -663,6 +663,7 @@ export function normalizeReceptionist(item = {}) {
     active: status === "active",
     status,
     education: item.education || item.qualification || "",
+    registrationDate: normalizeDate(item.createdAt || user.createdAt || ""),
     workDays: normalizeWorkingDays(item.workingDays || item.workDays || []),
     workingDays: item.workingDays || serializeWorkingDays(item.workDays || []),
     workStart: normalizeTime(item.startTime || item.workStart || ""),
@@ -2566,6 +2567,47 @@ export async function listActivities(limit = 500) {
       if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) return 0;
       return secondTime - firstTime;
     });
+}
+
+async function listEntityActivities(entityId, limit = 500) {
+  if (!entityId) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 500, 500));
+  const response = await apiRequest(
+    `/activities/${encodeURIComponent(entityId)}?limit=${safeLimit}`,
+  );
+  const activities = findArray(response, [
+    "activities",
+    "activity",
+    "logs",
+    "auditLogs",
+    "records",
+    "docs",
+    "items",
+    "results",
+  ]);
+
+  return activities
+    .map(normalizeActivity)
+    .sort((first, second) => {
+      const firstTime = new Date(first.createdAt).getTime();
+      const secondTime = new Date(second.createdAt).getTime();
+
+      if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) return 0;
+      return secondTime - firstTime;
+    });
+}
+
+export function listPatientActivities(patientId, limit = 500) {
+  return listEntityActivities(patientId, limit);
+}
+
+export function listDoctorActivities(doctorId, limit = 500) {
+  return listEntityActivities(doctorId, limit);
+}
+
+export function listReceptionistActivities(receptionistId, limit = 500) {
+  return listEntityActivities(receptionistId, limit);
 }
 
 export async function getClinicProfits() {
