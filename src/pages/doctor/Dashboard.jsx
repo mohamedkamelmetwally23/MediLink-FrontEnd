@@ -79,6 +79,13 @@ const statStyles = [
   },
 ];
 
+const bookingRangeOptions = [
+  { id: "day", label: "يوم" },
+  { id: "week", label: "أسبوع" },
+  { id: "month", label: "شهر" },
+  { id: "year", label: "سنة" },
+];
+
 function useDarkTheme() {
   const getIsDark = () =>
     typeof document !== "undefined" &&
@@ -152,6 +159,10 @@ function formatMonth(date) {
   return date.toLocaleDateString("ar-EG", { month: "short" });
 }
 
+function formatShortWeekday(date) {
+  return date.toLocaleDateString("ar-EG", { weekday: "short" });
+}
+
 function getDoctorName(doctor) {
   return (
     [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
@@ -187,28 +198,6 @@ function getPatientImage(appointment) {
   );
 }
 
-function isSlotAvailable(status) {
-  const value = String(status || "").trim().toLowerCase();
-  return !["booked", "reserved", "unavailable", "محجوز", "غير متاح"].includes(value);
-}
-
-function flattenAvailableSlots(days = []) {
-  return days
-    .flatMap((day) =>
-      (day.slots || []).map((slot) => ({
-        date: slot.date || day.date,
-        day: day.day,
-        time: slot.time,
-        status: slot.status,
-      })),
-    )
-    .filter((slot) => slot.date && slot.time && isSlotAvailable(slot.status))
-    .sort((left, right) => {
-      const byDate = String(left.date).localeCompare(String(right.date));
-      return byDate || getTimeMinutes(left.time) - getTimeMinutes(right.time);
-    });
-}
-
 function getUniquePatientsCount(appointments) {
   const patients = new Set();
 
@@ -223,25 +212,103 @@ function getUniquePatientsCount(appointments) {
   return patients.size;
 }
 
-function buildMonthlyBookings(appointments) {
-  const today = new Date();
+function getLatestAppointmentDate(appointments) {
+  return appointments.reduce((latest, appointment) => {
+    const date = getAppointmentDateForStats(appointment);
 
-  return Array.from({ length: 8 }, (_, index) => {
-    const monthDate = new Date(today.getFullYear(), today.getMonth() - 7 + index, 1);
-    const count = appointments.filter((appointment) => {
-      const date = parseDate(appointment.date);
-      return (
-        date &&
-        date.getMonth() === monthDate.getMonth() &&
-        date.getFullYear() === monthDate.getFullYear()
-      );
-    }).length;
+    if (!date) return latest;
+    return !latest || date > latest ? date : latest;
+  }, null);
+}
+
+function getBookingsRangeBounds(range, anchorDate = new Date()) {
+  const current = new Date(anchorDate);
+  current.setHours(0, 0, 0, 0);
+
+  if (range === "day") {
+    const end = new Date(current);
+    end.setHours(23, 59, 59, 999);
+
+    return { start: current, end };
+  }
+
+  if (range === "week") {
+    const start = new Date(current);
+    const daysFromSaturday = (start.getDay() + 1) % 7;
+    start.setDate(start.getDate() - daysFromSaturday);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+  }
+
+  if (range === "month") {
+    return {
+      start: new Date(current.getFullYear(), current.getMonth(), 1),
+      end: new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999),
+    };
+  }
+
+  return {
+    start: new Date(current.getFullYear(), 0, 1),
+    end: new Date(current.getFullYear(), 11, 31, 23, 59, 59, 999),
+  };
+}
+
+function getBookingsBucket(appointment, range) {
+  const date = getAppointmentDateForStats(appointment);
+
+  if (!date) return null;
+
+  if (range === "day") {
+    const time = appointment.time || appointment.raw?.time || "";
 
     return {
-      month: formatMonth(monthDate),
-      value: count,
+      key: `${getIsoDate(date)}-${time || "00:00"}`,
+      label: time ? formatTime(time) : `${date.getDate()} ${formatMonth(date)}`,
     };
+  }
+
+  if (range === "year") {
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: formatMonth(date),
+    };
+  }
+
+  return {
+    key: getIsoDate(date),
+    label:
+      range === "week"
+        ? `${formatShortWeekday(date)} ${date.getDate()}`
+        : `${date.getDate()} ${formatMonth(date)}`,
+  };
+}
+
+function buildBookingsChart(appointments, range) {
+  const anchorDate = getLatestAppointmentDate(appointments);
+
+  if (!anchorDate) return [];
+
+  const { start, end } = getBookingsRangeBounds(range, anchorDate);
+  const counts = new Map();
+
+  appointments.forEach((appointment) => {
+    const date = getAppointmentDateForStats(appointment);
+    if (!date || date < start || date > end) return;
+
+    const bucket = getBookingsBucket(appointment, range);
+    if (!bucket) return;
+
+    const current = counts.get(bucket.key) || { ...bucket, value: 0 };
+    counts.set(bucket.key, { ...current, value: current.value + 1 });
   });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.key.localeCompare(second.key),
+  );
 }
 
 function getWeekRange() {
@@ -476,12 +543,13 @@ export default function DoctorDashboard() {
   const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [doctorPatientsCount, setDoctorPatientsCount] = useState(null);
-  const [availableSlotDays, setAvailableSlotDays] = useState([]);
+  const [, setAvailableSlotDays] = useState([]);
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [activitiesError, setActivitiesError] = useState("");
   const [loading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedBookingsRange, setSelectedBookingsRange] = useState("day");
   const axisColor = isDark ? "#f3f4f6" : "#777";
   const axisLineColor = isDark ? "#d1d5db" : "#cad6dd";
   const gridColor = isDark ? "#6b7280" : "#e8eef2";
@@ -497,15 +565,15 @@ export default function DoctorDashboard() {
         .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time)),
     [appointments, todayIso],
   );
-  const monthlyBookings = useMemo(
-    () => buildMonthlyBookings(appointments),
-    [appointments],
+  const bookingsChart = useMemo(
+    () => buildBookingsChart(appointments, selectedBookingsRange),
+    [appointments, selectedBookingsRange],
   );
   const weeklyStates = useMemo(
     () => buildWeeklyStates(appointments),
     [appointments],
   );
-  const maxChartValue = Math.max(4, ...monthlyBookings.map((item) => item.value));
+  const maxChartValue = Math.max(4, ...bookingsChart.map((item) => item.value));
   const statPeriods = useMemo(() => {
     const today = new Date();
     const previousDay = getPreviousDay(today);
@@ -717,13 +785,19 @@ export default function DoctorDashboard() {
 
           <DashboardCard
             title="عدد الحجوزات"
-            action={<RangeTabs options={["يوم", "أسبوع", "شهر", "سنة"]} />}
+            action={
+              <RangeTabs
+                options={bookingRangeOptions}
+                value={selectedBookingsRange}
+                onChange={setSelectedBookingsRange}
+              />
+            }
             className="min-h-[270px]"
           >
             <div className="h-[202px] w-full text-[#6e767b] dark:text-gray-200">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={monthlyBookings}
+                  data={bookingsChart}
                   margin={{ top: 8, right: 3, left: 0, bottom: 0 }}
                 >
                   <defs>
@@ -744,7 +818,7 @@ export default function DoctorDashboard() {
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="month"
+                    dataKey="label"
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
                     tick={{ fontSize: 9, fill: axisColor, fontWeight: 600 }}
@@ -831,12 +905,15 @@ function StatCard({ title, value, trend, icon: Icon, color, bg, loading }) {
       </div>
 
       {trend && (
-        <div className="mt-[26px] flex items-center justify-start gap-[8px] text-[15px] font-medium">
-          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
+        <div
+          className="mt-[26px] flex items-center justify-start gap-[8px] text-right text-[15px] font-medium"
+          dir="rtl"
+        >
           <span dir="ltr" className={trendColor}>
             {trend.percent}
           </span>
           <TrendIcon size={18} strokeWidth={2.4} className={trendColor} />
+          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
         </div>
       )}
     </article>
@@ -859,18 +936,20 @@ function DashboardCard({ title, action, children, className = "" }) {
   );
 }
 
-function RangeTabs({ options }) {
+function RangeTabs({ options, value, onChange }) {
   return (
     <div className="flex h-[25px] w-[167px] overflow-hidden rounded-[7px] bg-[#fafafa] p-[2px] text-[9px] text-[#333] dark:bg-[#3f3f3f] dark:text-gray-200">
       {options.map((item) => (
-        <span
-          key={item}
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onChange(item.id)}
           className={`grid flex-1 place-items-center rounded-[7px] ${
-            item === "شهر" ? "bg-[#35c0d8] text-white" : ""
+            item.id === value ? "bg-[#35c0d8] text-white" : ""
           }`}
         >
-          {item}
-        </span>
+          {item.label}
+        </button>
       ))}
     </div>
   );

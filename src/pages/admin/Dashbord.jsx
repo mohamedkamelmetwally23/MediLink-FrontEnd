@@ -18,6 +18,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -102,11 +103,21 @@ const appointmentRangeOptions = [
 
 const doctorPeriodOptions = [
   { id: "all", label: "الكل" },
-  { id: "day", label: "اليوم" },
-  { id: "week", label: "الأسبوع" },
-  { id: "month", label: "الشهر" },
-  { id: "year", label: "السنة" },
+  { id: "day", label: "في اليوم" },
+  { id: "week", label: "في الأسبوع" },
+  { id: "month", label: "في الشهر" },
+  { id: "year", label: "في السنة" },
 ];
+
+function getDoctorChartTitle(selectedPeriod) {
+  const periodLabel = doctorPeriodOptions.find(
+    (option) => option.id === selectedPeriod && option.id !== "all",
+  )?.label;
+
+  return periodLabel
+    ? `عدد الحجوزات لكل طبيب ${periodLabel}`
+    : "عدد الحجوزات لكل طبيب";
+}
 
 function getAuthUserDisplayName(user, fallback = "المستخدم") {
   const profile =
@@ -188,7 +199,10 @@ function getUserDate(user) {
 }
 
 function getDateKey(date) {
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function getPreviousMonth(date) {
@@ -233,53 +247,77 @@ function formatDayLabel(date) {
   return `${date.getDate()} ${monthNames[date.getMonth()]}`;
 }
 
-function getAppointmentBucket(date, range) {
+function getLatestAppointmentDate(appointments) {
+  return appointments.reduce((latest, appointment) => {
+    const date = getAppointmentDate(appointment);
+
+    if (!date) return latest;
+    return !latest || date > latest ? date : latest;
+  }, null);
+}
+
+function getCurrentRangeBounds(range, anchorDate = new Date()) {
+  const today = new Date(anchorDate);
+  today.setHours(0, 0, 0, 0);
+
   if (range === "day") {
-    return {
-      key: getDateKey(date),
-      label: formatDayLabel(date),
-    };
+    const end = new Date(today);
+    end.setHours(23, 59, 59, 999);
+
+    return { start: today, end };
   }
 
   if (range === "week") {
-    const start = getWeekStart(date);
+    const start = getWeekStart(today);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
 
-    return {
-      key: getDateKey(start),
-      label: `${formatDayLabel(start)} - ${formatDayLabel(end)}`,
-    };
+    return { start, end };
   }
 
-  if (range === "year") {
+  if (range === "month") {
     return {
-      key: String(date.getFullYear()),
-      label: String(date.getFullYear()),
+      start: new Date(today.getFullYear(), today.getMonth(), 1),
+      end: new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999),
     };
   }
 
   return {
-    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-    label: monthNames[date.getMonth()],
+    start: new Date(today.getFullYear(), 0, 1),
+    end: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
   };
 }
 
-function getVisibleBucketsLimit(range) {
+function getAppointmentBucket(date, range) {
+  if (range === "year") {
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: monthNames[date.getMonth()],
+    };
+  }
+
   return {
-    day: 14,
-    week: 12,
-    month: 12,
-    year: 6,
-  }[range];
+    key: getDateKey(date),
+    label:
+      range === "week"
+        ? `${formatShortWeekday(date)} ${date.getDate()}`
+        : formatDayLabel(date),
+  };
 }
 
 function buildAppointmentChart(appointments, range) {
   const counts = new Map();
+  const anchorDate = getLatestAppointmentDate(appointments);
+
+  if (!anchorDate) return [];
+
+  const { start, end } = getCurrentRangeBounds(range, anchorDate);
 
   appointments.forEach((appointment) => {
     const date = getAppointmentDate(appointment);
     if (!date) return;
+    if (date < start || date > end) return;
 
     const bucket = getAppointmentBucket(date, range);
     const current = counts.get(bucket.key) || { ...bucket, value: 0 };
@@ -288,11 +326,93 @@ function buildAppointmentChart(appointments, range) {
 
   return Array.from(counts.values())
     .sort((first, second) => first.key.localeCompare(second.key))
-    .slice(-getVisibleBucketsLimit(range));
+    .filter((item) => item.value > 0);
 }
 
 function getDoctorName(doctor) {
   return `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "طبيب";
+}
+
+function getEntityId(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+
+  return (
+    value._id ||
+    value.id ||
+    value.user?._id ||
+    value.user?.id ||
+    value.account?._id ||
+    value.account?.id ||
+    value.profile?._id ||
+    value.profile?.id ||
+    ""
+  );
+}
+
+function uniqueIds(ids) {
+  return Array.from(
+    new Set(
+      ids
+        .map((id) => {
+          if (!id) return "";
+          if (typeof id === "string" || typeof id === "number") return String(id);
+          return getEntityId(id);
+        })
+        .filter(Boolean),
+    ),
+  );
+}
+
+function getDoctorLookupIds(doctor = {}) {
+  const raw = doctor.raw || {};
+
+  return uniqueIds([
+    doctor.id,
+    doctor.userId,
+    doctor.profileId,
+    raw._id,
+    raw.id,
+    raw.user?._id,
+    raw.user?.id,
+    raw.account?._id,
+    raw.account?.id,
+    getEntityId(raw.user),
+    getEntityId(raw.account),
+    getEntityId(raw.doctor),
+    getEntityId(raw.doctorProfile),
+    getEntityId(raw.profile),
+  ]);
+}
+
+function getAppointmentDoctorLookupIds(appointment = {}) {
+  const raw = appointment.raw || {};
+  const doctor = raw.doctor || raw.doctorId || {};
+
+  return uniqueIds([
+    appointment.doctorId,
+    raw.doctorId,
+    raw.doctor,
+    raw.doctor?._id,
+    raw.doctor?.id,
+    raw.doctor?.user?._id,
+    raw.doctor?.user?.id,
+    raw.doctor?.account?._id,
+    raw.doctor?.account?.id,
+    raw.doctorProfile,
+    raw.doctorProfile?._id,
+    raw.doctorProfile?.id,
+    getEntityId(doctor),
+    getEntityId(doctor.user),
+    getEntityId(doctor.account),
+  ]);
+}
+
+function matchesSelectedDoctor(doctor, selectedDoctorId) {
+  if (selectedDoctorId === "all") return true;
+
+  const selectedId = String(selectedDoctorId);
+  return doctor.id === selectedId || doctor.ids?.includes(selectedId);
 }
 
 function isSameDay(firstDate, secondDate) {
@@ -331,50 +451,155 @@ function getDoctorFilterOptions(users) {
   return users
     .filter((user) => user.role === "doctor")
     .map((doctor) => ({
-      id: String(doctor.id || doctor.userId || doctor.raw?._id || doctor.raw?.user?._id || ""),
+      id: getDoctorLookupIds(doctor)[0] || "",
       label: getDoctorName(doctor),
     }))
     .filter((doctor) => doctor.id);
 }
 
+function formatShortWeekday(date) {
+  return new Intl.DateTimeFormat("ar-EG", { weekday: "short" }).format(date);
+}
+
+function getDoctorPeriodBucket(date, period) {
+  if (period === "year") {
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      name: monthNames[date.getMonth()],
+    };
+  }
+
+  return {
+    key: getDateKey(date),
+    name:
+      period === "week"
+        ? formatShortWeekday(date)
+        : formatDayLabel(date),
+  };
+}
+
+function buildDoctorPeriodBuckets(period) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (period === "day") {
+    return [getDoctorPeriodBucket(today, period)];
+  }
+
+  if (period === "week") {
+    const start = getWeekStart(today);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return getDoctorPeriodBucket(date, period);
+    });
+  }
+
+  if (period === "month") {
+    const daysInMonth = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      0,
+    ).getDate();
+
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), index + 1);
+      return getDoctorPeriodBucket(date, period);
+    });
+  }
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(today.getFullYear(), index, 1);
+    return getDoctorPeriodBucket(date, period);
+  });
+}
+
 function buildDoctorChart(appointments, users, selectedDoctorId, selectedPeriod) {
-  const doctors = users.filter((user) => user.role === "doctor");
+  const doctors = users
+    .filter((user) => user.role === "doctor")
+    .map((doctor) => {
+      const ids = getDoctorLookupIds(doctor);
+
+      return {
+        id: ids[0] || "",
+        ids,
+        name: getDoctorName(doctor),
+      };
+    })
+    .filter((doctor) => doctor.id);
   const doctorsById = new Map();
+
+  doctors.forEach((doctor) => {
+    doctor.ids.forEach((id) => doctorsById.set(id, doctor));
+  });
+
+  const visibleDoctors =
+    selectedDoctorId === "all"
+      ? doctors
+      : doctors.filter((doctor) => matchesSelectedDoctor(doctor, selectedDoctorId));
+  const isTimelineView = selectedPeriod !== "all";
+  const timelineCounts = new Map(
+    isTimelineView
+      ? buildDoctorPeriodBuckets(selectedPeriod).map((bucket) => [
+          bucket.key,
+          { name: bucket.name, value: 0 },
+        ])
+      : [],
+  );
   const doctorCounts = new Map(
-    doctors.map((doctor) => {
-      const name = getDoctorName(doctor);
-      const doctorIds = [doctor.id, doctor.userId, doctor.raw?._id, doctor.raw?.user?._id]
-        .filter(Boolean)
-        .map(String);
-
-      doctorIds.forEach((id) => doctorsById.set(id, { id: doctorIds[0], name }));
-
-      return [name, 0];
-    }),
+    isTimelineView ? [] : visibleDoctors.map((doctor) => [doctor.name, 0]),
   );
 
   appointments.forEach((appointment) => {
-    const doctorId = String(appointment.doctorId || appointment.raw?.doctorId || "");
+    const appointmentDoctorIds = getAppointmentDoctorLookupIds(appointment);
     const appointmentDoctor = String(appointment.doctor || "").trim();
     const doctor =
-      doctorsById.get(doctorId) ||
-      doctorsById.get(appointmentDoctor) ||
+      appointmentDoctorIds.map((id) => doctorsById.get(id)).find(Boolean) ||
       (/^[a-f\d]{24}$/i.test(appointmentDoctor)
         ? null
         : { id: appointmentDoctor, name: appointmentDoctor });
 
     if (!doctor?.name) return;
-    if (selectedDoctorId !== "all" && doctor.id !== selectedDoctorId) return;
+    if (!matchesSelectedDoctor(doctor, selectedDoctorId)) return;
 
     const date = getAppointmentDate(appointment);
     if (!date || !isDateInCurrentPeriod(date, selectedPeriod)) return;
 
+    if (isTimelineView) {
+      const bucket = getDoctorPeriodBucket(date, selectedPeriod);
+      const current = timelineCounts.get(bucket.key) || {
+        name: bucket.name,
+        value: 0,
+      };
+
+      timelineCounts.set(bucket.key, {
+        ...current,
+        value: current.value + 1,
+      });
+      return;
+    }
+
+    if (!doctorCounts.has(doctor.name)) {
+      doctorCounts.set(doctor.name, 0);
+    }
+
     doctorCounts.set(doctor.name, (doctorCounts.get(doctor.name) || 0) + 1);
   });
 
-  return Array.from(doctorCounts, ([name, value]) => ({ name, value })).filter(
-    (item) => item.value > 0,
-  );
+  if (isTimelineView) {
+    const timelineData = Array.from(timelineCounts.values());
+
+    return selectedPeriod === "month"
+      ? timelineData.filter((item) => item.value > 0)
+      : timelineData;
+  }
+
+  const chartData = Array.from(doctorCounts, ([name, value]) => ({ name, value }));
+
+  return selectedDoctorId === "all"
+    ? chartData.filter((item) => item.value > 0)
+    : chartData;
 }
 
 function formatDoctorTick(name) {
@@ -424,7 +649,7 @@ export default function Dashboard() {
   const [activitiesError, setActivitiesError] = useState("");
   const [selectedAppointmentRange, setSelectedAppointmentRange] = useState("month");
   const [selectedDoctorId, setSelectedDoctorId] = useState("all");
-  const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("year");
+  const [selectedDoctorPeriod, setSelectedDoctorPeriod] = useState("all");
   const axisColor = isDark ? "#f3f4f6" : "#2f3a40";
   const axisLineColor = isDark ? "#d1d5db" : "#3f4b52";
   const gridColor = isDark ? "#6b7280" : "#d9e2e7";
@@ -452,6 +677,8 @@ export default function Dashboard() {
       ),
     [dashboardAppointments, users, selectedDoctorId, selectedDoctorPeriod],
   );
+  const doctorChartTitle = getDoctorChartTitle(selectedDoctorPeriod);
+  const doctorXAxisInterval = 0;
   const specializationChart = useMemo(
     () => buildSpecializationChart(users),
     [users],
@@ -661,6 +888,7 @@ export default function Dashboard() {
                     tick={tickStyle}
                     tickMargin={10}
                     allowDecimals={false}
+                    domain={[0, (dataMax) => Math.max(1, dataMax)]}
                     width={50}
                   />
                   <Tooltip
@@ -684,7 +912,7 @@ export default function Dashboard() {
           </DashboardCard>
 
           <DashboardCard
-            title="عدد الحجوزات لكل طبيب"
+            title={doctorChartTitle}
             action={
               <div className="flex gap-2.5">
                 <SelectControl
@@ -703,7 +931,9 @@ export default function Dashboard() {
             }
             className="h-[317px]"
           >
-            {doctorChart.length === 0 ? (
+            {!appointmentsLoaded ? (
+              <ChartState text={emptyAppointmentsText} />
+            ) : doctorChart.length === 0 ? (
               <ChartState text={emptyAppointmentsText} />
             ) : (
               <ChartBox>
@@ -727,7 +957,7 @@ export default function Dashboard() {
                     dataKey="name"
                     axisLine={{ stroke: axisLineColor }}
                     tickLine={false}
-                    interval={0}
+                    interval={doctorXAxisInterval}
                     tick={{ ...tickStyle, fontSize: 10 }}
                     tickFormatter={formatDoctorTick}
                     tickMargin={8}
@@ -752,7 +982,20 @@ export default function Dashboard() {
                     fill="url(#doctorBarFill)"
                     radius={[17, 17, 17, 17]}
                     barSize={30}
-                  />
+                  >
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      fill={axisColor}
+                      fontSize={12}
+                      fontWeight={700}
+                      formatter={(value) =>
+                        selectedDoctorPeriod === "all" || Number(value) > 0
+                          ? value
+                          : ""
+                      }
+                    />
+                  </Bar>
                 </BarChart>
               </ChartBox>
             )}
@@ -877,12 +1120,15 @@ function StatCard({ title, value, trend, icon: Icon, color, bg }) {
       </div>
 
       {trend && (
-        <div className="mt-[26px] flex items-center justify-start gap-[8px] text-[15px] font-medium">
-          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
+        <div
+          className="mt-[26px] flex items-center justify-start gap-[8px] text-right text-[15px] font-medium"
+          dir="rtl"
+        >
           <span dir="ltr" className={trendColor}>
             {trend.percent}
           </span>
           <TrendIcon size={18} strokeWidth={2.4} className={trendColor} />
+          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
         </div>
       )}
     </article>
