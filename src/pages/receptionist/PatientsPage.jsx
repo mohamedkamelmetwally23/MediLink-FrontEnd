@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -15,7 +14,6 @@ import {
   deletePatient,
   getUserAppointmentsCount,
   listPatientsForReceptionist,
-  updatePatient,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 
@@ -197,22 +195,6 @@ export default function ReceptionistPatientsPage() {
       .catch(() => setPendingDelete(null));
   };
 
-  const toggleStatus = (patient) => {
-    const nextStatus = getActiveStatus(patient) === "active" ? "inactive" : "active";
-
-    setPatients((current) =>
-      current.map((item) =>
-        item.id === patient.id
-          ? { ...item, status: nextStatus, active: nextStatus === "active" }
-          : item,
-      ),
-    );
-
-    if (!isDemoPatient(patient)) {
-      updatePatient(patient.id, { ...patient, status: nextStatus }).catch(() => {});
-    }
-  };
-
   return (
     <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <PageHeader />
@@ -256,7 +238,6 @@ export default function ReceptionistPatientsPage() {
                     patient={patient}
                     selected={selectedIds.includes(patient.id)}
                     onToggle={() => togglePatient(patient.id)}
-                    onToggleStatus={() => toggleStatus(patient)}
                   />
                 ))
               )}
@@ -403,7 +384,6 @@ function PatientRow({
   patient,
   selected,
   onToggle,
-  onToggleStatus,
 }) {
   const status = getActiveStatus(patient);
   const activityUserId =
@@ -432,20 +412,7 @@ function PatientRow({
       <div className="flex justify-center">
         <StatusBadge status={status} />
       </div>
-      <div className="flex items-center justify-center" dir="ltr">
-        <button
-          type="button"
-          aria-label="تغيير الحالة"
-          className={
-            status === "inactive"
-              ? "text-[#ff2020]"
-              : "text-[#333] dark:text-white"
-          }
-          onClick={onToggleStatus}
-        >
-          <Ban size={15} strokeWidth={1.7} />
-        </button>
-      </div>
+      <span />
       <Link
         to={`/receptionist/patients/${patient.id}/profile?userId=${encodeURIComponent(activityUserId)}`}
         aria-label="عرض المريض"

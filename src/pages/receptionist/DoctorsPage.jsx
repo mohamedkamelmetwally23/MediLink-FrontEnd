@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -13,7 +12,6 @@ import CustomSelect from "../../components/admin/CustomSelect";
 import {
   getUserAppointmentsCount,
   listDoctors,
-  updateDoctor,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 
@@ -123,21 +121,6 @@ export default function ReceptionistDoctorsPage() {
     setCurrentPage(1);
   };
 
-  const toggleStatus = (doctor) => {
-    const nextStatus = doctor.status === "active" ? "inactive" : "active";
-    saveStatusLocally(doctor.id, nextStatus);
-
-    updateDoctor(doctor.id, { ...doctor, status: nextStatus }, doctor).catch(
-      () => {},
-    );
-  };
-
-  const saveStatusLocally = (id, status) => {
-    setDoctors((current) =>
-      current.map((doctor) => (doctor.id === id ? { ...doctor, status } : doctor)),
-    );
-  };
-
   return (
     <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <PageHeader />
@@ -177,7 +160,6 @@ export default function ReceptionistDoctorsPage() {
                   <DoctorRow
                     key={doctor.id}
                     doctor={doctor}
-                    onToggleStatus={() => toggleStatus(doctor)}
                   />
                 ))
               )}
@@ -294,10 +276,7 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function DoctorRow({
-  doctor,
-  onToggleStatus,
-}) {
+function DoctorRow({ doctor }) {
   const appointmentsCount = getAppointmentsCount(doctor);
   const activityDoctorId =
     doctor.profileId ||
@@ -318,20 +297,7 @@ function DoctorRow({
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>
-      <div className="flex items-center justify-center" dir="ltr">
-        <button
-          type="button"
-          aria-label="تغيير الحالة"
-          className={
-            doctor.status === "inactive"
-              ? "text-[#ff2020]"
-              : "text-[#333] dark:text-white"
-          }
-          onClick={onToggleStatus}
-        >
-          <Ban size={15} strokeWidth={1.7} />
-        </button>
-      </div>
+      <span />
       <Link
         to={`/receptionist/doctors/${doctor.id}/profile?activityDoctorId=${encodeURIComponent(activityDoctorId)}`}
         aria-label="عرض الطبيب"
