@@ -29,15 +29,42 @@ export function getStoredToken() {
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
 
-  if (typeof data === "string") return data || fallback;
+  const message =
+    typeof data === "string"
+      ? data
+      : data.message ||
+        data.error ||
+        data.errors?.[0]?.message ||
+        data.errors?.[0] ||
+        fallback;
 
-  return (
-    data.message ||
-    data.error ||
-    data.errors?.[0]?.message ||
-    data.errors?.[0] ||
-    fallback
-  );
+  return translateApiErrorMessage(message, fallback);
+}
+
+function translateApiErrorMessage(message, fallback) {
+  if (!message) return fallback;
+
+  const text = String(message).trim();
+  if (/[\u0600-\u06FF]/.test(text)) return text;
+
+  const normalized = text.toLowerCase();
+
+  if (
+    normalized.includes("already have an appointment") &&
+    normalized.includes("this doctor") &&
+    normalized.includes("today")
+  ) {
+    return "لديك موعد بالفعل مع هذا الطبيب اليوم";
+  }
+
+  if (
+    normalized.includes("already have an appointment") &&
+    normalized.includes("this time")
+  ) {
+    return "لديك موعد بالفعل في هذا الوقت";
+  }
+
+  return text || fallback;
 }
 
 async function parseResponse(response) {
