@@ -663,6 +663,7 @@ export function normalizeReceptionist(item = {}) {
     active: status === "active",
     status,
     education: item.education || item.qualification || "",
+    registrationDate: normalizeDate(item.createdAt || user.createdAt || ""),
     workDays: normalizeWorkingDays(item.workingDays || item.workDays || []),
     workingDays: item.workingDays || serializeWorkingDays(item.workDays || []),
     workStart: normalizeTime(item.startTime || item.workStart || ""),

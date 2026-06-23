@@ -6,6 +6,7 @@ import doctorImage from "../../../assets/landingPage/login-doctor.png";
 import ActivityList from "../../../components/admin/ActivityList";
 import {
   getDoctor,
+  getReceptionist,
   getUserAppointmentsCount,
   listDoctorActivities,
   listPatientActivities,
@@ -46,10 +47,13 @@ export default function UserProfilePage() {
   const storedUser = userId ? getUser(userId) : null;
   const routeRole = searchParams.get("role") || "";
   const isDoctorProfile = (storedUser?.role || routeRole) === "doctor";
+  const isReceptionistProfile =
+    (storedUser?.role || routeRole) === "receptionist";
   const canLoadAppointmentCounts = ["doctor", "patient"].includes(
     storedUser?.role || routeRole,
   );
   const [doctorDetails, setDoctorDetails] = useState(null);
+  const [receptionistDetails, setReceptionistDetails] = useState(null);
   const [appointmentCounts, setAppointmentCounts] = useState(null);
   const activeDoctorDetails =
     isDoctorProfile && doctorDetails?.routeUserId === userId
@@ -57,7 +61,12 @@ export default function UserProfilePage() {
       : null;
   const activeAppointmentCounts =
     appointmentCounts?.routeUserId === userId ? appointmentCounts.data : null;
-  const profileSource = activeDoctorDetails || storedUser;
+  const activeReceptionistDetails =
+    isReceptionistProfile && receptionistDetails?.routeUserId === userId
+      ? receptionistDetails.data
+      : null;
+  const profileSource =
+    activeDoctorDetails || activeReceptionistDetails || storedUser;
   const profile = buildProfile(
     profileSource,
     searchParams,
@@ -92,6 +101,43 @@ export default function UserProfilePage() {
       mounted = false;
     };
   }, [isDoctorProfile, storedUser, userId]);
+
+  useEffect(() => {
+    if (!userId || !isReceptionistProfile) {
+      return undefined;
+    }
+
+    let mounted = true;
+    const receptionistIds = getReceptionistProfileLookupIds(storedUser, userId);
+
+    async function loadReceptionistDetails() {
+      for (const receptionistId of receptionistIds) {
+        try {
+          const receptionist = await getReceptionist(receptionistId);
+
+          if (mounted) {
+            setReceptionistDetails({
+              routeUserId: userId,
+              data: receptionist,
+            });
+          }
+          return;
+        } catch {
+          // Try the next possible receptionist profile identifier.
+        }
+      }
+
+      if (mounted) {
+        setReceptionistDetails({ routeUserId: userId, data: null });
+      }
+    }
+
+    loadReceptionistDetails();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isReceptionistProfile, storedUser, userId]);
 
   useEffect(() => {
     if (!userId || !canLoadAppointmentCounts) {
@@ -191,8 +237,8 @@ export default function UserProfilePage() {
         {(storedUser?.role || routeRole) === "receptionist" && (
           <ReceptionistActivityPanel
             key={userId}
-            user={storedUser}
-            routeId={userId}
+            receptionist={activeReceptionistDetails}
+            detailsLoaded={receptionistDetails?.routeUserId === userId}
           />
         )}
       </main>
@@ -306,6 +352,27 @@ function getDoctorProfileLookupIds(user, routeId) {
   );
 }
 
+function getReceptionistProfileLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.profileId,
+        user?.raw?._id,
+        user?.raw?.id,
+        user?.raw?.receptionist?._id,
+        user?.raw?.receptionist?.id,
+        user?.raw?.receptionistProfile?._id,
+        user?.raw?.receptionistProfile?.id,
+        routeId,
+        user?.id,
+        user?.userId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
 function getPatientActivityLookupIds(user, routeId) {
   return Array.from(
     new Set(
@@ -356,32 +423,16 @@ function getDoctorActivityLookupIds(user, routeId) {
   );
 }
 
-function getReceptionistActivityLookupIds(user, routeId) {
-  return Array.from(
-    new Set(
-      [
-        user?.userId,
-        user?.raw?.user?._id,
-        user?.raw?.user?.id,
-        user?.raw?.receptionist?.user?._id,
-        user?.raw?.receptionist?.user?.id,
-        user?.raw?.receptionistProfile?.user?._id,
-        user?.raw?.receptionistProfile?.user?.id,
-        routeId,
-        user?.id,
-        user?.raw?.receptionist?._id,
-        user?.raw?.receptionist?.id,
-        user?.raw?.receptionistProfile?._id,
-        user?.raw?.receptionistProfile?.id,
-        user?.raw?.profile?._id,
-        user?.raw?.profile?.id,
-        user?.profileId,
-        user?.raw?._id,
-        user?.raw?.id,
-      ]
-        .filter(Boolean)
-        .map(String),
-    ),
+function getReceptionistResponseUserId(receptionist) {
+  const rawUser = receptionist?.raw?.user;
+
+  if (typeof rawUser === "string") return rawUser;
+
+  return (
+    rawUser?._id ||
+    rawUser?.id ||
+    receptionist?.userId ||
+    ""
   );
 }
 
@@ -777,37 +828,38 @@ function DoctorActivityPanel({ user, routeId }) {
   );
 }
 
-function ReceptionistActivityPanel({ user, routeId }) {
+function ReceptionistActivityPanel({ receptionist, detailsLoaded }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
+    if (!detailsLoaded) return undefined;
+
     let mounted = true;
-    const receptionistIds = getReceptionistActivityLookupIds(user, routeId);
+    const activityUserId = getReceptionistResponseUserId(receptionist);
 
     async function loadReceptionistActivities() {
-      for (const receptionistId of receptionistIds) {
-        try {
-          const receptionistActivities = await listReceptionistActivities(
-            receptionistId,
-            500,
-          );
-
-          if (mounted) {
-            setActivities(receptionistActivities);
-            setLoading(false);
-          }
-          return;
-        } catch {
-          // Try the next possible receptionist identifier.
+      if (!activityUserId) {
+        if (mounted) {
+          setError("تعذر تحديد رقم المستخدم لموظف الاستقبال");
+          setLoading(false);
         }
+        return;
       }
 
-      if (mounted) {
-        setError("تعذر تحميل سجل نشاطات موظف الاستقبال");
-        setLoading(false);
+      try {
+        const receptionistActivities = await listReceptionistActivities(
+          activityUserId,
+          500,
+        );
+
+        if (mounted) setActivities(receptionistActivities);
+      } catch {
+        if (mounted) setError("تعذر تحميل سجل نشاطات موظف الاستقبال");
+      } finally {
+        if (mounted) setLoading(false);
       }
     }
 
@@ -816,7 +868,7 @@ function ReceptionistActivityPanel({ user, routeId }) {
     return () => {
       mounted = false;
     };
-  }, [routeId, user]);
+  }, [detailsLoaded, receptionist]);
 
   return (
     <ActivityPanel
