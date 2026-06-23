@@ -46,7 +46,6 @@ export default function RatingPopup({
   onSkip,
 }) {
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,7 +56,7 @@ export default function RatingPopup({
     setLoading(true);
     setError("");
     try {
-      await onSubmit({ appointmentId: appointment.id, stars: rating, comment });
+      await onSubmit({ appointmentId: appointment.id, stars: rating, comment: "" });
     } catch {
       setError("حدث خطأ أثناء الإرسال، حاول مرة أخرى");
       setLoading(false);
@@ -93,15 +92,6 @@ export default function RatingPopup({
             تقييمك: {rating} من 5
           </p>
         )}
-
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="أضف تعليقك (اختياري)..."
-          rows={2}
-          disabled={loading}
-          className="mt-4 w-full resize-none rounded-xl border border-[#ddd] bg-transparent px-4 py-3 text-right text-[13px] text-[#333] outline-none placeholder:text-[#aaa] focus:border-[#05ADE8] dark:border-white/20 dark:text-white dark:placeholder:text-gray-400"
-        />
 
         {error && (
           <p className="mt-2 text-sm font-semibold text-red-500">{error}</p>

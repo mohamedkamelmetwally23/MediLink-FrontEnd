@@ -7,6 +7,7 @@ import {
   CircleMinus,
   CirclePlus,
   Cross,
+  LockKeyhole,
   LogOut,
   Mail,
   MapPin,
@@ -139,6 +140,7 @@ export function PatientHomeHeader({
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountDetailsOpen, setAccountDetailsOpen] = useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const isHomePage = location.pathname === patientHomePath;
   const isAppointmentsPage = location.pathname === "/patient/doctors";
@@ -398,15 +400,47 @@ export function PatientHomeHeader({
 
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-[#333333] transition hover:bg-[#F7F7F7] dark:text-[#F0F0F0] dark:hover:bg-white/5"
-                onClick={() => {
-                  setProfileOpen(false);
-                  navigate(`/patient/${encodeURIComponent(currentPatientId)}/profile/edit`);
-                }}
+                className={`flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-[#333333] transition hover:bg-[#F7F7F7] dark:text-[#F0F0F0] dark:hover:bg-white/5 ${
+                  editDetailsOpen ? "bg-[#F8F9FA] dark:bg-white/5" : ""
+                }`}
+                onClick={() => setEditDetailsOpen((open) => !open)}
               >
                 <Settings size={23} strokeWidth={1.8} />
-                <span className="text-lg font-medium">تعديل البيانات</span>
+                <span className="flex-1 text-lg font-medium">تعديل البيانات</span>
+                {editDetailsOpen ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
               </button>
+
+              <div
+                className={`grid transition-all duration-200 ${
+                  editDetailsOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <nav className="space-y-1 py-2 pr-11 text-[16px] text-[#777777] dark:text-[#C8C8C8]">
+                    <button
+                      type="button"
+                      className="block w-full rounded-md px-2 py-2 text-right transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate(`/patient/${encodeURIComponent(currentPatientId)}/profile/edit`);
+                      }}
+                    >
+                      تعديل البيانات الشخصية
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-right transition hover:bg-[#05ADE8]/10 hover:text-[#05ADE8]"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate(`/patient/${encodeURIComponent(currentPatientId)}/profile/change-password`);
+                      }}
+                    >
+                      <LockKeyhole size={16} strokeWidth={1.8} />
+                      <span>تغيير كلمة المرور</span>
+                    </button>
+                  </nav>
+                </div>
+              </div>
 
               <div className="border-t border-[#E7E7E7] dark:border-[#555555]" />
 

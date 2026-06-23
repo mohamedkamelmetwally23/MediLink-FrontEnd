@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import CustomSelect from "../../components/admin/CustomSelect";
-import { getDoctorImage, getDoctorName, getDoctorRating, useDoctors } from "../../hooks/useDoctors";
+import {
+  getDoctorImage,
+  getDoctorName,
+  getDoctorRating,
+  useDoctors,
+} from "../../hooks/useDoctors";
 import {
   listDoctorAvailableSlots,
   listSpecializations,
@@ -19,7 +24,15 @@ import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
 
 const pageSize = 12;
 const gradient = "bg-linear-to-b from-[#05ADE8] to-[#6CCCC8]";
-const days = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+const days = [
+  "السبت",
+  "الأحد",
+  "الإثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+];
 
 function formatTime(value) {
   if (!value) return "";
@@ -44,30 +57,32 @@ function isAvailableSlot(status) {
 function getFirstAvailableSlot(slotDays) {
   const now = new Date();
 
-  return slotDays
-    .flatMap((slotDay) =>
-      (slotDay.slots || [])
-        .filter((slot) => isAvailableSlot(slot.status))
-        .map((slot) => {
-          const date = slot.date || slotDay.date;
-          const dateTime = new Date(`${date}T${slot.time}:00`);
+  return (
+    slotDays
+      .flatMap((slotDay) =>
+        (slotDay.slots || [])
+          .filter((slot) => isAvailableSlot(slot.status))
+          .map((slot) => {
+            const date = slot.date || slotDay.date;
+            const dateTime = new Date(`${date}T${slot.time}:00`);
 
-          return {
-            date,
-            day: slotDay.day,
-            time: slot.time,
-            dateTime,
-          };
-        }),
-    )
-    .filter(
-      (slot) =>
-        slot.date &&
-        slot.time &&
-        !Number.isNaN(slot.dateTime.getTime()) &&
-        slot.dateTime >= now,
-    )
-    .sort((first, second) => first.dateTime - second.dateTime)[0] || null;
+            return {
+              date,
+              day: slotDay.day,
+              time: slot.time,
+              dateTime,
+            };
+          }),
+      )
+      .filter(
+        (slot) =>
+          slot.date &&
+          slot.time &&
+          !Number.isNaN(slot.dateTime.getTime()) &&
+          slot.dateTime >= now,
+      )
+      .sort((first, second) => first.dateTime - second.dateTime)[0] || null
+  );
 }
 
 function formatSlotDay(slot) {
@@ -81,7 +96,9 @@ function formatSlotDay(slot) {
 function DoctorSelect({ label, value, options, onChange, disabled = false }) {
   return (
     <div className="min-w-0">
-      <label className="mb-2 block text-sm font-semibold text-[#555555] dark:text-[#E2E2E2]">{label}</label>
+      <label className="mb-2 block text-sm font-semibold text-[#555555] dark:text-[#E2E2E2]">
+        {label}
+      </label>
       <CustomSelect
         value={value}
         options={options}
@@ -101,10 +118,8 @@ function RatingStars({ rating }) {
       aria-label={`التقييم ${rating.toFixed(1)} من 5`}
     >
       {Array.from({ length: 5 }).map((_, starIndex) => {
-        const fillPercentage = Math.max(
-          0,
-          Math.min(1, rating - starIndex),
-        ) * 100;
+        const fillPercentage =
+          Math.max(0, Math.min(1, rating - starIndex)) * 100;
 
         return (
           <span
@@ -133,7 +148,11 @@ function DoctorCard({ doctor, index }) {
   const [firstAvailableSlot, setFirstAvailableSlot] = useState(null);
   const [slotStatus, setSlotStatus] = useState("loading");
   const rating = getDoctorRating(doctor);
-  const price = doctor.consultationFee || doctor.raw?.consultationFee || doctor.raw?.price || 100;
+  const price =
+    doctor.consultationFee ||
+    doctor.raw?.consultationFee ||
+    doctor.raw?.price ||
+    100;
 
   useEffect(() => {
     let mounted = true;
@@ -184,16 +203,24 @@ function DoctorCard({ doctor, index }) {
             {getDoctorName(doctor)}
           </Link>
         </h2>
-        <p className="mt-1 min-h-6 text-sm text-[#8A8A8A] dark:text-[#C7C7C7]">{doctor.specialty || "طب عام"}</p>
+        <p className="mt-1 min-h-6 text-sm text-[#8A8A8A] dark:text-[#C7C7C7]">
+          {doctor.specialty || "طب عام"}
+        </p>
 
         <div className="mt-2 flex items-center justify-center gap-2">
-          <span className="text-sm font-semibold text-[#444444] dark:text-[#E5E5E5]">{rating.toFixed(1)}</span>
+          <span className="text-sm font-semibold text-[#444444] dark:text-[#E5E5E5]">
+            {rating.toFixed(1)}
+          </span>
           <RatingStars rating={rating} />
         </div>
 
-        <p className="mt-3 font-bold text-[#333333] dark:text-[#F0F0F0]">{price} جنيه</p>
+        <p className="mt-3 font-bold text-[#333333] dark:text-[#F0F0F0]">
+          {price} جنيه
+        </p>
 
-        <div className={`mt-3 rounded-xl px-3 py-2.5 ${available ? "bg-[#ECF9F8] text-[#47716F] dark:bg-[#31504E] dark:text-[#D8F6F3]" : "bg-[#F1F1F1] text-[#AAAAAA] dark:bg-[#454545]"}`}>
+        <div
+          className={`mt-3 rounded-xl px-3 py-2.5 ${available ? "bg-[#ECF9F8] text-[#47716F] dark:bg-[#31504E] dark:text-[#D8F6F3]" : "bg-[#F1F1F1] text-[#AAAAAA] dark:bg-[#454545]"}`}
+        >
           <p className="font-semibold">أول موعد متاح</p>
           <p className="mt-0.5 flex items-center justify-center gap-1 text-xs">
             <Clock3 size={14} />
@@ -228,7 +255,10 @@ function DoctorCardsSkeleton() {
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="h-[430px] rounded-xl bg-white p-4 shadow-md dark:bg-[#383838]">
+        <div
+          key={index}
+          className="h-[430px] rounded-xl bg-white p-4 shadow-md dark:bg-[#383838]"
+        >
           <div className="skeleton h-[210px] rounded-lg" />
           <div className="skeleton mx-auto mt-4 h-6 w-32 rounded" />
           <div className="skeleton mx-auto mt-3 h-4 w-24 rounded" />
@@ -240,8 +270,17 @@ function DoctorCardsSkeleton() {
   );
 }
 
-function Pagination({ currentPage, totalPages, visibleCount, totalCount, onChange }) {
-  const firstVisiblePage = Math.max(1, Math.min(currentPage - 1, totalPages - 3));
+function Pagination({
+  currentPage,
+  totalPages,
+  visibleCount,
+  totalCount,
+  onChange,
+}) {
+  const firstVisiblePage = Math.max(
+    1,
+    Math.min(currentPage - 1, totalPages - 3),
+  );
   const pages = Array.from(
     { length: Math.min(4, totalPages) },
     (_, index) => firstVisiblePage + index,
@@ -351,7 +390,9 @@ export default function PatientDoctorsPage() {
       })
       .catch((requestError) => {
         if (mounted) {
-          setSpecializationsError(requestError.message || "تعذر تحميل التخصصات");
+          setSpecializationsError(
+            requestError.message || "تعذر تحميل التخصصات",
+          );
         }
       })
       .finally(() => {
@@ -366,10 +407,11 @@ export default function PatientDoctorsPage() {
   const filteredDoctors = useMemo(
     () =>
       doctors.filter((doctor) => {
-        const experience = Number(doctor.experienceYears || doctor.experience || 0);
+        const experience = Number(
+          doctor.experienceYears || doctor.experience || 0,
+        );
         const rating = getDoctorRating(doctor);
-        const isActive =
-          doctor.active === true || doctor.status === "active";
+        const isActive = doctor.active === true || doctor.status === "active";
 
         return (
           isActive &&
@@ -385,7 +427,10 @@ export default function PatientDoctorsPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredDoctors.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
-  const pageDoctors = filteredDoctors.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageDoctors = filteredDoctors.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
 
   const setFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -407,13 +452,18 @@ export default function PatientDoctorsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]" dir="rtl">
+    <div
+      className="min-h-screen bg-white text-[#333333] dark:bg-[#2E2E2E] dark:text-[#F0F0F0]"
+      dir="rtl"
+    >
       <PatientHomeHeader />
 
       <main className="mx-auto w-full max-w-[1280px] px-4 pb-20 pt-14 sm:px-6 md:pt-16 lg:px-10">
         <header className="text-right">
           <h1 className="text-3xl font-bold sm:text-4xl">الأطباء والمواعيد</h1>
-          <p className="mt-2 text-base text-[#777777] dark:text-[#C8C8C8] sm:text-lg">اختر الطبيب المناسب واحجز موعدك بسهولة</p>
+          <p className="mt-2 text-base text-[#777777] dark:text-[#C8C8C8] sm:text-lg">
+            اختر الطبيب المناسب واحجز موعدك بسهولة
+          </p>
         </header>
 
         <section className="mt-8 rounded-xl border border-[#E2E2E2] bg-white p-5 dark:border-[#555555] dark:bg-[#383838] sm:p-6">
@@ -426,7 +476,9 @@ export default function PatientDoctorsPage() {
               options={[
                 {
                   value: "",
-                  label: specializationsLoading ? "جاري تحميل التخصصات..." : "الكل",
+                  label: specializationsLoading
+                    ? "جاري تحميل التخصصات..."
+                    : "الكل",
                 },
                 ...specializations.map((specialization) => ({
                   value: specialization.name,
@@ -449,7 +501,10 @@ export default function PatientDoctorsPage() {
               label="اليوم المتاح"
               value={filters.day}
               onChange={(value) => setFilter("day", value)}
-              options={[{ value: "", label: "الكل" }, ...days.map((day) => ({ value: day, label: day }))]}
+              options={[
+                { value: "", label: "الكل" },
+                ...days.map((day) => ({ value: day, label: day })),
+              ]}
             />
             <DoctorSelect
               label="التقييم"
@@ -484,7 +539,13 @@ export default function PatientDoctorsPage() {
               type="button"
               className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#05ADE8]"
               onClick={() => {
-                setFilters({ specialty: "", experience: "", day: "", rating: "", gender: "" });
+                setFilters({
+                  specialty: "",
+                  experience: "",
+                  day: "",
+                  rating: "",
+                  gender: "",
+                });
                 setCurrentPage(1);
                 setSearchParams((currentParams) => {
                   const nextParams = new URLSearchParams(currentParams);
@@ -492,10 +553,7 @@ export default function PatientDoctorsPage() {
                   return nextParams;
                 });
               }}
-            >
-              <RotateCcw size={16} />
-              مسح الفلاتر
-            </button>
+            ></button>
           )}
         </section>
 
@@ -505,14 +563,26 @@ export default function PatientDoctorsPage() {
           ) : error ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-900 dark:bg-red-950/20">
               <p className="text-red-700 dark:text-red-300">{error}</p>
-              <button type="button" onClick={reload} className="mt-4 rounded-lg bg-[#05ADE8] px-5 py-2.5 font-semibold text-white">إعادة المحاولة</button>
+              <button
+                type="button"
+                onClick={reload}
+                className="mt-4 rounded-lg bg-[#05ADE8] px-5 py-2.5 font-semibold text-white"
+              >
+                إعادة المحاولة
+              </button>
             </div>
           ) : pageDoctors.length === 0 ? (
-            <div className="rounded-xl bg-[#F8F8F8] p-12 text-center text-[#777777] dark:bg-[#383838] dark:text-[#C8C8C8]">لا يوجد أطباء مطابقون للفلاتر الحالية.</div>
+            <div className="rounded-xl bg-[#F8F8F8] p-12 text-center text-[#777777] dark:bg-[#383838] dark:text-[#C8C8C8]">
+              لا يوجد أطباء مطابقون للفلاتر الحالية.
+            </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {pageDoctors.map((doctor, index) => (
-                <DoctorCard key={doctor.id || `${doctor.firstName}-${index}`} doctor={doctor} index={(safePage - 1) * pageSize + index} />
+                <DoctorCard
+                  key={doctor.id || `${doctor.firstName}-${index}`}
+                  doctor={doctor}
+                  index={(safePage - 1) * pageSize + index}
+                />
               ))}
             </div>
           )}
