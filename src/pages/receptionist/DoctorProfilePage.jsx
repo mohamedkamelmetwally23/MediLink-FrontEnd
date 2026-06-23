@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Bell, CalendarCheck, ChevronRight, Star, Stethoscope } from "lucide-react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { CalendarCheck, ChevronRight, Star, Stethoscope } from "lucide-react";
 import doctorAvatar from "../../assets/landingPage/doctor1.png";
-import { listDoctors } from "../../services/medilinkApi";
+import ActivityList from "../../components/admin/ActivityList";
+import {
+  getUserAppointmentsCount,
+  listDoctorActivities,
+  listDoctors,
+} from "../../services/medilinkApi";
 
 const fallbackDoctor = {
   id: "demo-doctor-profile",
@@ -70,8 +75,13 @@ function isPermissionError(error) {
 
 export default function ReceptionistDoctorProfilePage() {
   const { doctorId } = useParams();
+  const [searchParams] = useSearchParams();
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState("");
+  const [completedAppointments, setCompletedAppointments] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -102,6 +112,59 @@ export default function ReceptionistDoctorProfilePage() {
       ) || fallbackDoctor,
     [doctorId, doctors],
   );
+  const activityDoctorId =
+    searchParams.get("activityDoctorId") ||
+    doctor.profileId ||
+    doctor.raw?._id ||
+    doctor.raw?.doctorProfile?._id ||
+    doctorId;
+
+  useEffect(() => {
+    if (!activityDoctorId) return undefined;
+
+    let mounted = true;
+
+    listDoctorActivities(activityDoctorId, 500)
+      .then((doctorActivities) => {
+        if (mounted) {
+          setActivities(doctorActivities);
+          setActivitiesError("");
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          setActivities([]);
+          setActivitiesError(
+            error?.message || "تعذر تحميل سجل نشاطات الطبيب",
+          );
+        }
+      })
+      .finally(() => {
+        if (mounted) setActivitiesLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activityDoctorId]);
+
+  useEffect(() => {
+    if (!activityDoctorId) return undefined;
+
+    let mounted = true;
+
+    getUserAppointmentsCount(activityDoctorId)
+      .then((counts) => {
+        if (mounted) setCompletedAppointments(counts.completed);
+      })
+      .catch(() => {
+        if (mounted) setCompletedAppointments(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activityDoctorId]);
 
   const infoRows = [
     ["تاريخ الميلاد", formatDate(doctor.birthDate)],
@@ -116,13 +179,6 @@ export default function ReceptionistDoctorProfilePage() {
       )}`,
     ],
     ["تاريخ التسجيل", formatDate(doctor.registrationDate || "2026-06-19")],
-  ];
-
-  const activityItems = [
-    "تم حجز موعد جديد",
-    "تم حجز موعد جديد",
-    "تم إلغاء موعد",
-    "تم تحديث البيانات",
   ];
 
   return (
@@ -206,7 +262,7 @@ export default function ReceptionistDoctorProfilePage() {
               <MiniStat
                 icon={CalendarCheck}
                 label="إجمالي الحجوزات"
-                value={doctor.appointmentsCount || 0}
+                value={completedAppointments ?? 0}
               />
               <MiniStat
                 icon={Star}
@@ -217,28 +273,17 @@ export default function ReceptionistDoctorProfilePage() {
           </section>
         </div>
 
-        <section className="mt-4 rounded-[8px] bg-white px-4 py-5 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
-          <h2 className="mb-4 text-right text-[14px] font-bold text-[#333] dark:text-white">
-            النشاط الأخير
+        <section className="mt-4 overflow-hidden rounded-[8px] bg-white py-5 shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
+          <h2 className="mb-4 px-6 text-right text-[14px] font-bold text-[#333] dark:text-white">
+            سجل نشاطات الطبيب
           </h2>
-          <div className="divide-y divide-[#edf1f3] dark:divide-white/10">
-            {activityItems.map((activity, index) => (
-              <div
-                key={`${activity}-${index}`}
-                className="flex min-h-[42px] items-center justify-between gap-3 text-[12px]"
-              >
-                <span className="text-[#8a98a0] dark:text-gray-300">
-                  منذ 10 دقائق
-                </span>
-                <span className="flex items-center gap-3 font-bold text-[#555] dark:text-white">
-                  {activity}
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-[#e8fbff] text-[#23b9d5] dark:bg-white/10">
-                    <Bell size={14} strokeWidth={1.8} />
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
+          <ActivityList
+            activities={activities}
+            loading={activitiesLoading}
+            error={activitiesError}
+            showRole={false}
+            showActorName={false}
+          />
         </section>
 
         {loading && (

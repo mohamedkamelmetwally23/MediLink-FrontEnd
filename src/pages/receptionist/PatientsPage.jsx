@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -13,8 +12,8 @@ import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
   deletePatient,
-  listPatients,
-  updatePatient,
+  getUserAppointmentsCount,
+  listPatientsForReceptionist,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 
@@ -79,11 +78,37 @@ export default function ReceptionistPatientsPage() {
   useEffect(() => {
     let mounted = true;
 
-    listPatients()
-      .then((items) => {
+    listPatientsForReceptionist()
+      .then(async (items) => {
+        const patientsWithCounts = await Promise.all(
+          items.map(async (patient) => {
+            const userId =
+              patient.userId ||
+              patient.raw?.user?._id ||
+              patient.raw?.user?.id ||
+              "";
+
+            if (!userId) return patient;
+
+            try {
+              const counts = await getUserAppointmentsCount(userId);
+              return {
+                ...patient,
+                appointmentCounts: counts,
+                casesCount: counts.completed,
+                appointmentsCount: counts.total,
+                completedAppointmentsCount: counts.completed,
+                cancelledAppointmentsCount: counts.cancelled,
+              };
+            } catch {
+              return patient;
+            }
+          }),
+        );
+
         if (!mounted) return;
-        saveCachedPatients(items);
-        setPatients(items);
+        saveCachedPatients(patientsWithCounts);
+        setPatients(patientsWithCounts);
       })
       .catch(() => {
         if (!mounted) return;
@@ -170,22 +195,6 @@ export default function ReceptionistPatientsPage() {
       .catch(() => setPendingDelete(null));
   };
 
-  const toggleStatus = (patient) => {
-    const nextStatus = getActiveStatus(patient) === "active" ? "inactive" : "active";
-
-    setPatients((current) =>
-      current.map((item) =>
-        item.id === patient.id
-          ? { ...item, status: nextStatus, active: nextStatus === "active" }
-          : item,
-      ),
-    );
-
-    if (!isDemoPatient(patient)) {
-      updatePatient(patient.id, { ...patient, status: nextStatus }).catch(() => {});
-    }
-  };
-
   return (
     <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <PageHeader />
@@ -228,9 +237,7 @@ export default function ReceptionistPatientsPage() {
                     key={patient.id}
                     patient={patient}
                     selected={selectedIds.includes(patient.id)}
-                    onDelete={() => setPendingDelete([patient.id])}
                     onToggle={() => togglePatient(patient.id)}
-                    onToggleStatus={() => toggleStatus(patient)}
                   />
                 ))
               )}
@@ -376,11 +383,14 @@ function FilterSelect({ value, onChange, label, children }) {
 function PatientRow({
   patient,
   selected,
-  onDelete,
   onToggle,
-  onToggleStatus,
 }) {
   const status = getActiveStatus(patient);
+  const activityUserId =
+    patient.userId ||
+    patient.raw?.user?._id ||
+    patient.raw?.user?.id ||
+    "";
 
   return (
     <div
@@ -402,30 +412,9 @@ function PatientRow({
       <div className="flex justify-center">
         <StatusBadge status={status} />
       </div>
-      <div className="flex items-center justify-center gap-3" dir="ltr">
-        <button
-          type="button"
-          aria-label="حذف"
-          className="text-[#333] transition hover:text-[#ff2626] dark:text-white"
-          onClick={onDelete}
-        >
-          <Trash2 size={15} strokeWidth={1.7} />
-        </button>
-        <button
-          type="button"
-          aria-label="تغيير الحالة"
-          className={
-            status === "inactive"
-              ? "text-[#ff2020]"
-              : "text-[#333] dark:text-white"
-          }
-          onClick={onToggleStatus}
-        >
-          <Ban size={15} strokeWidth={1.7} />
-        </button>
-      </div>
+      <span />
       <Link
-        to={`/receptionist/patients/${patient.id}/profile`}
+        to={`/receptionist/patients/${patient.id}/profile?userId=${encodeURIComponent(activityUserId)}`}
         aria-label="عرض المريض"
         className="grid h-full place-items-center text-[#333] transition hover:text-[#24b9d6] dark:text-white"
       >

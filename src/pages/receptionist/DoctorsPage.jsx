@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -11,8 +10,8 @@ import {
 import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
+  getUserAppointmentsCount,
   listDoctors,
-  updateDoctor,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
 
@@ -32,7 +31,7 @@ function getDoctorName(doctor) {
 }
 
 function getAppointmentsCount(doctor) {
-  return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
+  return doctor.completedAppointmentsCount ?? 0;
 }
 
 export default function ReceptionistDoctorsPage() {
@@ -47,9 +46,31 @@ export default function ReceptionistDoctorsPage() {
     let mounted = true;
 
     listDoctors()
-      .then((items) => {
-        if (!mounted) return;
-        setDoctors(items);
+      .then(async (items) => {
+        const doctorsWithCompletedAppointments = await Promise.all(
+          items.map(async (doctor) => {
+            const doctorId =
+              doctor.profileId ||
+              doctor.raw?._id ||
+              doctor.raw?.doctorProfile?._id ||
+              doctor.id;
+
+            try {
+              const counts = await getUserAppointmentsCount(doctorId);
+              return {
+                ...doctor,
+                completedAppointmentsCount: counts.completed,
+              };
+            } catch {
+              return {
+                ...doctor,
+                completedAppointmentsCount: 0,
+              };
+            }
+          }),
+        );
+
+        if (mounted) setDoctors(doctorsWithCompletedAppointments);
       })
       .catch(() => {
         if (!mounted) return;
@@ -100,21 +121,6 @@ export default function ReceptionistDoctorsPage() {
     setCurrentPage(1);
   };
 
-  const toggleStatus = (doctor) => {
-    const nextStatus = doctor.status === "active" ? "inactive" : "active";
-    saveStatusLocally(doctor.id, nextStatus);
-
-    updateDoctor(doctor.id, { ...doctor, status: nextStatus }, doctor).catch(
-      () => {},
-    );
-  };
-
-  const saveStatusLocally = (id, status) => {
-    setDoctors((current) =>
-      current.map((doctor) => (doctor.id === id ? { ...doctor, status } : doctor)),
-    );
-  };
-
   return (
     <section className="min-h-screen bg-white text-[#333] dark:bg-[#2f2f2f] dark:text-white">
       <PageHeader />
@@ -154,7 +160,6 @@ export default function ReceptionistDoctorsPage() {
                   <DoctorRow
                     key={doctor.id}
                     doctor={doctor}
-                    onToggleStatus={() => toggleStatus(doctor)}
                   />
                 ))
               )}
@@ -241,7 +246,7 @@ function TableHeader({
           </option>
         ))}
       </FilterSelect>
-      <span className="text-center">عدد الحجوزات</span>
+      <span className="text-center">عدد الزيارات</span>
       <FilterSelect value={statusFilter} onChange={onStatusChange} label="حالة">
         <option value="">حالة</option>
         {Object.entries(statusLabels).map(([value, label]) => (
@@ -271,11 +276,13 @@ function FilterSelect({ value, onChange, label, children }) {
   );
 }
 
-function DoctorRow({
-  doctor,
-  onToggleStatus,
-}) {
+function DoctorRow({ doctor }) {
   const appointmentsCount = getAppointmentsCount(doctor);
+  const activityDoctorId =
+    doctor.profileId ||
+    doctor.raw?._id ||
+    doctor.raw?.doctorProfile?._id ||
+    doctor.id;
 
   return (
     <div
@@ -290,22 +297,9 @@ function DoctorRow({
       <div className="flex justify-center">
         <StatusBadge status={doctor.status} />
       </div>
-      <div className="flex items-center justify-center" dir="ltr">
-        <button
-          type="button"
-          aria-label="تغيير الحالة"
-          className={
-            doctor.status === "inactive"
-              ? "text-[#ff2020]"
-              : "text-[#333] dark:text-white"
-          }
-          onClick={onToggleStatus}
-        >
-          <Ban size={15} strokeWidth={1.7} />
-        </button>
-      </div>
+      <span />
       <Link
-        to={`/receptionist/doctors/${doctor.id}/profile`}
+        to={`/receptionist/doctors/${doctor.id}/profile?activityDoctorId=${encodeURIComponent(activityDoctorId)}`}
         aria-label="عرض الطبيب"
         className="grid h-full place-items-center text-[#333] transition hover:text-[#24b9d6] dark:text-white"
       >
