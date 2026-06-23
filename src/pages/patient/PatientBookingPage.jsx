@@ -88,8 +88,8 @@ export default function PatientBookingPage() {
   const [loading, setLoading] = useState(!location.state?.doctor);
   const [availableSlotDays, setAvailableSlotDays] = useState([]);
   const [step, setStep] = useState(1);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState(location.state?.preSelectedDate || "");
+  const [selectedTime, setSelectedTime] = useState(location.state?.preSelectedTime || "");
   const [reason, setReason] = useState("");
   const [reasonSubmitted, setReasonSubmitted] = useState(false);
   const [files, setFiles] = useState([]);

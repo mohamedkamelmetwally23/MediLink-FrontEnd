@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   FiCalendar,
-  FiCheckCircle,
-  FiClock,
+  FiCheck,
   FiCreditCard,
+  FiDollarSign,
   FiMic,
   FiSend,
   FiUser,
@@ -17,11 +17,11 @@ import {
   transcribeAudio,
 } from "../services/chatApi";
 import {
-  createPaidDemoAppointment,
-  demoDepositPayment,
+  bookAppointmentByPatient,
   getCurrentAuthUser,
   isAppointmentSlotAvailable,
   listAppointments,
+  listDoctorAvailableSlots,
   listDoctors,
 } from "../services/medilinkApi";
 import { includesSearchText, normalizeSearchText } from "../utils/searchText";
@@ -31,10 +31,12 @@ import defaultDoctorAvatar from "../assets/landingPage/doctor1.png";
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT =
-  "أنت مساعد طبي ودود اسمه «مساعد ميديلينك». بتتكلم عربي مصري عادي وبسيط. " +
-  "بتجاوب على الأسئلة الطبية بس: أعراض، أمراض، علاج، أدوية، تخصصات. " +
+  "أنت مساعد ودود اسمه «مساعد ميديلينك». بتتكلم عربي مصري عادي وبسيط. " +
+  "بتجاوب على أي سؤال يسألك عنه المريض بهدوء واحترام. " +
   "متشخصش التشخيص النهائي — دايمًا قول «لازم تروح الدكتور للتأكد». " +
-  "لو السؤال مش طبي قول بهدوء: «أنا متخصص في الحاجات الطبية بس، تقدر تسألني عن أي عَرَض أو مرض». " +
+  "لو حد سأل عن تخفيف الألم أو الانزعاج قبل موعد الدكتور، قدم نصائح منزلية عامة وآمنة زي: الراحة، شرب مية كتير، كمادة دافية أو باردة، الجلوس بوضعية مريحة. " +
+  "وضح دايمًا إن دي نصائح مؤقتة للتخفيف بس وإن الدكتور هو الأساس للعلاج. " +
+  "متوصفش أدوية أو جرعات محددة أبدًا. " +
   "لو حد سأل عن تخصص مش موجود في العيادة، اذكر الأقسام المتاحة وساعده يختار الأنسب. " +
   "كن ودود ومتعاطف وجاوب بشكل مختصر وواضح.";
 
@@ -287,6 +289,306 @@ function buildHistory(messages) {
   return [{ role: "system", content: SYSTEM_PROMPT }, ...history];
 }
 
+// ─── inline booking helpers ───────────────────────────────────────────────────
+
+const arabicWeekDaysFull = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const dayShort = { "الأحد": "أحد", "الإثنين": "إثن", "الثلاثاء": "ثلا", "الأربعاء": "أرب", "الخميس": "خمس", "الجمعة": "جمع", "السبت": "سبت" };
+
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function isSlotAvailable(status) {
+  return ["متاح", "available", "open", "free"].includes(String(status || "").trim().toLowerCase());
+}
+
+function isSlotPast(date, time) {
+  const [year, month, day] = String(date || "").split("-").map(Number);
+  const [hours, minutes = 0] = String(time || "").split(":").map(Number);
+  if (![year, month, day, hours, minutes].every(Number.isFinite)) return false;
+  return new Date(year, month - 1, day, hours, minutes) <= new Date();
+}
+
+function isSlotSelectable(slot, fallbackDate = "") {
+  const slotDate = slot.date || fallbackDate;
+  return isSlotAvailable(slot.status) && !isSlotPast(slotDate, slot.time);
+}
+
+// ─── inline booking stepper ───────────────────────────────────────────────────
+
+function InlineBookingStepper({ step }) {
+  const labels = ["التاريخ", "السبب", "الدفع", "تأكيد"];
+  return (
+    <div className="mb-3 flex items-start">
+      {labels.map((label, i) => {
+        const n = i + 1;
+        const done = step > n;
+        const active = step === n;
+        return (
+          <div key={n} className="relative flex flex-1 flex-col items-center">
+            {i > 0 && (
+              <span
+                className={`absolute right-1/2 top-2.75 h-0.5 w-full ${step >= n ? "bg-[#05ADE8]" : "bg-gray-200 dark:bg-[#555]"}`}
+              />
+            )}
+            <span
+              className={`relative z-10 flex h-5.5 w-5.5 items-center justify-center rounded-full border-2 text-[10px] font-bold
+                ${done ? "border-[#05ADE8] bg-[#05ADE8] text-white" : active ? "border-[#05ADE8] bg-white text-[#05ADE8] dark:bg-[#303030]" : "border-gray-300 bg-white text-gray-400 dark:bg-[#303030]"}`}
+            >
+              {done ? <FiCheck className="h-3 w-3" /> : n}
+            </span>
+            <span className={`mt-1 text-[9px] text-center leading-tight ${active ? "font-semibold text-[#05ADE8]" : "text-gray-400"}`}>
+              {label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── inline booking flow ──────────────────────────────────────────────────────
+
+function InlineBookingFlow({ booking, onUpdate, onConfirm }) {
+  const {
+    step = 1,
+    doctor,
+    availableSlotDays = [],
+    selectedDate = "",
+    selectedTime = "",
+    reason = "",
+    paymentMethod = "clinic",
+    submitting = false,
+    done = false,
+    appointment = null,
+    loadingSlots = false,
+  } = booking;
+
+  const slotDaysByDate = new Map(availableSlotDays.map((d) => [d.date, d]));
+  const dates = Array.from({ length: 7 }, (_, offset) => {
+    const dateObj = new Date();
+    dateObj.setHours(12, 0, 0, 0);
+    dateObj.setDate(dateObj.getDate() + offset);
+    const date = dateKey(dateObj);
+    const slotDay = slotDaysByDate.get(date);
+    return {
+      date,
+      dayNum: dateObj.getDate(),
+      day: slotDay?.day || arabicWeekDaysFull[dateObj.getDay()],
+      available: Boolean(slotDay?.slots?.some((s) => isSlotSelectable(s, date))),
+    };
+  });
+
+  const selectedDay = availableSlotDays.find((d) => d.date === selectedDate);
+  const availableSlots = (selectedDay?.slots || []).filter((s) => isSlotSelectable(s, selectedDate));
+
+  return (
+    <div className="w-full overflow-hidden rounded-2xl border border-[#BFEAF8] bg-white shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]">
+      {/* Doctor mini strip */}
+      <div className="flex items-center gap-2.5 border-b border-gray-100 bg-[#F5FBFD] px-3 py-2.5 dark:border-[#3A3A3A] dark:bg-[#262626]">
+        <img src={doctor.image} alt={doctor.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-semibold text-gray-900 dark:text-[#F0F0F0]">{doctor.name}</p>
+          <p className="truncate text-[10px] text-gray-500 dark:text-[#D2D2D2]">{doctor.specialty}</p>
+        </div>
+        {doctor.consultationFee && (
+          <span className="shrink-0 rounded-full bg-[#EAF8FC] px-2 py-0.5 text-[10px] font-bold text-[#05ADE8]">
+            {doctor.consultationFee} ج.م
+          </span>
+        )}
+      </div>
+
+      <div className="p-3">
+        <InlineBookingStepper step={step} />
+
+      {/* ── Step 1: Date & Time ── */}
+      {step === 1 && (
+        <div>
+          {loadingSlots ? (
+            <p className="py-4 text-center text-[11px] text-gray-400">جاري تحميل المواعيد...</p>
+          ) : (
+            <>
+              <p className="mb-2 text-[11px] font-semibold text-gray-700 dark:text-[#D2D2D2]">اختار التاريخ</p>
+              <div className="grid grid-cols-7 gap-1">
+                {dates.map((d) => (
+                  <button
+                    key={d.date}
+                    type="button"
+                    disabled={!d.available}
+                    onClick={() => onUpdate({ selectedDate: d.date, selectedTime: "" })}
+                    className={`rounded-lg py-2 text-center transition
+                      ${d.date === selectedDate ? "bg-[#05ADE8] text-white" : d.available ? "bg-gray-100 hover:bg-[#EAF8FC] dark:bg-[#3A3A3A]" : "cursor-not-allowed bg-gray-50 text-gray-300 dark:bg-[#2A2A2A]"}`}
+                  >
+                    <span className="block text-[8px] leading-tight">{dayShort[d.day] ?? d.day.slice(0, 3)}</span>
+                    <strong className="block text-xs">{d.dayNum}</strong>
+                  </button>
+                ))}
+              </div>
+
+              {selectedDate && (
+                <div className="mt-3">
+                  <p className="mb-2 text-[11px] font-semibold text-gray-700 dark:text-[#D2D2D2]">اختار الوقت</p>
+                  {availableSlots.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {availableSlots.map((slot) => (
+                        <button
+                          key={slot.time}
+                          type="button"
+                          onClick={() => onUpdate({ selectedTime: slot.time })}
+                          className={`rounded-lg py-1.5 text-[10px] font-semibold transition
+                            ${slot.time === selectedTime ? "bg-[#05ADE8] text-white" : "bg-[#EAF8FC] text-[#05ADE8] hover:bg-[#D0F0FC]"}`}
+                        >
+                          {formatTime(slot.time)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-2 text-center text-[11px] text-gray-400">لا توجد أوقات لهذا اليوم</p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          <button
+            type="button"
+            disabled={!selectedDate || !selectedTime}
+            onClick={() => onUpdate({ step: 2 })}
+            className="mt-3 w-full rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] py-2 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            التالي
+          </button>
+        </div>
+      )}
+
+      {/* ── Step 2: Visit Reason ── */}
+      {step === 2 && (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold text-gray-700 dark:text-[#D2D2D2]">سبب الزيارة</p>
+          <textarea
+            value={reason}
+            onChange={(e) => onUpdate({ reason: e.target.value })}
+            placeholder="اكتب الأعراض أو المشكلة التي تريد استشارة الطبيب بشأنها..."
+            rows={3}
+            maxLength={150}
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-[11px] outline-none transition focus:border-[#05ADE8] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-[#F0F0F0]"
+          />
+          <p className="mt-1 text-right text-[9px] text-gray-400">{reason.length}/150</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onUpdate({ step: 1 })}
+              className="rounded-full border-2 border-[#05ADE8] py-2 text-[11px] font-semibold text-[#05ADE8]"
+            >
+              السابق
+            </button>
+            <button
+              type="button"
+              disabled={reason.trim().length < 3}
+              onClick={() => onUpdate({ step: 3 })}
+              className="rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] py-2 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              التالي
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 3: Payment ── */}
+      {step === 3 && (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold text-gray-700 dark:text-[#D2D2D2]">طريقة الدفع</p>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onUpdate({ paymentMethod: "clinic" })}
+              className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-right transition
+                ${paymentMethod === "clinic" ? "border-[#05ADE8] bg-[#EAF8FC] dark:bg-[#1F3A3F]" : "border-gray-200 dark:border-[#555]"}`}
+            >
+              <FiDollarSign className={`h-4 w-4 shrink-0 ${paymentMethod === "clinic" ? "text-[#05ADE8]" : "text-gray-400"}`} />
+              <div>
+                <p className="text-[11px] font-semibold">الدفع في العيادة</p>
+                <p className="text-[9px] text-gray-400">ادفع عند الوصول</p>
+              </div>
+              {paymentMethod === "clinic" && <FiCheck className="mr-auto h-4 w-4 text-[#05ADE8]" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdate({ paymentMethod: "card" })}
+              className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-right transition
+                ${paymentMethod === "card" ? "border-[#05ADE8] bg-[#EAF8FC] dark:bg-[#1F3A3F]" : "border-gray-200 dark:border-[#555]"}`}
+            >
+              <FiCreditCard className={`h-4 w-4 shrink-0 ${paymentMethod === "card" ? "text-[#05ADE8]" : "text-gray-400"}`} />
+              <div>
+                <p className="text-[11px] font-semibold">بطاقة بنكية</p>
+                <p className="text-[9px] text-gray-400">VISA / Mastercard</p>
+              </div>
+              {paymentMethod === "card" && <FiCheck className="mr-auto h-4 w-4 text-[#05ADE8]" />}
+            </button>
+          </div>
+
+          <div className="mt-3 rounded-lg bg-[#EAF8FC] p-2 text-[10px] text-gray-500 dark:bg-[#1F3A3F]">
+            <p><strong>الموعد:</strong> {formatDate(selectedDate)} — {formatTime(selectedTime)}</p>
+            {doctor.consultationFee && <p><strong>سعر الكشف:</strong> {doctor.consultationFee} ج.م</p>}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onUpdate({ step: 2 })}
+              className="rounded-full border-2 border-[#05ADE8] py-2 text-[11px] font-semibold text-[#05ADE8]"
+            >
+              السابق
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onConfirm}
+              className="rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] py-2 text-[11px] font-semibold text-white disabled:opacity-70"
+            >
+              {submitting ? "جاري التأكيد..." : "تأكيد الحجز"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 4: Confirmation ── */}
+      {step === 4 && done && (
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white">
+            <FiCheck className="h-7 w-7" />
+          </div>
+          <p className="text-sm font-bold text-gray-900 dark:text-[#F0F0F0]">تم تأكيد الحجز ✅</p>
+          <div className="mt-3 space-y-1.5 rounded-xl bg-[#EAF8FC] p-3 text-right text-[11px] dark:bg-[#1F3A3F]">
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-400 shrink-0">الطبيب</span>
+              <span className="font-semibold truncate">{doctor.name}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-400 shrink-0">التاريخ</span>
+              <span className="font-semibold">{formatDate(selectedDate)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-400 shrink-0">الوقت</span>
+              <span className="font-semibold">{formatTime(selectedTime)}</span>
+            </div>
+            {appointment?.id && (
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-400 shrink-0">رقم الحجز</span>
+                <span className="font-semibold text-[#05ADE8]">#{String(appointment.id).replace(/^demo-/, "").slice(-6)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      </div>
+    </div>
+  );
+}
+
 // ─── sub-components ──────────────────────────────────────────────────────────
 
 function AssistantAvatar() {
@@ -305,7 +607,7 @@ function UserAvatar() {
   );
 }
 
-function DoctorCards({ doctors, onPickSlot }) {
+function DoctorCards({ doctors, onBookDoctor }) {
   if (doctors.length === 0) {
     return (
       <div className="rounded-2xl rounded-tr-sm border border-gray-100 bg-white px-3 py-2 text-sm leading-6 text-gray-500 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#D2D2D2]">
@@ -345,60 +647,16 @@ function DoctorCards({ doctors, onPickSlot }) {
             </div>
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {doctor.slots.length > 0 ? (
-              doctor.slots.map((slot) => (
-                <button
-                  key={`${slot.date}-${slot.time}`}
-                  type="button"
-                  onClick={() => onPickSlot(doctor, slot)}
-                  className="inline-flex h-8 items-center gap-1 rounded-full border border-[#BFEAF8] px-2 text-[11px] font-semibold text-[#05ADE8] transition hover:bg-[#EAF8FC]"
-                >
-                  <FiClock className="h-3 w-3" />
-                  {formatDate(slot.date)} - {formatTime(slot.time)}
-                </button>
-              ))
-            ) : (
-              <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-500 dark:bg-[#3A3A3A] dark:text-[#D2D2D2]">
-                لا توجد مواعيد متاحة قريبًا
-              </span>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => onBookDoctor(doctor)}
+            className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-[11px] font-semibold text-white transition hover:opacity-90"
+          >
+            <FiCalendar className="h-3 w-3" />
+            احجز مع الدكتور
+          </button>
         </div>
       ))}
-    </div>
-  );
-}
-
-function PaymentCard({ booking, isProcessing, onPay }) {
-  return (
-    <div className="rounded-lg border border-[#BFEAF8] bg-white p-3 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030]">
-      <div className="flex items-start gap-2">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EAF8FC] text-[#05ADE8]">
-          <FiCreditCard className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1 text-right">
-          <p className="text-sm font-semibold text-gray-900 dark:text-[#F0F0F0]">تأكيد الحجز</p>
-          <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-[#D2D2D2]">
-            {booking.doctor.name} — {formatDate(booking.slot.date)} — {formatTime(booking.slot.time)}
-          </p>
-          {booking.doctor.consultationFee && (
-            <p className="text-xs font-semibold text-[#05ADE8]">
-              رسوم الكشف: {booking.doctor.consultationFee} ج.م
-            </p>
-          )}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        disabled={isProcessing}
-        onClick={() => onPay(booking)}
-        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-4 text-xs font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        <FiCheckCircle className="h-4 w-4" />
-        {isProcessing ? "جاري التأكيد..." : "تأكيد الحجز"}
-      </button>
     </div>
   );
 }
@@ -434,7 +692,7 @@ function AppointmentsList({ appointments }) {
   );
 }
 
-function Message({ message, onPickSlot, onPayDeposit, pendingPaymentId }) {
+function Message({ message, onBookDoctor, onBookingUpdate, onBookingConfirm }) {
   if (message.type === "user") {
     return (
       <div className="flex items-start justify-end gap-2">
@@ -449,20 +707,20 @@ function Message({ message, onPickSlot, onPayDeposit, pendingPaymentId }) {
   return (
     <div className="flex items-start gap-2">
       <AssistantAvatar />
-      <div className="max-w-[82%] space-y-2">
+      <div className="max-w-[90%] w-full space-y-2">
         {message.type === "assistant" && (
           <div className="rounded-2xl rounded-tr-sm border border-gray-100 bg-white px-3 py-2 text-sm leading-6 text-gray-700 shadow-sm dark:border-[#3A3A3A] dark:bg-[#303030] dark:text-[#F0F0F0]">
             {message.text}
           </div>
         )}
         {message.type === "doctors" && (
-          <DoctorCards doctors={message.doctors} onPickSlot={onPickSlot} />
+          <DoctorCards doctors={message.doctors} onBookDoctor={onBookDoctor} />
         )}
-        {message.type === "payment" && (
-          <PaymentCard
-            booking={message.booking}
-            isProcessing={pendingPaymentId === message.booking.id}
-            onPay={onPayDeposit}
+        {message.type === "booking" && (
+          <InlineBookingFlow
+            booking={message}
+            onUpdate={(updates) => onBookingUpdate(message.id, updates)}
+            onConfirm={() => onBookingConfirm(message)}
           />
         )}
         {message.type === "appointments" && (
@@ -475,6 +733,23 @@ function Message({ message, onPickSlot, onPayDeposit, pendingPaymentId }) {
 
 // ─── main component ───────────────────────────────────────────────────────────
 
+const CHAT_STORAGE_KEY = (uid) => `medilink-chat-v1-${uid}`;
+
+function loadStoredMessages(user) {
+  const uid = getUserId(user);
+  if (!uid) return buildInitialMessages(user);
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY(uid));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return buildInitialMessages(user);
+}
+
 export default function AiAgent({ onClose, initialMessage }) {
   const [currentUser, setCurrentUser] = useState(() => getCurrentAuthUser());
   const isLoggedIn = Boolean(currentUser);
@@ -484,9 +759,8 @@ export default function AiAgent({ onClose, initialMessage }) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const [pendingPaymentId, setPendingPaymentId] = useState("");
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState(() => buildInitialMessages(getCurrentAuthUser()));
+  const [messages, setMessages] = useState(() => loadStoredMessages(getCurrentAuthUser()));
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
 
@@ -494,7 +768,7 @@ export default function AiAgent({ onClose, initialMessage }) {
     const sync = () => {
       const next = getCurrentAuthUser();
       setCurrentUser(next);
-      setMessages(buildInitialMessages(next));
+      setMessages(loadStoredMessages(next));
     };
     window.addEventListener("storage", sync);
     window.addEventListener("medilink-auth-change", sync);
@@ -503,6 +777,20 @@ export default function AiAgent({ onClose, initialMessage }) {
       window.removeEventListener("medilink-auth-change", sync);
     };
   }, []);
+
+  // Save chat history to localStorage whenever messages change
+  useEffect(() => {
+    const uid = getUserId(currentUser);
+    if (!uid) return;
+    try {
+      const toSave = messages
+        .filter((m) => m.type !== "payment")
+        .slice(-40);
+      localStorage.setItem(CHAT_STORAGE_KEY(uid), JSON.stringify(toSave));
+    } catch {
+      // ignore storage errors
+    }
+  }, [messages, currentUser]);
 
   useEffect(() => {
     if (!isLoggedIn) return undefined;
@@ -526,48 +814,54 @@ export default function AiAgent({ onClose, initialMessage }) {
 
   // ── booking flow ────────────────────────────────────────────────────────────
 
-  const handlePickSlot = (doctor, slot) => {
-    const booking = { id: createId("payment"), doctor, slot };
-    setMessages((prev) => [
-      ...prev,
-      { id: createId("assistant"), type: "assistant", text: "الموعد متاح! تأكيد الحجز؟" },
-      { id: createId("payment-card"), type: "payment", booking },
-    ]);
+  const updateBookingMessage = (id, updates) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...updates } : m)));
   };
 
-  const handlePayDeposit = async (booking) => {
-    setPendingPaymentId(booking.id);
+  const confirmBooking = async (bookingMsg) => {
+    updateBookingMessage(bookingMsg.id, { submitting: true });
     try {
-      const appointment = await createPaidDemoAppointment({
-        patientId: getUserId(currentUser),
-        patientName: getUserName(currentUser),
-        patientPhone: getUserPhone(currentUser),
-        doctorId: booking.doctor.id,
-        doctorName: booking.doctor.name,
-        specialization: booking.doctor.specialty,
-        date: booking.slot.date,
-        time: booking.slot.time,
-        payment: demoDepositPayment,
+      const appointment = await bookAppointmentByPatient({
+        doctorId: bookingMsg.doctor.id,
+        date: bookingMsg.selectedDate,
+        slotTime: bookingMsg.selectedTime,
+        reason: bookingMsg.reason,
+        medicalFiles: [],
       });
+      updateBookingMessage(bookingMsg.id, { step: 4, submitting: false, done: true, appointment });
       setAppointments((prev) => [appointment, ...prev]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createId("assistant"),
-          type: "assistant",
-          text: `تم تأكيد الحجز مع ${booking.doctor.name} يوم ${formatDate(booking.slot.date)} الساعة ${formatTime(booking.slot.time)} ✅`,
-        },
-      ]);
-      toast.success("تم تأكيد الحجز");
+      toast.success("تم تأكيد الحجز بنجاح");
     } catch (error) {
-      const msg = error.message || "تعذر تأكيد الحجز، اختر موعدًا آخر";
-      toast.error(msg);
-      setMessages((prev) => [
-        ...prev,
-        { id: createId("assistant"), type: "assistant", text: msg },
-      ]);
-    } finally {
-      setPendingPaymentId("");
+      updateBookingMessage(bookingMsg.id, { submitting: false });
+      toast.error(error.message || "تعذر إتمام الحجز");
+    }
+  };
+
+  const handleBookDoctor = async (doctor) => {
+    const msgId = createId("booking");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: msgId,
+        type: "booking",
+        doctor,
+        availableSlotDays: [],
+        step: 1,
+        selectedDate: "",
+        selectedTime: "",
+        reason: "",
+        paymentMethod: "clinic",
+        submitting: false,
+        done: false,
+        appointment: null,
+        loadingSlots: true,
+      },
+    ]);
+    try {
+      const slotDays = await listDoctorAvailableSlots(doctor.id);
+      updateBookingMessage(msgId, { availableSlotDays: slotDays, loadingSlots: false });
+    } catch {
+      updateBookingMessage(msgId, { loadingSlots: false });
     }
   };
 
@@ -778,9 +1072,9 @@ export default function AiAgent({ onClose, initialMessage }) {
               <Message
                 key={m.id}
                 message={m}
-                onPickSlot={handlePickSlot}
-                onPayDeposit={handlePayDeposit}
-                pendingPaymentId={pendingPaymentId}
+                onBookDoctor={handleBookDoctor}
+                onBookingUpdate={updateBookingMessage}
+                onBookingConfirm={confirmBooking}
               />
             ))}
           </div>
