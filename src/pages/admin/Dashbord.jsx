@@ -946,7 +946,7 @@ export default function Dashboard() {
       <Header />
 
       <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" dir="rtl">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:gap-6" dir="rtl">
           {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}
@@ -1218,7 +1218,7 @@ function StatCard({ title, value, trend, icon: Icon, color, bg }) {
         <Icon size={30} strokeWidth={2} />
       </span>
 
-      <div className="text-right" dir="rtl">
+      <div className="pl-[78px] text-right" dir="rtl">
         <p className="text-[18px] font-medium leading-7 text-[#333] dark:text-gray-100">
           {title}
         </p>
@@ -1236,7 +1236,9 @@ function StatCard({ title, value, trend, icon: Icon, color, bg }) {
             {trend.percent}
           </span>
           <TrendIcon size={18} strokeWidth={2.4} className={trendColor} />
-          <span className="text-[#777] dark:text-gray-300">{trend.label}</span>
+          <span className="whitespace-nowrap text-[#777] dark:text-gray-300">
+            {trend.label}
+          </span>
         </div>
       )}
     </article>
