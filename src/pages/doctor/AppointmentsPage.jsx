@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { listMyDoctorAppointments } from "../../services/medilinkApi";
 
@@ -354,9 +355,30 @@ function getDayHourRowHeight(eventCount) {
   return Math.max(46, eventCount * wideEventHeight + wideEventPadding);
 }
 
+function getRequestedView(searchParams) {
+  const requestedView = searchParams.get("view");
+  return views.some((view) => view.id === requestedView)
+    ? requestedView
+    : "day";
+}
+
+function getRequestedDate(searchParams) {
+  const requestedDate = searchParams.get("date");
+
+  if (requestedDate === "today") return startOfDay(new Date());
+
+  const parsedDate = parseAppointmentDate(requestedDate, null);
+  return parsedDate || startOfDay(new Date());
+}
+
 export default function DoctorAppointmentsPage() {
-  const [activeView, setActiveView] = useState("week");
-  const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
+  const [searchParams] = useSearchParams();
+  const [activeView, setActiveView] = useState(() =>
+    getRequestedView(searchParams),
+  );
+  const [selectedDate, setSelectedDate] = useState(() =>
+    getRequestedDate(searchParams),
+  );
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -385,6 +407,13 @@ export default function DoctorAppointmentsPage() {
       return addMonths(current, 1);
     });
   };
+
+  useEffect(() => {
+    if (!searchParams.has("view") && !searchParams.has("date")) return;
+
+    setActiveView(getRequestedView(searchParams));
+    setSelectedDate(getRequestedDate(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     let mounted = true;
@@ -513,9 +542,9 @@ function CalendarToolbar({
 }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex items-start gap-[9px]" dir="ltr">
+      <div className="flex h-[42px] items-center justify-center gap-[14px]" dir="ltr">
         <ArrowButton label="التالي" icon={ChevronLeft} onClick={onNext} />
-        <div className="min-w-[112px] text-right" dir="rtl">
+        <div className="min-w-[112px] text-center" dir="rtl">
           <h2 className="text-[15px] font-bold leading-5 text-[#333] dark:text-white">
             {getCalendarHeading(activeView, selectedDate)}
           </h2>
@@ -725,9 +754,9 @@ function DayView({ appointments, selectedDate, currentHour, onNext, onPrevious }
 
   return (
     <div className="min-w-[850px] overflow-hidden rounded-[7px] border border-[#edf2f4] dark:border-white/15">
-      <div className="flex h-[42px] items-center justify-center gap-[14px] border-b border-[#edf2f4] bg-white dark:border-white/15 dark:bg-[#505050]">
+      <div className="flex h-[42px] items-center justify-center gap-[14px] border-b border-[#edf2f4] bg-white dark:border-white/15 dark:bg-[#505050]" dir="ltr">
         <ArrowButton label="اليوم التالي" icon={ChevronLeft} onClick={onNext} />
-        <div className="text-center">
+        <div className="text-center" dir="rtl">
           <h2 className="text-[12px] font-bold text-[#333] dark:text-white">
             {weekdayLabels[selectedDate.getDay()]}
             <span className="mx-2 text-[#8a8a8a] dark:text-gray-300">
