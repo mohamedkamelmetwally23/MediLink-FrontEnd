@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
+  getUserAppointmentsCount,
   listDoctors,
   updateDoctor,
 } from "../../services/medilinkApi";
@@ -32,7 +33,7 @@ function getDoctorName(doctor) {
 }
 
 function getAppointmentsCount(doctor) {
-  return doctor.appointmentsCount ?? doctor.caseCount ?? doctor.casesCount ?? 0;
+  return doctor.completedAppointmentsCount ?? 0;
 }
 
 export default function ReceptionistDoctorsPage() {
@@ -47,9 +48,31 @@ export default function ReceptionistDoctorsPage() {
     let mounted = true;
 
     listDoctors()
-      .then((items) => {
-        if (!mounted) return;
-        setDoctors(items);
+      .then(async (items) => {
+        const doctorsWithCompletedAppointments = await Promise.all(
+          items.map(async (doctor) => {
+            const doctorId =
+              doctor.profileId ||
+              doctor.raw?._id ||
+              doctor.raw?.doctorProfile?._id ||
+              doctor.id;
+
+            try {
+              const counts = await getUserAppointmentsCount(doctorId);
+              return {
+                ...doctor,
+                completedAppointmentsCount: counts.completed,
+              };
+            } catch {
+              return {
+                ...doctor,
+                completedAppointmentsCount: 0,
+              };
+            }
+          }),
+        );
+
+        if (mounted) setDoctors(doctorsWithCompletedAppointments);
       })
       .catch(() => {
         if (!mounted) return;
@@ -241,7 +264,7 @@ function TableHeader({
           </option>
         ))}
       </FilterSelect>
-      <span className="text-center">عدد الحجوزات</span>
+      <span className="text-center">عدد الزيارات</span>
       <FilterSelect value={statusFilter} onChange={onStatusChange} label="حالة">
         <option value="">حالة</option>
         {Object.entries(statusLabels).map(([value, label]) => (
@@ -276,6 +299,11 @@ function DoctorRow({
   onToggleStatus,
 }) {
   const appointmentsCount = getAppointmentsCount(doctor);
+  const activityDoctorId =
+    doctor.profileId ||
+    doctor.raw?._id ||
+    doctor.raw?.doctorProfile?._id ||
+    doctor.id;
 
   return (
     <div
@@ -305,7 +333,7 @@ function DoctorRow({
         </button>
       </div>
       <Link
-        to={`/receptionist/doctors/${doctor.id}/profile`}
+        to={`/receptionist/doctors/${doctor.id}/profile?activityDoctorId=${encodeURIComponent(activityDoctorId)}`}
         aria-label="عرض الطبيب"
         className="grid h-full place-items-center text-[#333] transition hover:text-[#24b9d6] dark:text-white"
       >
