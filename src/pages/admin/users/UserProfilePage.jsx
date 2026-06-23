@@ -1,4 +1,4 @@
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, ChevronLeft, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
@@ -9,6 +9,7 @@ import {
   getUserAppointmentsCount,
   listDoctorActivities,
   listPatientActivities,
+  listReceptionistActivities,
 } from "../../../services/medilinkApi";
 import { userRoles, userStatuses } from "./usersData";
 import { useUsersStore } from "./useUsersStore";
@@ -187,6 +188,13 @@ export default function UserProfilePage() {
             routeId={userId}
           />
         )}
+        {(storedUser?.role || routeRole) === "receptionist" && (
+          <ReceptionistActivityPanel
+            key={userId}
+            user={storedUser}
+            routeId={userId}
+          />
+        )}
       </main>
     </section>
   );
@@ -341,6 +349,35 @@ function getDoctorActivityLookupIds(user, routeId) {
         user?.raw?.user?._id,
         user?.raw?.user?.id,
         routeId,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+}
+
+function getReceptionistActivityLookupIds(user, routeId) {
+  return Array.from(
+    new Set(
+      [
+        user?.userId,
+        user?.raw?.user?._id,
+        user?.raw?.user?.id,
+        user?.raw?.receptionist?.user?._id,
+        user?.raw?.receptionist?.user?.id,
+        user?.raw?.receptionistProfile?.user?._id,
+        user?.raw?.receptionistProfile?.user?.id,
+        routeId,
+        user?.id,
+        user?.raw?.receptionist?._id,
+        user?.raw?.receptionist?.id,
+        user?.raw?.receptionistProfile?._id,
+        user?.raw?.receptionistProfile?.id,
+        user?.raw?.profile?._id,
+        user?.raw?.profile?.id,
+        user?.profileId,
+        user?.raw?._id,
+        user?.raw?.id,
       ]
         .filter(Boolean)
         .map(String),
@@ -619,7 +656,8 @@ function ActivityPanel({
             onClick={onShowAll}
             className="flex items-center gap-2 text-[14px] font-semibold text-[#30bfd6] transition hover:text-[#159ab1]"
           >
-            عرض الكل
+            <span>عرض الكل</span>
+            <ChevronLeft size={19} strokeWidth={2} />
           </button>
         )}
       </div>
@@ -632,6 +670,7 @@ function ActivityPanel({
           compact={!showAll}
           showRole={false}
           showActorName={false}
+          insetItems={false}
         />
       </div>
     </section>
@@ -732,6 +771,59 @@ function DoctorActivityPanel({ user, routeId }) {
       loading={loading}
       error={error}
       title="سجل نشاطات الطبيب"
+      showAll={showAll}
+      onShowAll={() => setShowAll(true)}
+    />
+  );
+}
+
+function ReceptionistActivityPanel({ user, routeId }) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const receptionistIds = getReceptionistActivityLookupIds(user, routeId);
+
+    async function loadReceptionistActivities() {
+      for (const receptionistId of receptionistIds) {
+        try {
+          const receptionistActivities = await listReceptionistActivities(
+            receptionistId,
+            500,
+          );
+
+          if (mounted) {
+            setActivities(receptionistActivities);
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // Try the next possible receptionist identifier.
+        }
+      }
+
+      if (mounted) {
+        setError("تعذر تحميل سجل نشاطات موظف الاستقبال");
+        setLoading(false);
+      }
+    }
+
+    loadReceptionistActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [routeId, user]);
+
+  return (
+    <ActivityPanel
+      activities={activities}
+      loading={loading}
+      error={error}
+      title="سجل نشاطات موظف الاستقبال"
       showAll={showAll}
       onShowAll={() => setShowAll(true)}
     />

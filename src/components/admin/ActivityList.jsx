@@ -35,6 +35,7 @@ export default function ActivityList({
   compact = false,
   showRole = true,
   showActorName = true,
+  insetItems = true,
 }) {
   const [visibleCount, setVisibleCount] = useState(ACTIVITIES_BATCH_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -116,7 +117,7 @@ export default function ActivityList({
             className={`flex items-start gap-3 text-right ${
               compact
                 ? "border-b border-[#edf1f3] py-3 last:border-0 dark:border-white/10"
-                : "px-4 py-5 transition hover:bg-[#f8fcfd] dark:hover:bg-white/5 sm:px-6"
+                : `${insetItems ? "px-4 sm:px-6" : ""} py-5 transition hover:bg-[#f8fcfd] dark:hover:bg-white/5`
             }`}
             dir="rtl"
           >

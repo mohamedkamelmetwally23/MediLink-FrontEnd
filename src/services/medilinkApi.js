@@ -2589,6 +2589,10 @@ export function listDoctorActivities(doctorId, limit = 500) {
   return listEntityActivities(doctorId, limit);
 }
 
+export function listReceptionistActivities(receptionistId, limit = 500) {
+  return listEntityActivities(receptionistId, limit);
+}
+
 export async function getClinicProfits() {
   const response = await apiRequest("/clinic/getProfits");
   const data = response?.data ?? response ?? {};
