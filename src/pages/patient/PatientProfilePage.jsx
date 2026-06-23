@@ -17,7 +17,7 @@ import {
   getCurrentUser,
   getMyPatientProfile,
   uploadPatientMedicalFiles,
-  updateAppointmentStatus,
+  cancelAppointment,
   getMyPrescriptions,
   getMyMedicalReports,
   getBookedAppointmentsForPatient,
@@ -206,17 +206,25 @@ export default function PatientProfilePage() {
     [doctors],
   );
 
-  const cancelAppointment = async (appointment) => {
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const confirmCancelAppointment = async () => {
+    if (!cancelTarget) return;
+    setIsCancelling(true);
     try {
-      await updateAppointmentStatus(appointment.id, "cancelled");
+      await cancelAppointment(cancelTarget.id);
       setAppointments((current) =>
         current.map((item) =>
-          item.id === appointment.id ? { ...item, status: "cancelled" } : item,
+          item.id === cancelTarget.id ? { ...item, status: "cancelled" } : item,
         ),
       );
-      toast.success("تم إلغاء الموعد");
+      toast.success("تم إلغاء الحجز بنجاح");
+      setCancelTarget(null);
     } catch (error) {
-      toast.error(error.message || "تعذر إلغاء الموعد");
+      toast.error(error.message || "تعذر إلغاء الحجز، حاول مرة أخرى");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -230,12 +238,52 @@ export default function PatientProfilePage() {
         <section className="rounded-2xl bg-white px-4 py-10 shadow-[0_4px_24px_rgba(0,0,0,.1)] dark:bg-[#383838] sm:px-8 md:px-12">
           <PatientSummary patient={patient} />
           <PatientStats patient={patient} />
+
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            {[
+              { label: "احجز موعد جديد", action: () => window.dispatchEvent(new CustomEvent("medilink-open-assistant", { detail: { message: "احجز موعد" } })), primary: true },
+              { label: "مواعيدي", action: () => changeTab("appointments") },
+              { label: "الملفات الطبية", action: () => changeTab("files") },
+              { label: "السجل المرضي", action: () => changeTab("records") },
+              { label: "الوصفات الطبية", action: () => changeTab("prescriptions") },
+              { label: "معلوماتي", action: () => changeTab("extra") },
+            ].map(({ label, action, primary }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={action}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                  primary
+                    ? "bg-[#20B7D5] text-white hover:brightness-105"
+                    : "border border-[#20B7D5]/60 text-[#20B7D5] hover:bg-[#20B7D5]/10 dark:border-[#20B7D5]/40"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <ProfileTabs activeTab={activeTab} onChange={changeTab} />
 
           <div className="mt-6">
             {activeTab !== "extra" && (
               <div className="mb-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
-                {activeTab === "files" ? (
+                {activeTab === "appointments" ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("medilink-open-assistant", {
+                          detail: { message: "احجز موعد" },
+                        }),
+                      )
+                    }
+                    className="flex items-center gap-2 rounded-xl bg-[#20B7D5] px-5 py-2.5 text-sm font-bold text-white hover:brightness-105"
+                  >
+                    <Plus size={16} />
+                    ابدأ خطوات الحجز
+                  </button>
+                ) : activeTab === "files" ? (
                   <UploadButton
                     onUploaded={async (selectedFiles) => {
                       const profile = await getMyPatientProfile();
@@ -296,12 +344,12 @@ export default function PatientProfilePage() {
                 appointments={appointments}
                 doctorById={doctorById}
                 search={search}
-                onCancel={cancelAppointment}
+                onCancel={setCancelTarget}
               />
             )}
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <div className="mt-8">
             <button
               type="button"
               onClick={() =>
@@ -309,18 +357,9 @@ export default function PatientProfilePage() {
                   `/patient/${routePatientId}/patientinformation?edit=true`,
                 )
               }
-              className="rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]"
+              className="w-full rounded-xl border-2 border-[#20B7D5] py-3 font-bold text-[#20B7D5]"
             >
               تعديل البيانات
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                toast.info("حذف الحساب يحتاج تأكيدًا من إدارة النظام")
-              }
-              className="rounded-xl border-2 border-red-600 py-3 font-bold text-red-600"
-            >
-              حذف الحساب
             </button>
           </div>
         </section>
@@ -344,6 +383,43 @@ export default function PatientProfilePage() {
             className="max-h-[88vh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           />
+        </div>
+      )}
+      {cancelTarget && (
+        <div
+          className="fixed inset-0 z-[200] grid place-items-center bg-black/50 px-4"
+          dir="rtl"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-7 text-center shadow-2xl dark:bg-[#383838]">
+            <p className="text-lg font-bold text-[#333] dark:text-white">
+              إلغاء الحجز
+            </p>
+            <p className="mt-2 text-sm text-[#666] dark:text-[#ccc]">
+              هل أنت متأكد من إلغاء الموعد مع{" "}
+              <span className="font-semibold text-[#333] dark:text-white">
+                {cancelTarget.doctor || "الطبيب"}
+              </span>
+              ؟
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={confirmCancelAppointment}
+                className="h-11 rounded-xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {isCancelling ? "جاري الإلغاء..." : "نعم، إلغاء"}
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => setCancelTarget(null)}
+                className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-[#555] transition hover:bg-gray-50 disabled:opacity-60 dark:border-[#555] dark:text-[#ccc] dark:hover:bg-[#444]"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <PatientHomeFooter />
@@ -710,7 +786,7 @@ function getAppointmentTimestamp(appointment) {
 function Appointments({ appointments, doctorById, search, onCancel }) {
   const filtered = appointments
     .filter((appointment) => {
-      if (!["pending", "completed"].includes(appointment.status)) return false;
+      if (!["pending", "completed", "cancelled"].includes(appointment.status)) return false;
 
       const doctor = doctorById.get(String(appointment.doctorId));
       return includesSearchText(
@@ -719,9 +795,10 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
       );
     })
     .sort((first, second) => {
-      if (first.status !== second.status) {
-        return first.status === "pending" ? -1 : 1;
-      }
+      const order = { pending: 0, completed: 1, cancelled: 2 };
+      const aOrder = order[first.status] ?? 1;
+      const bOrder = order[second.status] ?? 1;
+      if (aOrder !== bOrder) return aOrder - bOrder;
 
       const firstTime = getAppointmentTimestamp(first);
       const secondTime = getAppointmentTimestamp(second);
@@ -768,7 +845,7 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
         return (
           <article
             key={appointment.id}
-            className={`grid gap-5 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] sm:grid-cols-[120px_1fr_auto] sm:items-center ${status === "pending" ? "bg-[#EFFBFA] dark:bg-[#354746]" : "bg-white dark:bg-[#424242]"}`}
+            className={`grid gap-5 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] sm:grid-cols-[120px_1fr_auto] sm:items-center ${status === "pending" ? "bg-[#EFFBFA] dark:bg-[#354746]" : status === "cancelled" ? "bg-red-50/60 dark:bg-red-950/20" : "bg-white dark:bg-[#424242]"}`}
           >
             <img
               src={doctor ? getDoctorImage(doctor) : avatar}

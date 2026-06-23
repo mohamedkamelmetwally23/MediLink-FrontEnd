@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import RatingPopup from "./components/RatingPopup";
+import { getUnratedCompletedAppointments, submitReview } from "./services/medilinkApi";
 
 import LandingPage from "./pages/Landing-Page";
 import LegalPage from "./pages/LegalPage";
@@ -58,20 +60,53 @@ function App() {
   const { dark } = useTheme();
   const location = useLocation();
   const [, setAuthVersion] = useState(0);
-  const showPatientAssistant =
-    location.pathname.startsWith("/patient") && hasPatientSession();
+  const [ratingAppointment, setRatingAppointment] = useState(null);
+  const [ratingChecked, setRatingChecked] = useState(false);
+  const isPatientRoute = location.pathname.startsWith("/patient") && hasPatientSession();
+  const showPatientAssistant = isPatientRoute;
 
   useEffect(() => {
     const handleAuthChange = () => setAuthVersion((version) => version + 1);
-
     window.addEventListener("medilink-auth-change", handleAuthChange);
     window.addEventListener("storage", handleAuthChange);
-
     return () => {
       window.removeEventListener("medilink-auth-change", handleAuthChange);
       window.removeEventListener("storage", handleAuthChange);
     };
   }, []);
+
+  // Rating popup — uses direct MongoDB endpoint to avoid 401 from backend
+  useEffect(() => {
+    if (!isPatientRoute || ratingChecked) return undefined;
+    setRatingChecked(true);
+    let mounted = true;
+
+    getUnratedCompletedAppointments()
+      .then((appointments) => {
+        if (!mounted) return;
+        const unrated = appointments.find(
+          (apt) => !sessionStorage.getItem(`medilink-rated-${apt.id}`),
+        );
+        if (unrated) setRatingAppointment(unrated);
+      })
+      .catch(() => {});
+
+    return () => { mounted = false; };
+  }, [isPatientRoute, ratingChecked]);
+
+  const handleRatingSubmit = async ({ appointmentId, stars, comment }) => {
+    await submitReview({ appointmentId, stars, comment });
+    sessionStorage.setItem(`medilink-rated-${appointmentId}`, "1");
+    setRatingAppointment(null);
+    toast.success("شكراً! تم إرسال تقييمك بنجاح");
+  };
+
+  const handleRatingSkip = () => {
+    if (ratingAppointment) {
+      sessionStorage.setItem(`medilink-rated-${ratingAppointment.id}`, "1");
+    }
+    setRatingAppointment(null);
+  };
 
   return (
     <div
@@ -158,6 +193,13 @@ function App() {
       />
         {showPatientAssistant && <AssistantButton />}
         <ThemeToggle />
+        {ratingAppointment && (
+          <RatingPopup
+            appointment={ratingAppointment}
+            onSubmit={handleRatingSubmit}
+            onSkip={handleRatingSkip}
+          />
+        )}
       </div>
     </div>
   );

@@ -2335,11 +2335,27 @@ export async function toggleUserActiveStatus(user, options = {}) {
   };
 }
 
-export async function submitReview({ appointmentId, stars }) {
+export async function submitReview({ appointmentId, stars, comment = "" }) {
   return apiRequest("/reviews", {
     method: "POST",
-    body: { appointmentId, stars },
+    body: { appointmentId, stars, comment },
   });
+}
+
+export async function getUnratedCompletedAppointments() {
+  const { getStoredToken } = await import("./apiClient.js");
+  const token = getStoredToken();
+  if (!token) return [];
+
+  const res = await fetch("/api/patient-appointments?unrated=true", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const items = Array.isArray(data?.appointments) ? data.appointments : [];
+  return items;
 }
 
 const activityLabels = {
@@ -3200,6 +3216,12 @@ export async function createPaidDemoAppointment(values) {
   const demoAppointment = buildDemoAppointment(nextAppointment);
   writeDemoAppointments([...readDemoAppointments(), demoAppointment]);
   return normalizeAppointment(demoAppointment);
+}
+
+export async function cancelAppointment(id) {
+  return apiRequest(`/appointments/cancelAppointment/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+  });
 }
 
 export async function updateAppointmentStatus(id, status) {

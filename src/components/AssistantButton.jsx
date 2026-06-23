@@ -4,6 +4,16 @@ import AiAgent from "./AiAgent";
 
 export default function AssistantButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      setInitialMessage(e.detail?.message || null);
+      setIsOpen(true);
+    };
+    window.addEventListener("medilink-open-assistant", handler);
+    return () => window.removeEventListener("medilink-open-assistant", handler);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -53,7 +63,10 @@ export default function AssistantButton() {
           aria-label="المساعد الذكي للرعاية الصحية"
         >
           <div className="h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-[#252525] sm:absolute sm:bottom-6 sm:right-6 sm:h-[min(660px,calc(100vh-3rem))] sm:max-w-[430px] sm:rounded-2xl lg:max-w-[520px]">
-            <AiAgent onClose={() => setIsOpen(false)} />
+            <AiAgent
+              onClose={() => { setIsOpen(false); setInitialMessage(null); }}
+              initialMessage={initialMessage}
+            />
           </div>
         </div>
       )}
