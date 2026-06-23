@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Receipt,
   Stethoscope,
-  TrendingUp,
   UserRound,
 } from "lucide-react";
 import {
@@ -64,12 +63,6 @@ const statsConfig = [
     icon: Receipt,
     color: "text-[#e07b22]",
     bg: "bg-[#fff3e8]",
-  },
-  {
-    title: "متوسط رسوم الموعد",
-    icon: TrendingUp,
-    color: "text-[#9b22bf]",
-    bg: "bg-[#f5ebff]",
   },
 ];
 
@@ -432,9 +425,6 @@ export default function Dashboard() {
       users.filter((user) => user.role === "doctor").length,
       clinicProfits?.totalProfit ?? totalRevenue,
       clinicProfits?.appointmentCount ?? 0,
-      clinicProfits?.avgFeePerAppointment != null
-        ? Number(clinicProfits.avgFeePerAppointment).toFixed(2)
-        : 0,
     ];
 
     return {
@@ -507,7 +497,7 @@ export default function Dashboard() {
       <Header />
 
       <section className="space-y-[23px] px-4 py-8 sm:px-6 lg:px-[38px]">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {dashboardStats.map((item) => (
             <StatCard key={item.title} {...item} />
           ))}

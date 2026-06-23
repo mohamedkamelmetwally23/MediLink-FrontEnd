@@ -140,9 +140,19 @@ export default function ReceptionistPatientProfilePage() {
     "";
 
   useEffect(() => {
-    if (!patientUserId) return undefined;
+    if (!patientUserId) {
+      setAppointmentCounts(null);
+      setActivities([]);
+      setActivitiesLoading(false);
+      setActivitiesError("");
+      return undefined;
+    }
 
     let mounted = true;
+    setAppointmentCounts(null);
+    setActivities([]);
+    setActivitiesLoading(true);
+    setActivitiesError("");
 
     Promise.allSettled([
       getUserAppointmentsCount(patientUserId),
@@ -152,6 +162,8 @@ export default function ReceptionistPatientProfilePage() {
 
       if (countsResult.status === "fulfilled") {
         setAppointmentCounts(countsResult.value);
+      } else {
+        setAppointmentCounts(null);
       }
 
       if (activitiesResult.status === "fulfilled") {
@@ -188,7 +200,7 @@ export default function ReceptionistPatientProfilePage() {
     },
     {
       label: "الحجوزات المكتملة",
-      value: appointmentCounts?.completedAppointments ?? 0,
+      value: appointmentCounts?.completed ?? 0,
       icon: ClipboardList,
     },
     {

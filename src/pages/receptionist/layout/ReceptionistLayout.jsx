@@ -1,21 +1,28 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   CalendarCheck,
   CalendarPlus,
   Home,
   LogOut,
   Menu,
+  Pencil,
   Plus,
   Stethoscope,
   UsersRound,
   X,
 } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
-import receptionistAvatar from "../../../assets/landingPage/admin.png";
+import defaultReceptionistAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
-import { getCurrentAuthUser } from "../../../services/medilinkApi";
+import {
+  getCurrentAuthUser,
+  getCurrentUser,
+  updateCurrentUserPhoto,
+} from "../../../services/medilinkApi";
+import { getPatientFileSizeError } from "../../../utils/patientFileValidation";
 
 const navItems = [
   { label: "لوحة التحكم", icon: Home, to: "/receptionist/dashboard" },
@@ -39,6 +46,32 @@ function getAuthUserDisplayName(user, fallback = "موظف الاستقبال") 
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     fallback
   );
+}
+
+function getAuthUserPhoto(user) {
+  const profile =
+    user?.profile ||
+    user?.receptionist ||
+    user?.user ||
+    user;
+
+  return profile?.photo || user?.photo || "";
+}
+
+function saveCurrentUserToSession(updatedUser) {
+  const currentUser = getCurrentAuthUser() || {};
+  const nextUser = {
+    ...currentUser,
+    ...updatedUser,
+    photo: getAuthUserPhoto(updatedUser) || "",
+  };
+
+  localStorage.setItem("medilinkUser", JSON.stringify(nextUser));
+  window.dispatchEvent(
+    new CustomEvent("medilink-user-updated", { detail: nextUser }),
+  );
+
+  return nextUser;
 }
 
 export default function ReceptionistLayout() {
@@ -83,9 +116,47 @@ export default function ReceptionistLayout() {
 
 function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const user = getCurrentAuthUser();
+  const [user, setUser] = useState(() => getCurrentAuthUser() || {});
+  const [profilePhoto, setProfilePhoto] = useState(
+    () => getAuthUserPhoto(getCurrentAuthUser()) || defaultReceptionistAvatar,
+  );
+  const [photoUploading, setPhotoUploading] = useState(false);
   const displayName = getAuthUserDisplayName(user);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentUser()
+      .then((currentUser) => {
+        if (!mounted) return;
+
+        const nextUser = saveCurrentUserToSession(currentUser);
+        setUser(nextUser);
+        setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+      })
+      .catch(() => {
+        if (mounted) {
+          setProfilePhoto(
+            getAuthUserPhoto(getCurrentAuthUser()) || defaultReceptionistAvatar,
+          );
+        }
+      });
+
+    const handleUserUpdated = (event) => {
+      const nextUser = event.detail || getCurrentAuthUser() || {};
+      setUser(nextUser);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+    };
+
+    window.addEventListener("medilink-user-updated", handleUserUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("medilink-user-updated", handleUserUpdated);
+    };
+  }, []);
 
   const handleLogout = () => {
     clearAuthSession();
@@ -96,6 +167,40 @@ function Sidebar({ isOpen, onClose }) {
   const handleAddPatientBooking = () => {
     onClose?.();
     navigate("/receptionist/book");
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const sizeError = getPatientFileSizeError(file, "صورة البروفايل");
+    if (sizeError) {
+      toast.warning(sizeError);
+      event.target.value = "";
+      return;
+    }
+
+    const previousPhoto = profilePhoto;
+    const previewUrl = URL.createObjectURL(file);
+
+    setProfilePhoto(previewUrl);
+    setPhotoUploading(true);
+
+    try {
+      const updatedUser = await updateCurrentUserPhoto(file);
+      const nextUser = saveCurrentUserToSession(updatedUser);
+
+      setUser(nextUser);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+      toast.success("تم تحديث الصورة بنجاح");
+    } catch (error) {
+      setProfilePhoto(previousPhoto || defaultReceptionistAvatar);
+      toast.error(error.message || "تعذر تحديث الصورة");
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
   };
 
   return (
@@ -130,11 +235,28 @@ function Sidebar({ isOpen, onClose }) {
           <div className="absolute bottom-[-18px] left-1/2 -translate-x-1/2">
             <div className="h-[116px] w-[116px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
               <img
-                src={user?.image || user?.profileImage || receptionistAvatar}
+                src={profilePhoto}
                 alt={displayName}
                 className="h-full w-full object-cover object-top"
               />
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+            <button
+              type="button"
+              aria-label="تغيير الصورة"
+              title="تغيير الصورة"
+              disabled={photoUploading}
+              className="absolute bottom-[7px] left-[2px] grid h-[31px] w-[31px] place-items-center rounded-full bg-white text-[#24b9d6] shadow-[0_8px_18px_rgba(31,71,82,0.22)] ring-[3px] ring-white transition hover:scale-105 disabled:cursor-wait disabled:opacity-70 dark:bg-[#505050] dark:ring-[#3a3a3a]"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Pencil size={15} strokeWidth={2} />
+            </button>
             <span className="absolute bottom-[14px] right-[7px] h-[17px] w-[17px] rounded-full bg-[#24c874] ring-[4px] ring-white dark:ring-[#3a3a3a]" />
           </div>
         </div>

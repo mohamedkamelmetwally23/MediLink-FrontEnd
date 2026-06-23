@@ -1,14 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, LogOut, Menu, Stethoscope, UsersRound, X } from "lucide-react";
+import { toast } from "react-toastify";
+import { Home, LogOut, Menu, Pencil, Stethoscope, UsersRound, X } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
 import doctorAvatar from "../../../assets/landingPage/doctor1.png";
+import defaultDoctorAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
+  getCurrentAuthUser,
   getCurrentDoctorProfile,
+  getCurrentUser,
   getDoctorQueueByDoctor,
+  updateCurrentUserPhoto,
 } from "../../../services/medilinkApi";
+import { getPatientFileSizeError } from "../../../utils/patientFileValidation";
 
 const navItems = [
   { label: "لوحة التحكم", icon: Home, to: "/doctor/dashboard" },
@@ -41,6 +47,32 @@ function getDoctorName(doctor) {
     doctor?.name ||
     "دكتور ميديلينك"
   );
+}
+
+function getAuthUserPhoto(user) {
+  const profile =
+    user?.profile ||
+    user?.doctor ||
+    user?.user ||
+    user;
+
+  return profile?.photo || user?.photo || "";
+}
+
+function saveCurrentUserToSession(updatedUser) {
+  const currentUser = getCurrentAuthUser() || {};
+  const nextUser = {
+    ...currentUser,
+    ...updatedUser,
+    photo: getAuthUserPhoto(updatedUser) || "",
+  };
+
+  localStorage.setItem("medilinkUser", JSON.stringify(nextUser));
+  window.dispatchEvent(
+    new CustomEvent("medilink-user-updated", { detail: nextUser }),
+  );
+
+  return nextUser;
 }
 
 function getPatientName(appointment) {
@@ -264,6 +296,75 @@ function Sidebar({ isOpen, onClose, doctor, waitingList }) {
 
 function DoctorBadge({ doctor, onClose }) {
   const doctorName = getDoctorName(doctor);
+  const fileInputRef = useRef(null);
+  const [profilePhoto, setProfilePhoto] = useState(
+    () => getAuthUserPhoto(getCurrentAuthUser()) || defaultDoctorAvatar,
+  );
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentUser()
+      .then((currentUser) => {
+        if (!mounted) return;
+
+        const nextUser = saveCurrentUserToSession(currentUser);
+        setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+      })
+      .catch(() => {
+        if (mounted) {
+          setProfilePhoto(
+            getAuthUserPhoto(getCurrentAuthUser()) || defaultDoctorAvatar,
+          );
+        }
+      });
+
+    const handleUserUpdated = (event) => {
+      const nextUser = event.detail || getCurrentAuthUser() || {};
+      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+    };
+
+    window.addEventListener("medilink-user-updated", handleUserUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("medilink-user-updated", handleUserUpdated);
+    };
+  }, []);
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const sizeError = getPatientFileSizeError(file, "صورة البروفايل");
+    if (sizeError) {
+      toast.warning(sizeError);
+      event.target.value = "";
+      return;
+    }
+
+    const previousPhoto = profilePhoto;
+    const previewUrl = URL.createObjectURL(file);
+
+    setProfilePhoto(previewUrl);
+    setPhotoUploading(true);
+
+    try {
+      const updatedUser = await updateCurrentUserPhoto(file);
+      const nextUser = saveCurrentUserToSession(updatedUser);
+
+      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+      toast.success("تم تحديث الصورة بنجاح");
+    } catch (error) {
+      setProfilePhoto(previousPhoto || defaultDoctorAvatar);
+      toast.error(error.message || "تعذر تحديث الصورة");
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
+  };
 
   return (
     <>
@@ -282,11 +383,28 @@ function DoctorBadge({ doctor, onClose }) {
         <div className="absolute bottom-[-16px] left-1/2 -translate-x-1/2">
           <div className="h-[130px] w-[130px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
             <img
-              src={doctor?.image || doctorAvatar}
+              src={profilePhoto}
               alt={doctorName}
               className="h-full w-full object-cover object-top"
             />
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+          <button
+            type="button"
+            aria-label="تغيير الصورة"
+            title="تغيير الصورة"
+            disabled={photoUploading}
+            className="absolute bottom-[12px] left-[5px] grid h-[32px] w-[32px] place-items-center rounded-full bg-white text-[#24b9d6] shadow-[0_8px_18px_rgba(31,71,82,0.22)] ring-[3px] ring-white transition hover:scale-105 disabled:cursor-wait disabled:opacity-70 dark:bg-[#505050] dark:ring-[#3a3a3a]"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Pencil size={15} strokeWidth={2} />
+          </button>
           <span className="absolute bottom-[20px] right-[10px] h-[18px] w-[18px] rounded-full bg-[#25c976] ring-[4px] ring-white dark:ring-[#3a3a3a]" />
         </div>
       </div>

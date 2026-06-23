@@ -18,7 +18,6 @@ import {
 import { includesSearchText } from "../../utils/searchText";
 
 const pageSize = 10;
-const patientsCacheKey = "medilink-users-cache-patients";
 
 const statusLabels = {
   active: "نشط",
@@ -44,36 +43,14 @@ function isDemoPatient(patientOrId) {
   return String(id || "").startsWith("demo-patient-");
 }
 
-function readCachedPatients() {
-  if (typeof localStorage === "undefined") return [];
-
-  try {
-    const stored = JSON.parse(localStorage.getItem(patientsCacheKey) || "[]");
-    return Array.isArray(stored) ? stored : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCachedPatients(patients) {
-  if (typeof localStorage === "undefined") return;
-
-  try {
-    localStorage.setItem(patientsCacheKey, JSON.stringify(patients));
-  } catch {
-    localStorage.removeItem(patientsCacheKey);
-  }
-}
-
 export default function ReceptionistPatientsPage() {
-  const cachedPatients = useMemo(() => readCachedPatients(), []);
-  const [patients, setPatients] = useState(() => cachedPatients);
+  const [patients, setPatients] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(() => cachedPatients.length === 0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -107,12 +84,11 @@ export default function ReceptionistPatientsPage() {
         );
 
         if (!mounted) return;
-        saveCachedPatients(patientsWithCounts);
         setPatients(patientsWithCounts);
       })
       .catch(() => {
         if (!mounted) return;
-        if (cachedPatients.length === 0) setPatients([]);
+        setPatients([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -121,7 +97,7 @@ export default function ReceptionistPatientsPage() {
     return () => {
       mounted = false;
     };
-  }, [cachedPatients]);
+  }, []);
 
   const filteredPatients = useMemo(() => {
     const query = search.trim();
