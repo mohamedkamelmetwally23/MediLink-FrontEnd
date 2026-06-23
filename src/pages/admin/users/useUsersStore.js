@@ -115,6 +115,10 @@ function getUsersCacheKey(scope) {
 
 function readCachedUsers(scope) {
   if (typeof localStorage === "undefined") return [];
+  if (scope === "all") {
+    localStorage.removeItem("medilink-users-cache-all");
+    return [];
+  }
 
   try {
     const stored = JSON.parse(localStorage.getItem(getUsersCacheKey(scope)) || "[]");
@@ -126,6 +130,10 @@ function readCachedUsers(scope) {
 
 function saveCachedUsers(scope, users) {
   if (typeof localStorage === "undefined") return;
+  if (scope === "all") {
+    localStorage.removeItem("medilink-users-cache-all");
+    return;
+  }
 
   try {
     localStorage.setItem(getUsersCacheKey(scope), JSON.stringify(users.slice(0, 100)));
@@ -317,7 +325,7 @@ export function useUsersStore(scope = "all") {
     return () => {
       mounted = false;
     };
-  }, [listUsers]);
+  }, [listUsers, scope]);
 
   const addUser = async (values) => {
     const normalizedUser = normalizeUser(values);

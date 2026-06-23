@@ -41,16 +41,7 @@ const workingDayAliases = {
 };
 
 function readClinicInfo() {
-  if (typeof localStorage === "undefined") return defaultClinicInfo;
-
-  try {
-    return {
-      ...defaultClinicInfo,
-      ...JSON.parse(localStorage.getItem(clinicInfoStorageKey) || "{}"),
-    };
-  } catch {
-    return defaultClinicInfo;
-  }
+  return defaultClinicInfo;
 }
 
 export function saveClinicInfo(info) {
@@ -61,7 +52,7 @@ export function saveClinicInfo(info) {
     ...info,
   };
 
-  localStorage.setItem(clinicInfoStorageKey, JSON.stringify(nextInfo));
+  localStorage.removeItem(clinicInfoStorageKey);
   window.dispatchEvent(
     new CustomEvent("medilink-clinic-info-change", { detail: nextInfo }),
   );
@@ -244,6 +235,8 @@ export function useClinicInfo() {
   useEffect(() => {
     let mounted = true;
 
+    localStorage.removeItem(clinicInfoStorageKey);
+
     loadClinicInfo()
       .then((info) => {
         if (mounted) setClinicInfo(info);
@@ -253,19 +246,11 @@ export function useClinicInfo() {
     const handleChange = (event) => {
       setClinicInfo(event.detail || readClinicInfo());
     };
-    const handleStorage = (event) => {
-      if (event.key === clinicInfoStorageKey) {
-        setClinicInfo(readClinicInfo());
-      }
-    };
-
     window.addEventListener("medilink-clinic-info-change", handleChange);
-    window.addEventListener("storage", handleStorage);
 
     return () => {
       mounted = false;
       window.removeEventListener("medilink-clinic-info-change", handleChange);
-      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 

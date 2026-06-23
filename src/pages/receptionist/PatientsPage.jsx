@@ -55,6 +55,8 @@ export default function ReceptionistPatientsPage() {
   useEffect(() => {
     let mounted = true;
 
+    localStorage.removeItem("medilink-users-cache-patients");
+
     listPatientsForReceptionist()
       .then(async (items) => {
         const patientsWithCounts = await Promise.all(
