@@ -1,22 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Search, Star, X } from "lucide-react";
-import adminImage from "../../../assets/landingPage/admin.png";
-import doctorImage from "../../../assets/landingPage/doctor1.png";
-import doctorDarkImage from "../../../assets/landingPage/login-doctor-dark (2).png";
-import loginDoctorImage from "../../../assets/landingPage/login-doctor.png";
-import signupDoctorImage from "../../../assets/landingPage/signupDoctor.png";
+import defaultDoctorAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import { includesSearchText } from "../../../utils/searchText";
 import { normalizeSpecialtyLabel } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
-
-const doctorImages = [
-  doctorImage,
-  loginDoctorImage,
-  signupDoctorImage,
-  adminImage,
-  doctorDarkImage,
-];
 
 export default function SpecialtyDoctorsPage() {
   const navigate = useNavigate();
@@ -41,11 +29,21 @@ export default function SpecialtyDoctorsPage() {
           user.role === "doctor" &&
           normalizeSpecialtyLabel(user.specialty) === decodedName,
       )
-      .map((doctor, index) => ({
+      .map((doctor) => ({
         id: doctor.id,
         name: `${doctor.firstName} ${doctor.lastName}`.replace("د.", "").trim(),
         rating: doctor.rating || "",
-        image: doctorImages[index % doctorImages.length],
+        image:
+          doctor.image ||
+          doctor.photo ||
+          doctor.profileImage ||
+          doctor.raw?.image ||
+          doctor.raw?.photo ||
+          doctor.raw?.profileImage ||
+          doctor.raw?.user?.image ||
+          doctor.raw?.user?.photo ||
+          doctor.raw?.user?.profileImage ||
+          defaultDoctorAvatar,
         to: `/admin/users/${doctor.id}/profile`,
       }));
   }, [decodedName, users]);
@@ -139,7 +137,13 @@ function DoctorCard({ doctor }) {
         <img
           src={doctor.image}
           alt={doctor.name}
-          className="h-full max-w-full object-contain"
+          className="h-full max-w-full object-cover"
+          onError={(event) => {
+            if (event.currentTarget.dataset.fallbackApplied) return;
+
+            event.currentTarget.dataset.fallbackApplied = "true";
+            event.currentTarget.src = defaultDoctorAvatar;
+          }}
         />
       </div>
       <div className="px-[16px] pb-[18px] pt-[8px]">
