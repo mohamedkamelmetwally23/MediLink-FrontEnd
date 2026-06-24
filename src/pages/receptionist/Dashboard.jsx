@@ -356,9 +356,15 @@ export default function ReceptionistDashboard() {
             ? appointmentsResult.value
             : [],
         );
-        setDoctors(
-          doctorsResult.status === "fulfilled" ? doctorsResult.value : [],
-        );
+        const loadedDoctors =
+          doctorsResult.status === "fulfilled" ? doctorsResult.value : [];
+        setDoctors(loadedDoctors);
+
+        const firstOption = getDoctorOptions(loadedDoctors)[0];
+        if (firstOption) {
+          setSelectedDoctor(String(firstOption.id));
+          setQueueLoading(true);
+        }
       })
       .finally(() => {
         if (mounted) {
@@ -475,8 +481,11 @@ export default function ReceptionistDashboard() {
     ],
   );
   const stats = useMemo(() => {
-    const paidAppointments = todayAppointments.filter(isPaidAppointment);
-    const revenue = paidAppointments.reduce(
+    const billableAppointments = todayAppointments.filter(
+      (appointment) =>
+        appointment.status === "confirmed" || appointment.status === "completed",
+    );
+    const revenue = billableAppointments.reduce(
       (total, appointment) =>
         total + getAppointmentRevenue(appointment, doctorFeeLookup),
       0,
@@ -488,7 +497,7 @@ export default function ReceptionistDashboard() {
         (appointment) => appointment.status === "cancelled",
       ).length,
       revenue,
-      appointmentCount: paidAppointments.length,
+      appointmentCount: billableAppointments.length,
     };
   }, [doctorFeeLookup, todayAppointments]);
 
@@ -510,8 +519,12 @@ export default function ReceptionistDashboard() {
         currentAppointment.queueAppointmentId || currentAppointment.id,
         changeTo,
       );
-      const nextQueue = await getDoctorQueueByReceptionist(selectedDoctor);
+      const [nextQueue, refreshed] = await Promise.all([
+        getDoctorQueueByReceptionist(selectedDoctor),
+        listAppointments(),
+      ]);
       setDoctorQueue(nextQueue);
+      setAppointments(refreshed);
     } catch (error) {
       setQueueError(error?.message || "تعذر تحديث حالة الموعد");
     } finally {
@@ -649,12 +662,11 @@ function QueuePanel({
         <CustomSelect
           value={selectedDoctor}
           onChange={onDoctorChange}
-          displayLabel={selectedDoctorInfo?.name || "عرض الكل"}
+          displayLabel={selectedDoctorInfo?.name || "اختر طبيب"}
           className="w-full"
           buttonClassName="flex h-[40px] w-full items-center gap-2 rounded-[7px] border border-transparent bg-[#f0f0f0] px-3 text-[12px] font-bold text-[#27343a] outline-none transition hover:bg-[#eaf8fb] focus:border-[#25b9d6] dark:bg-[#444] dark:text-white dark:hover:bg-[#4b4b4b]"
           menuClassName="max-h-[230px] rounded-[10px] border-[#dceff3] bg-white p-1.5 shadow-[0_18px_38px_rgba(24,64,75,0.16)] dark:border-white/15 dark:bg-[#3a3a3a]"
         >
-          <option value="all">عرض الكل</option>
           {doctorOptions.map((doctor) => (
             <option key={doctor.id} value={String(doctor.id)}>
               {doctor.name}
@@ -676,10 +688,6 @@ function QueuePanel({
         ) : queueError ? (
           <div className="grid min-h-[100px] place-items-center px-3 text-center text-[12px] font-bold text-red-500">
             {queueError}
-          </div>
-        ) : selectedDoctor === "all" ? (
-          <div className="grid min-h-[100px] place-items-center text-center text-[12px] font-bold text-[#7c8a91] dark:text-gray-200">
-            اختر طبيبًا لعرض قائمة الانتظار
           </div>
         ) : currentAppointment ? (
           <CurrentPatient
@@ -906,6 +914,13 @@ function DashboardTableFilter({ value, onChange, label, children }) {
 }
 
 function AppointmentRow({ appointment }) {
+  const displayPayment =
+    appointment.status === "confirmed" || appointment.status === "completed"
+      ? "paid"
+      : appointment.status === "cancelled"
+        ? "unpaid"
+        : "waiting";
+
   return (
     <div className="grid min-h-[38px] grid-cols-[1.05fr_1fr_1fr_1fr_0.85fr] items-center border-b border-[#edf1f3] text-[10px] text-[#27343a] last:border-b-0 dark:border-white/15 dark:text-white">
       <span className="truncate px-2 text-center font-bold">
@@ -921,7 +936,7 @@ function AppointmentRow({ appointment }) {
         <Badge value={appointment.status} labels={statusLabels} />
       </span>
       <span className="flex justify-center">
-        <Badge value={appointment.payment} labels={paymentLabels} />
+        <Badge value={displayPayment} labels={paymentLabels} />
       </span>
     </div>
   );
