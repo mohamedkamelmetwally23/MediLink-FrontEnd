@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
+import defaultProfileAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import ActivityList from "../../../components/admin/ActivityList";
 import {
   getDoctor,
@@ -291,8 +292,27 @@ function buildProfile(user, searchParams, appointmentCounts = null) {
         user?.raw?.rating ??
         user?.raw?.ratingsAverage,
     ),
-    image: getProfileImage(role),
+    image: getUserProfileImage(user, role),
   };
+}
+
+function getUserProfileImage(user, role) {
+  return (
+    user?.image ||
+    user?.photo ||
+    user?.profileImage ||
+    user?.avatar ||
+    user?.raw?.image ||
+    user?.raw?.photo ||
+    user?.raw?.profileImage ||
+    user?.raw?.avatar ||
+    user?.raw?.user?.image ||
+    user?.raw?.user?.photo ||
+    user?.raw?.user?.profileImage ||
+    user?.raw?.user?.avatar ||
+    getProfileImage(role) ||
+    defaultProfileAvatar
+  );
 }
 
 function getAppointmentCountLookupIds(user, routeId) {
@@ -596,6 +616,12 @@ function HeroCard({ profile }) {
             src={profile.image}
             alt={profile.fullName}
             className="h-full w-full object-cover"
+            onError={(event) => {
+              if (event.currentTarget.dataset.fallbackApplied) return;
+
+              event.currentTarget.dataset.fallbackApplied = "true";
+              event.currentTarget.src = defaultProfileAvatar;
+            }}
           />
         </div>
         <h2 className="mt-[22px] text-[30px] font-bold leading-9 text-[#333] dark:text-white">
