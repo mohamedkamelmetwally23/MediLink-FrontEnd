@@ -605,7 +605,7 @@ function StatCard({ label, value, icon: Icon, iconClass, trend, trendClass }) {
         <Icon size={30} strokeWidth={2} />
       </span>
 
-      <div className="text-right" dir="rtl">
+      <div className="pl-[78px] text-right" dir="rtl">
         <p className="text-[18px] font-medium leading-7 text-[#333] dark:text-gray-100">
           {label}
         </p>
