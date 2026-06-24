@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Check, CircleAlert, CreditCard, FileText, Image as ImageIcon, Plus, Smartphone, Trash2, WalletCards } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { toast } from "react-toastify";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import { getDoctorImage, getDoctorName, getDoctorRating } from "../../hooks/useDoctors";
 import {
   bookAppointmentByPatient,
@@ -182,7 +183,11 @@ function DoctorStrip({ doctor }) {
   const rating = getDoctorRating(doctor);
   return (
     <section className="grid items-center gap-5 overflow-hidden rounded-3xl bg-[#EFFBFA] p-5 dark:bg-[#354746] sm:grid-cols-[180px_1fr_auto] sm:px-8">
-      <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="mx-auto h-40 w-44 object-contain object-bottom" />
+      <ProfileAvatar
+        src={getDoctorImage(doctor)}
+        alt={getDoctorName(doctor)}
+        className="mx-auto h-40 w-44 object-contain object-bottom"
+      />
       <div className="text-center sm:text-right">
         <h2 className="text-2xl font-extrabold sm:text-3xl">{getDoctorName(doctor)}</h2>
         <p className="mt-2 text-lg text-[#888] dark:text-[#C9D6D5]">{doctor.specialty || "طب عام"}</p>

@@ -4,8 +4,16 @@ import { listDoctors } from "../services/medilinkApi";
 
 function resolveImageUrl(image) {
   if (!image || typeof image !== "string") return "";
-  if (/^(https?:|data:|blob:)/i.test(image)) return image;
-  return `${API_ORIGIN.replace(/\/$/, "")}/${image.replace(/^\/+/, "")}`;
+
+  let imagePath = image.trim().replace(/\\/g, "/");
+  if (!imagePath) return "";
+  if (/^(https?:|data:|blob:)/i.test(imagePath)) return imagePath;
+
+  const uploadsIndex = imagePath.toLowerCase().lastIndexOf("/uploads/");
+  if (uploadsIndex >= 0) imagePath = imagePath.slice(uploadsIndex + 1);
+
+  imagePath = imagePath.replace(/^\/+/, "").replace(/^public\//, "");
+  return `${API_ORIGIN.replace(/\/$/, "")}/${imagePath}`;
 }
 
 export function getDoctorName(doctor) {
@@ -14,7 +22,7 @@ export function getDoctorName(doctor) {
 }
 
 export function getDoctorImage(doctor) {
-  return resolveImageUrl(doctor.image || doctor.photo) || "";
+  return resolveImageUrl(doctor?.image || doctor?.photo) || "";
 }
 
 export function getDoctorRating(doctor) {
