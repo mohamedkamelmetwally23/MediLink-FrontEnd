@@ -1,6 +1,24 @@
-export default function ProfileAvatar({ src, alt = "", className = "" }) {
-  if (src) {
-    return <img src={src} alt={alt} className={className} />;
+import { useEffect, useState } from "react";
+
+export default function ProfileAvatar({ src, alt = "", className = "", onError }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
+  if (src && !imageFailed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        onError={(event) => {
+          setImageFailed(true);
+          onError?.(event);
+        }}
+      />
+    );
   }
 
   return (

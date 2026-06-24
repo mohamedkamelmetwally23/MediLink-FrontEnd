@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { CalendarCheck2, CircleDollarSign, Stethoscope, UsersRound } from "lucide-react";
 import { FaStar } from "react-icons/fa";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import { getDoctor } from "../../services/medilinkApi";
 import { getDoctorImage, getDoctorName, getDoctorRating } from "../../hooks/useDoctors";
 import { PatientHomeFooter, PatientHomeHeader } from "./PatientHomePage";
@@ -158,7 +159,11 @@ function DoctorProfile({ doctor, canBook, onBook }) {
           <span className="absolute right-[10%] top-[20%] size-32 rounded-full bg-[#20B7D8] sm:size-44" />
           <span className="absolute left-[10%] top-[20%] size-12 rounded-full bg-[#2364AA]" />
           <span className="absolute bottom-[8%] left-[7%] size-24 rounded-full bg-[#74D2DF]" />
-          <img src={getDoctorImage(doctor)} alt={getDoctorName(doctor)} className="relative z-10 h-full w-full rounded-2xl object-cover object-center" />
+          <ProfileAvatar
+            src={getDoctorImage(doctor)}
+            alt={getDoctorName(doctor)}
+            className="relative z-10 h-full w-full rounded-2xl object-cover object-center"
+          />
         </div>
       </section>
 

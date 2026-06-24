@@ -8,6 +8,7 @@ import {
   Clock3,
 } from "lucide-react";
 import { FaStar } from "react-icons/fa";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import CustomSelect from "../../components/admin/CustomSelect";
 import {
   getDoctorImage,
@@ -180,7 +181,7 @@ function DoctorCard({ doctor, index }) {
         aria-label={`عرض صفحة ${getDoctorName(doctor)}`}
         className="relative flex h-[210px] items-end justify-center overflow-hidden rounded-lg bg-linear-to-b from-[#FAFAFA] to-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#05ADE8] dark:from-[#444444] dark:to-[#383838]"
       >
-        <img
+        <ProfileAvatar
           src={getDoctorImage(doctor, index)}
           alt={getDoctorName(doctor)}
           className={`h-full w-full object-contain object-bottom transition-transform duration-200 hover:scale-[1.03] ${available ? "" : "grayscale"}`}
