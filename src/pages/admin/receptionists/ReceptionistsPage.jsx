@@ -24,7 +24,7 @@ export default function ReceptionistsPage() {
     users,
     loading,
     toggleUserStatus,
-  } = useUsersStore();
+  } = useUsersStore("receptionists");
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

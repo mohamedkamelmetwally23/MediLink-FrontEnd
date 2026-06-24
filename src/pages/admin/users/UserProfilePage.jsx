@@ -240,7 +240,8 @@ export default function UserProfilePage() {
         {(storedUser?.role || routeRole) === "receptionist" && (
           <ReceptionistActivityPanel
             key={userId}
-            receptionist={activeReceptionistDetails}
+            receptionist={activeReceptionistDetails || storedUser}
+            routeId={userId}
             detailsLoaded={receptionistDetails?.routeUserId === userId}
           />
         )}
@@ -473,7 +474,7 @@ function getDoctorActivityLookupIds(user, routeId) {
   );
 }
 
-function getReceptionistResponseUserId(receptionist) {
+function getReceptionistResponseUserId(receptionist, routeId) {
   const rawUser = receptionist?.raw?.user;
 
   if (typeof rawUser === "string") return rawUser;
@@ -482,6 +483,10 @@ function getReceptionistResponseUserId(receptionist) {
     rawUser?._id ||
     rawUser?.id ||
     receptionist?.userId ||
+    receptionist?.id ||
+    receptionist?.raw?._id ||
+    receptionist?.raw?.id ||
+    routeId ||
     ""
   );
 }
@@ -890,7 +895,7 @@ function DoctorActivityPanel({ user, routeId }) {
   );
 }
 
-function ReceptionistActivityPanel({ receptionist, detailsLoaded }) {
+function ReceptionistActivityPanel({ receptionist, routeId, detailsLoaded }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -900,7 +905,7 @@ function ReceptionistActivityPanel({ receptionist, detailsLoaded }) {
     if (!detailsLoaded) return undefined;
 
     let mounted = true;
-    const activityUserId = getReceptionistResponseUserId(receptionist);
+    const activityUserId = getReceptionistResponseUserId(receptionist, routeId);
 
     async function loadReceptionistActivities() {
       if (!activityUserId) {
@@ -930,7 +935,7 @@ function ReceptionistActivityPanel({ receptionist, detailsLoaded }) {
     return () => {
       mounted = false;
     };
-  }, [detailsLoaded, receptionist]);
+  }, [detailsLoaded, receptionist, routeId]);
 
   return (
     <ActivityPanel

@@ -4,6 +4,7 @@ import {
   deleteUser as apiDeleteUser,
   listAllUsers,
   listPatients,
+  listReceptionists,
   toggleUserActiveStatus,
   updateUser as apiUpdateUser,
 } from "../../../services/medilinkApi";
@@ -276,7 +277,12 @@ export function useUsersStore(scope = "all") {
   const [users, setUsers] = useState(() => normalizeLoadedUsers(readCachedUsers(scope)));
   const [loading, setLoading] = useState(() => readCachedUsers(scope).length === 0);
   const [error, setError] = useState("");
-  const listUsers = scope === "patients" ? listPatients : listAllUsers;
+  const listUsers =
+    scope === "patients"
+      ? listPatients
+      : scope === "receptionists"
+        ? listReceptionists
+        : listAllUsers;
 
   const commitUsers = (getNextUsers) => {
     setUsers((currentUsers) => {
