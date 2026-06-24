@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import avatar from "../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import { clearAuthSession } from "../../services/authApi";
 import {
   deletePatient,
@@ -105,7 +105,7 @@ function buildPatient(user, apiPatient) {
       source.profileImage ||
       source.image ||
       source.avatar ||
-      avatar,
+      "",
     status: source.status === "inactive" ? "غير مفعل" : "مفعل",
     height: source.tall ?? source.height ?? "غير متوفر",
     weight: source.weight || 70,
@@ -909,8 +909,8 @@ function Appointments({ appointments, doctorById, search, onCancel }) {
             key={appointment.id}
             className={`grid gap-5 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,.1)] sm:grid-cols-[120px_1fr_auto] sm:items-center ${status === "pending" ? "bg-[#EFFBFA] dark:bg-[#354746]" : status === "cancelled" ? "bg-red-50/60 dark:bg-red-950/20" : "bg-white dark:bg-[#424242]"}`}
           >
-            <img
-              src={doctor ? getDoctorImage(doctor) : avatar}
+            <ProfileAvatar
+              src={doctor ? getDoctorImage(doctor) : ""}
               alt={doctor ? getDoctorName(doctor) : appointment.doctor}
               className="mx-auto h-28 w-28 rounded-xl object-contain"
             />

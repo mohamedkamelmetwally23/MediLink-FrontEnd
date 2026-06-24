@@ -1,10 +1,8 @@
 import { ArrowRight, ChevronLeft, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import adminImage from "../../../assets/landingPage/admin.png";
-import doctorImage from "../../../assets/landingPage/login-doctor.png";
-import defaultProfileAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import ActivityList from "../../../components/admin/ActivityList";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import {
   getDoctor,
   getReceptionist,
@@ -34,11 +32,6 @@ const profileImageNames = {
   ],
 };
 
-const fallbackProfileImages = {
-  patient: adminImage,
-  doctor: doctorImage,
-  receptionist: adminImage,
-};
 
 export default function UserProfilePage() {
   const navigate = useNavigate();
@@ -338,11 +331,7 @@ function getUserProfileImage(user, role, fallbackUser = null) {
     ])
     .find(Boolean);
 
-  if (image) return image;
-
-  return role === "doctor" || role === "receptionist" || role === "patient"
-    ? defaultProfileAvatar
-    : getProfileImage(role) || defaultProfileAvatar;
+  return image || "";
 }
 
 function getAppointmentCountLookupIds(user, routeId) {
@@ -573,7 +562,7 @@ function getProfileImage(role) {
     return expectedNames.includes(baseName);
   });
 
-  return matchedImage?.[1] || fallbackProfileImages[role] || adminImage;
+  return matchedImage?.[1] || "";
 }
 
 function InfoCard({ profile }) {
@@ -646,16 +635,10 @@ function HeroCard({ profile }) {
     <section className="grid min-h-[338px] place-items-center rounded-[8px] bg-white px-6 py-[22px] text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div>
         <div className="mx-auto h-[174px] w-[174px] overflow-hidden rounded-full border-[5px] border-[#eeeeee]">
-          <img
+          <ProfileAvatar
             src={profile.image}
             alt={profile.fullName}
             className="h-full w-full object-cover"
-            onError={(event) => {
-              if (event.currentTarget.dataset.fallbackApplied) return;
-
-              event.currentTarget.dataset.fallbackApplied = "true";
-              event.currentTarget.src = defaultProfileAvatar;
-            }}
           />
         </div>
         <h2 className="mt-[22px] text-[30px] font-bold leading-9 text-[#333] dark:text-white">
@@ -663,7 +646,7 @@ function HeroCard({ profile }) {
         </h2>
         <div className="mt-[10px] flex items-center justify-center gap-[12px] text-[15px] text-[#8a8a8a]">
           <span>{userRoles[profile.role]}</span>
-          <StatusBadge status={profile.status} />
+          {profile.role !== "receptionist" && <StatusBadge status={profile.status} />}
         </div>
       </div>
     </section>

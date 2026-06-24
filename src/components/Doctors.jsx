@@ -1,7 +1,7 @@
 import { FaStar } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import ProfileAvatar from "./ProfileAvatar";
 import {
-  defaultDoctorAvatar,
   getDoctorImage,
   getDoctorName,
   getDoctorRating,
@@ -97,16 +97,10 @@ export default function Doctors() {
                 onClick={() => openDoctorProfile(doctor)}
                 className="reveal-item flex min-h-[280px] w-[255px] shrink-0 snap-start flex-col items-center overflow-hidden rounded-xl bg-linear-to-b from-[#F0F0F0] to-[#FFFFFF] px-5 pb-5 pt-3 text-center shadow-md transition hover:-translate-y-1 hover:shadow-lg dark:from-[#494949] dark:to-[#383838]"
               >
-                <img
+                <ProfileAvatar
                   src={getDoctorImage(doctor)}
                   alt={getDoctorName(doctor)}
                   className="h-40 w-full rounded-2xl object-contain object-bottom"
-                  onError={(event) => {
-                    if (event.currentTarget.dataset.fallbackApplied) return;
-
-                    event.currentTarget.dataset.fallbackApplied = "true";
-                    event.currentTarget.src = defaultDoctorAvatar;
-                  }}
                 />
                 <p className="mt-2 text-lg font-bold dark:text-[#F0F0F0]">{getDoctorName(doctor)}</p>
                 <p className="min-h-9 text-xs leading-5 text-[#6D6D6D] dark:text-[#BDBDBD]">{doctor.specialty || "طب عام"}</p>

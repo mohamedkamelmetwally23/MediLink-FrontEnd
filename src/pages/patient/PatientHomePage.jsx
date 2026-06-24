@@ -25,7 +25,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import LogoutConfirmModal from "../../components/LogoutConfirmModal";
 import RatingPopup from "../../components/RatingPopup";
 import ThemeLogo from "../../components/ThemeLogo";
-import avatar from "../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import heroDoctor from "../../assets/patient departement/Group 623 (3).png";
 import doctor1 from "../../assets/landingPage/12 1.png";
 import featureDoctor from "../../assets/landingPage/8.png";
@@ -121,7 +121,7 @@ export function PatientHomeHeader({
   const { patientId } = useParams();
   const authUser = getCurrentAuthUser();
   const [profilePhoto, setProfilePhoto] = useState(
-    authUser?.photo || avatar,
+    authUser?.photo || "",
   );
   const currentPatientId =
     patientId ||
@@ -180,7 +180,7 @@ export function PatientHomeHeader({
 
     const handleUserUpdated = (event) => {
       const user = event.detail || getCurrentAuthUser() || {};
-      setProfilePhoto(user.photo || avatar);
+      setProfilePhoto(user.photo || "");
     };
 
     window.addEventListener("medilink-user-updated", handleUserUpdated);
@@ -346,7 +346,7 @@ export function PatientHomeHeader({
               aria-expanded={profileOpen}
               aria-controls="patient-profile-menu"
             >
-              <img src={profilePhoto} alt="صورة الحساب" className="size-10 rounded-full object-cover sm:size-11" />
+              <ProfileAvatar src={profilePhoto} alt="صورة الحساب" className="size-10 rounded-full object-cover sm:size-11" />
             </button>
 
             <div

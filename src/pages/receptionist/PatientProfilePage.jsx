@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CalendarCheck, ChevronRight, ClipboardList, UserRound } from "lucide-react";
-import patientAvatar from "../../assets/landingPage/admin.png";
 import ActivityList from "../../components/admin/ActivityList";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import {
   getUserAppointmentsCount,
   listPatientActivities,
@@ -44,7 +44,7 @@ function getPatientImage(patient) {
     raw.profileImage ||
     user.image ||
     user.profileImage ||
-    patientAvatar
+    ""
   );
 }
 
@@ -262,7 +262,7 @@ export default function ReceptionistPatientProfilePage() {
 
           <section className="space-y-4" dir="rtl">
             <article className="rounded-[8px] bg-white p-5 text-center shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
-              <img
+              <ProfileAvatar
                 src={getPatientImage(patient)}
                 alt={getPatientName(patient)}
                 className="mx-auto h-[112px] w-[112px] rounded-full object-cover object-top ring-4 ring-[#edf7f9] dark:ring-white/10"

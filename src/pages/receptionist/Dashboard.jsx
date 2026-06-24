@@ -7,9 +7,8 @@ import {
   Receipt,
   XCircle,
 } from "lucide-react";
-import patientAvatar from "../../assets/landingPage/admin.png";
-import doctorAvatar from "../../assets/landingPage/doctor1.png";
 import CustomSelect from "../../components/admin/CustomSelect";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import {
   changeAppointmentQueueStatus,
   getDoctorQueueByReceptionist,
@@ -18,8 +17,8 @@ import {
 } from "../../services/medilinkApi";
 
 const statusLabels = {
-  pending: "انتظار",
-  confirmed: "مؤكد",
+  pending: "في انتظار",
+  confirmed: "تم التأكيد",
   completed: "مكتمل",
   cancelled: "ملغي",
 };
@@ -286,7 +285,7 @@ function getPatientImage(appointment) {
     patient.profileImage ||
     user.image ||
     user.profileImage ||
-    patientAvatar
+    ""
   );
 }
 
@@ -295,7 +294,7 @@ function getDoctorImage(doctor) {
     doctor?.image ||
     doctor?.raw?.image ||
     doctor?.raw?.profileImage ||
-    doctorAvatar
+    ""
   );
 }
 
@@ -309,6 +308,7 @@ function getDoctorName(doctor) {
 
 function getDoctorOptions(doctors) {
   return doctors
+    .filter((doctor) => doctor.status === "active" || doctor.active === true)
     .map((doctor) => ({
       id: doctor.queueDoctorId,
       name: getDoctorName(doctor),
@@ -734,7 +734,7 @@ function CurrentPatient({
   return (
     <article>
       <div className="flex items-center gap-3">
-        <img
+        <ProfileAvatar
           src={getPatientImage(appointment)}
           alt={appointment.patient}
           className="h-11 w-11 rounded-full object-cover"
@@ -774,7 +774,7 @@ function CurrentPatient({
 function QueueItem({ appointment }) {
   return (
     <article className="flex min-h-[54px] items-center gap-2 rounded-[8px] bg-[#fffdf6] px-2 py-2 dark:bg-[#484235]">
-      <img
+      <ProfileAvatar
         src={getPatientImage(appointment)}
         alt={appointment.patient}
         className="h-9 w-9 rounded-full object-cover"
@@ -945,7 +945,7 @@ function AppointmentRow({ appointment }) {
 function Badge({ value, labels }) {
   return (
     <span
-      className={`rounded-[6px] px-2 py-1 text-[9px] font-bold ${
+      className={`rounded-[7px] px-[7px] py-[5px] text-[10px] font-medium ${
         statusStyles[value] || statusStyles.pending
       }`}
     >

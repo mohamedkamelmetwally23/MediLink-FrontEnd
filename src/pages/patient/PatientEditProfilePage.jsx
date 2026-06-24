@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import avatar from "../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import { validateStrongPassword } from "../../utils/passwordValidation";
 import { getPatientFileSizeError } from "../../utils/patientFileValidation";
 import { clearAuthSession } from "../../services/authApi";
@@ -68,7 +68,7 @@ export function PatientEditProfilePage() {
     gender: profile.gender || "male",
     ...initialBirthDate,
   });
-  const [image, setImage] = useState(profile.photo || profile.profileImage || profile.image || profile.avatar || avatar);
+  const [image, setImage] = useState(profile.photo || profile.profileImage || profile.image || profile.avatar || "");
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const patientId = routePatientId || getPatientId(authUser);
@@ -182,7 +182,7 @@ export function PatientEditProfilePage() {
         </div>
 
         <label className="relative order-1 mx-auto block cursor-pointer lg:order-2">
-          <img src={image} alt="صورة المريض" className="size-44 rounded-full border-[6px] border-[#EFEFEF] object-cover sm:size-52" />
+          <ProfileAvatar src={image} alt="صورة المريض" className="size-44 rounded-full border-[6px] border-[#EFEFEF] object-cover sm:size-52" />
           <span className="absolute bottom-3 right-3 grid size-10 place-items-center rounded-full bg-[#20B7D5] text-white"><Pencil size={19} /></span>
           <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
         </label>

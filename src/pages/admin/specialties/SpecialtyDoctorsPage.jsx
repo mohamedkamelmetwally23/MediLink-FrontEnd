@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Search, Star, X } from "lucide-react";
-import defaultProfileAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import { includesSearchText } from "../../../utils/searchText";
 import { normalizeSpecialtyLabel } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
@@ -86,7 +86,7 @@ function getDoctorImage(doctor) {
     doctor.raw?.user?.image ||
     doctor.raw?.user?.photo ||
     doctor.raw?.user?.profileImage ||
-    defaultProfileAvatar
+    ""
   );
 }
 
@@ -146,13 +146,10 @@ function DoctorCard({ doctor }) {
   return (
     <article className="overflow-hidden rounded-[8px] bg-white text-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:bg-[#505050]">
       <div className="flex h-[184px] items-end justify-center bg-[#f5f5f5] dark:bg-[#444]">
-        <img
+        <ProfileAvatar
           src={doctor.image}
           alt={doctor.name}
           className="h-full max-w-full object-contain"
-          onError={(event) => {
-            event.currentTarget.src = defaultProfileAvatar;
-          }}
         />
       </div>
       <div className="px-[16px] pb-[18px] pt-[8px]">

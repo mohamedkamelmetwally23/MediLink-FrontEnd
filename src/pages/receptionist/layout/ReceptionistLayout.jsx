@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
-import defaultReceptionistAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
@@ -120,7 +120,7 @@ function Sidebar({ isOpen, onClose }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [user, setUser] = useState(() => getCurrentAuthUser() || {});
   const [profilePhoto, setProfilePhoto] = useState(
-    () => getAuthUserPhoto(getCurrentAuthUser()) || defaultReceptionistAvatar,
+    () => getAuthUserPhoto(getCurrentAuthUser()) || "",
   );
   const [photoUploading, setPhotoUploading] = useState(false);
   const displayName = getAuthUserDisplayName(user);
@@ -134,12 +134,12 @@ function Sidebar({ isOpen, onClose }) {
 
         const nextUser = saveCurrentUserToSession(currentUser);
         setUser(nextUser);
-        setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+        setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       })
       .catch(() => {
         if (mounted) {
           setProfilePhoto(
-            getAuthUserPhoto(getCurrentAuthUser()) || defaultReceptionistAvatar,
+            getAuthUserPhoto(getCurrentAuthUser()) || "",
           );
         }
       });
@@ -147,7 +147,7 @@ function Sidebar({ isOpen, onClose }) {
     const handleUserUpdated = (event) => {
       const nextUser = event.detail || getCurrentAuthUser() || {};
       setUser(nextUser);
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
     };
 
     window.addEventListener("medilink-user-updated", handleUserUpdated);
@@ -191,10 +191,10 @@ function Sidebar({ isOpen, onClose }) {
       const nextUser = saveCurrentUserToSession(updatedUser);
 
       setUser(nextUser);
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultReceptionistAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       toast.success("تم تحديث الصورة بنجاح");
     } catch (error) {
-      setProfilePhoto(previousPhoto || defaultReceptionistAvatar);
+      setProfilePhoto(previousPhoto || "");
       toast.error(error.message || "تعذر تحديث الصورة");
     } finally {
       URL.revokeObjectURL(previewUrl);
@@ -234,7 +234,7 @@ function Sidebar({ isOpen, onClose }) {
 
           <div className="absolute bottom-[-18px] left-1/2 -translate-x-1/2">
             <div className="h-[116px] w-[116px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
-              <img
+              <ProfileAvatar
                 src={profilePhoto}
                 alt={displayName}
                 className="h-full w-full object-cover object-top"

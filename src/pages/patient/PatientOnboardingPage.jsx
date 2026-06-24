@@ -15,7 +15,7 @@ import {
 import { FaFacebookF, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import ThemeLogo from "../../components/ThemeLogo";
-import defaultPatientAvatar from "../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import patientVector from "../../assets/patient departement/Vector.png";
 import {
   completePatientProfile,
@@ -113,7 +113,7 @@ function PatientHeader({ navigationDisabled = false }) {
       authUser?.profileImage ||
       authUser?.image ||
       authUser?.avatar ||
-      defaultPatientAvatar,
+      "",
   );
   const disabledLinkClass =
     "cursor-not-allowed opacity-45";
@@ -131,7 +131,7 @@ function PatientHeader({ navigationDisabled = false }) {
               user?.profileImage ||
               user?.image ||
               user?.avatar ||
-              defaultPatientAvatar,
+              "",
           );
         }
       })
@@ -144,7 +144,7 @@ function PatientHeader({ navigationDisabled = false }) {
           user.profileImage ||
           user.image ||
           user.avatar ||
-          defaultPatientAvatar,
+          "",
       );
     };
 
@@ -208,7 +208,7 @@ function PatientHeader({ navigationDisabled = false }) {
         <button type="button" className="grid size-12 place-items-center bg-transparent text-[#333333] dark:text-[#F0F0F0]" aria-label="بحث">
           <Search size={32} strokeWidth={1.8} />
         </button>
-        <img
+        <ProfileAvatar
           src={profilePhoto}
           alt="صورة المريض"
           className="size-[46px] rounded-full object-cover"

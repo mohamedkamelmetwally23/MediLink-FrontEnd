@@ -3,9 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { toast } from "react-toastify";
 import { Home, LogOut, Menu, Pencil, Stethoscope, UsersRound, X } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
-import doctorAvatar from "../../../assets/landingPage/doctor1.png";
-import defaultDoctorAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import { clearAuthSession } from "../../../services/authApi";
 import {
   getCurrentAuthUser,
@@ -110,7 +109,7 @@ function getPatientImage(appointment) {
     patient.profileImage ||
     user.image ||
     user.profileImage ||
-    doctorAvatar
+    ""
   );
 }
 
@@ -332,7 +331,7 @@ function DoctorBadge({ doctor, onClose }) {
   const doctorName = getDoctorName(doctor);
   const fileInputRef = useRef(null);
   const [profilePhoto, setProfilePhoto] = useState(
-    () => getAuthUserPhoto(getCurrentAuthUser()) || defaultDoctorAvatar,
+    () => getAuthUserPhoto(getCurrentAuthUser()) || "",
   );
   const [photoUploading, setPhotoUploading] = useState(false);
 
@@ -344,19 +343,19 @@ function DoctorBadge({ doctor, onClose }) {
         if (!mounted) return;
 
         const nextUser = saveCurrentUserToSession(currentUser);
-        setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+        setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       })
       .catch(() => {
         if (mounted) {
           setProfilePhoto(
-            getAuthUserPhoto(getCurrentAuthUser()) || defaultDoctorAvatar,
+            getAuthUserPhoto(getCurrentAuthUser()) || "",
           );
         }
       });
 
     const handleUserUpdated = (event) => {
       const nextUser = event.detail || getCurrentAuthUser() || {};
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
     };
 
     window.addEventListener("medilink-user-updated", handleUserUpdated);
@@ -388,10 +387,10 @@ function DoctorBadge({ doctor, onClose }) {
       const updatedUser = await updateCurrentUserPhoto(file);
       const nextUser = saveCurrentUserToSession(updatedUser);
 
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultDoctorAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       toast.success("تم تحديث الصورة بنجاح");
     } catch (error) {
-      setProfilePhoto(previousPhoto || defaultDoctorAvatar);
+      setProfilePhoto(previousPhoto || "");
       toast.error(error.message || "تعذر تحديث الصورة");
     } finally {
       URL.revokeObjectURL(previewUrl);
@@ -416,7 +415,7 @@ function DoctorBadge({ doctor, onClose }) {
 
         <div className="absolute bottom-[-16px] left-1/2 -translate-x-1/2">
           <div className="h-[130px] w-[130px] overflow-hidden rounded-full bg-white ring-[5px] ring-white dark:bg-[#505050] dark:ring-[#3a3a3a]">
-            <img
+            <ProfileAvatar
               src={profilePhoto}
               alt={doctorName}
               className="h-full w-full object-cover object-top"
@@ -570,7 +569,7 @@ function WaitingItem({ item, onClose }) {
     return (
       <article className="rounded-[8px] bg-[#effcfc] px-[14px] py-[14px] dark:bg-[#24484b]">
         <div className="grid grid-cols-[42px_minmax(0,1fr)_36px] items-center gap-[10px]">
-          <img
+          <ProfileAvatar
             src={item.image}
             alt={item.name}
             className="h-[42px] w-[42px] rounded-full object-cover"
@@ -605,7 +604,7 @@ function WaitingItem({ item, onClose }) {
 
   return (
     <article className="grid h-[73px] grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-[9px] rounded-[8px] bg-[#fffdf7] px-[12px] dark:bg-[#484235]">
-      <img
+      <ProfileAvatar
         src={item.image}
         alt={item.name}
         className="h-[42px] w-[42px] rounded-full object-cover"

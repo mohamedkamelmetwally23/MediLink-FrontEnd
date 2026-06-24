@@ -21,7 +21,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import patientAvatar from "../../assets/landingPage/admin.png";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import ActivityList from "../../components/admin/ActivityList";
 import {
   getCurrentDoctorId,
@@ -193,7 +193,7 @@ function getPatientImage(appointment) {
     patient.profileImage ||
     user.image ||
     user.profileImage ||
-    patientAvatar
+    ""
   );
 }
 
@@ -966,7 +966,7 @@ function AppointmentRow({ appointment }) {
 
   return (
     <article className="grid h-[36px] grid-cols-[34px_minmax(0,1fr)_72px] items-center gap-[8px] rounded-[7px] px-[4px] transition hover:bg-[#f5fbfc] dark:hover:bg-white/10">
-      <img
+      <ProfileAvatar
         src={getPatientImage(appointment)}
         alt={getPatientName(appointment)}
         className="h-[30px] w-[30px] rounded-full object-cover"

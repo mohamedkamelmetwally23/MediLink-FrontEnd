@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CalendarCheck, ChevronRight, Star, Stethoscope } from "lucide-react";
-import doctorAvatar from "../../assets/landingPage/doctor1.png";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import ActivityList from "../../components/admin/ActivityList";
 import {
   getUserAppointmentsCount,
@@ -24,7 +24,7 @@ const fallbackDoctor = {
   workDays: ["السبت", "الأحد", "الإثنين", "الثلاثاء"],
   workStart: "08:00",
   workEnd: "16:00",
-  image: doctorAvatar,
+  image: "",
 };
 
 function getDoctorName(doctor) {
@@ -235,8 +235,8 @@ export default function ReceptionistDoctorProfilePage() {
 
           <section className="space-y-4" dir="rtl">
             <article className="rounded-[8px] bg-white px-5 py-6 text-center shadow-[0_5px_18px_rgba(37,70,82,0.08)] dark:bg-[#505050]">
-              <img
-                src={doctor.image || doctorAvatar}
+              <ProfileAvatar
+                src={doctor.image}
                 alt={getDoctorName(doctor)}
                 className="mx-auto h-[132px] w-[132px] rounded-full object-cover object-top ring-[5px] ring-[#f1f1f1] dark:ring-white/10"
               />
