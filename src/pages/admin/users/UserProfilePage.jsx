@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminImage from "../../../assets/landingPage/admin.png";
 import doctorImage from "../../../assets/landingPage/login-doctor.png";
+import defaultProfileAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import ActivityList from "../../../components/admin/ActivityList";
 import {
   getDoctor,
@@ -71,6 +72,7 @@ export default function UserProfilePage() {
     profileSource,
     searchParams,
     activeAppointmentCounts,
+    storedUser,
   );
 
   useEffect(() => {
@@ -247,7 +249,7 @@ export default function UserProfilePage() {
   );
 }
 
-function buildProfile(user, searchParams, appointmentCounts = null) {
+function buildProfile(user, searchParams, appointmentCounts = null, fallbackUser = null) {
   const fullName =
     user ? `${user.firstName} ${user.lastName}`.trim() : searchParams.get("name") || "غير متوفر";
   const [firstName, ...rest] = fullName.split(" ");
@@ -291,8 +293,55 @@ function buildProfile(user, searchParams, appointmentCounts = null) {
         user?.raw?.rating ??
         user?.raw?.ratingsAverage,
     ),
-    image: getProfileImage(role),
+    image: getUserProfileImage(user, role, fallbackUser),
   };
+}
+
+function getUserProfileImage(user, role, fallbackUser = null) {
+  const image = [user, fallbackUser]
+    .filter(Boolean)
+    .flatMap((source) => [
+      source?.image,
+      source?.photo,
+      source?.profileImage,
+      source?.avatar,
+      source?.raw?.image,
+      source?.raw?.photo,
+      source?.raw?.profileImage,
+      source?.raw?.avatar,
+      source?.raw?.user?.image,
+      source?.raw?.user?.photo,
+      source?.raw?.user?.profileImage,
+      source?.raw?.user?.avatar,
+      source?.raw?.doctor?.image,
+      source?.raw?.doctor?.photo,
+      source?.raw?.doctor?.profileImage,
+      source?.raw?.doctorProfile?.image,
+      source?.raw?.doctorProfile?.photo,
+      source?.raw?.doctorProfile?.profileImage,
+      source?.raw?.receptionist?.image,
+      source?.raw?.receptionist?.photo,
+      source?.raw?.receptionist?.profileImage,
+      source?.raw?.receptionistProfile?.image,
+      source?.raw?.receptionistProfile?.photo,
+      source?.raw?.receptionistProfile?.profileImage,
+      source?.raw?.patient?.image,
+      source?.raw?.patient?.photo,
+      source?.raw?.patient?.profileImage,
+      source?.raw?.patientProfile?.image,
+      source?.raw?.patientProfile?.photo,
+      source?.raw?.patientProfile?.profileImage,
+      source?.raw?.profile?.image,
+      source?.raw?.profile?.photo,
+      source?.raw?.profile?.profileImage,
+    ])
+    .find(Boolean);
+
+  if (image) return image;
+
+  return role === "doctor" || role === "receptionist" || role === "patient"
+    ? defaultProfileAvatar
+    : getProfileImage(role) || defaultProfileAvatar;
 }
 
 function getAppointmentCountLookupIds(user, routeId) {
@@ -596,6 +645,12 @@ function HeroCard({ profile }) {
             src={profile.image}
             alt={profile.fullName}
             className="h-full w-full object-cover"
+            onError={(event) => {
+              if (event.currentTarget.dataset.fallbackApplied) return;
+
+              event.currentTarget.dataset.fallbackApplied = "true";
+              event.currentTarget.src = defaultProfileAvatar;
+            }}
           />
         </div>
         <h2 className="mt-[22px] text-[30px] font-bold leading-9 text-[#333] dark:text-white">
