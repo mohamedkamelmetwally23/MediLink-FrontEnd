@@ -244,7 +244,13 @@ export default function ReceptionistDoctorProfilePage() {
                 {getDoctorName(doctor)}
               </h2>
               <div className="mt-2 flex items-center justify-center gap-2 text-[12px]">
-                <span className="rounded-[5px] bg-[#e8fff4] px-2 py-1 text-[10px] font-bold text-[#129a55]">
+                <span
+                  className={`rounded-[5px] px-2 py-1 text-[10px] font-bold ${
+                    doctor?.status === "inactive"
+                      ? "bg-[#fff0f0] text-[#e53935]"
+                      : "bg-[#e8fff4] text-[#129a55]"
+                  }`}
+                >
                   {getDoctorStatus(doctor)}
                 </span>
                 <span className="font-bold text-[#8a98a0] dark:text-gray-300">
