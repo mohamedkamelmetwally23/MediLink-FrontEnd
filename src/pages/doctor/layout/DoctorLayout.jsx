@@ -12,7 +12,6 @@ import {
   getCurrentDoctorProfile,
   getCurrentUser,
   getDoctorQueueByDoctor,
-  listMyDoctorAppointments,
   updateCurrentUserPhoto,
 } from "../../../services/medilinkApi";
 import { getPatientFileSizeError } from "../../../utils/patientFileValidation";
@@ -157,7 +156,6 @@ function getAppointmentPatientUserId(appointment) {
 
 function buildWaitingList(appointments) {
   return [...appointments]
-    .filter(isWaitingAppointment)
     .sort((left, right) => getTimeMinutes(left.time) - getTimeMinutes(right.time))
     .slice(0, 3)
     .map((appointment, index) => {
@@ -226,21 +224,15 @@ export default function DoctorLayout() {
 
     async function loadSidebarData() {
       try {
-        const todayIso = getIsoDate(new Date());
-        const [currentDoctor, queueAppointments, todayAppointments] = await Promise.all([
+        const [currentDoctor, queueAppointments] = await Promise.all([
           getCurrentDoctorProfile().catch(() => null),
           getDoctorQueueByDoctor().catch(() => []),
-          listMyDoctorAppointments(todayIso).catch(() => []),
         ]);
 
         if (!mounted) return;
 
         setDoctor(currentDoctor);
-        setWaitingList(
-          buildWaitingList(
-            mergeSidebarAppointments(queueAppointments, todayAppointments),
-          ),
-        );
+        setWaitingList(buildWaitingList(queueAppointments));
       } catch {
         if (!mounted) return;
 
