@@ -166,9 +166,8 @@ function formatShortWeekday(date) {
 function getDoctorName(doctor) {
   return (
     [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
-    doctor?.name ||
-    "دكتور ميديلينك"
-  );
+    doctor?.name ||"دكتور "
+ );
 }
 
 function getPatientName(appointment) {
