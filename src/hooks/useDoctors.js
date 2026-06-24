@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { API_ORIGIN } from "../services/apiClient";
 import { listDoctors } from "../services/medilinkApi";
-import defaultDoctorAvatar from "../assets/patient departement/default-patient-avatar.svg";
 
 function resolveImageUrl(image) {
   if (!image || typeof image !== "string") return "";
@@ -15,10 +14,8 @@ export function getDoctorName(doctor) {
 }
 
 export function getDoctorImage(doctor) {
-  return resolveImageUrl(doctor.image || doctor.photo) || defaultDoctorAvatar;
+  return resolveImageUrl(doctor.image || doctor.photo) || "";
 }
-
-export { defaultDoctorAvatar };
 
 export function getDoctorRating(doctor) {
   const rating = Number(

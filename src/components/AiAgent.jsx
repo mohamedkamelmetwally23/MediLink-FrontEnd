@@ -26,7 +26,7 @@ import {
 } from "../services/medilinkApi";
 import { includesSearchText, normalizeSearchText } from "../utils/searchText";
 import ThemeLogo from "./ThemeLogo";
-import defaultDoctorAvatar from "../assets/landingPage/doctor1.png";
+import ProfileAvatar from "./ProfileAvatar";
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -186,7 +186,7 @@ function getDoctorSpecialty(doctor) {
 }
 
 function getDoctorImageUrl(doctor) {
-  return doctor.image || doctor.photo || defaultDoctorAvatar;
+  return doctor.image || doctor.photo || "";
 }
 
 function toChatDoctor(doctor) {
@@ -382,10 +382,9 @@ function InlineBookingFlow({ booking, onUpdate, onConfirm }) {
       {/* Doctor header — gradient with photo */}
       <div className="relative bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-3 pb-3 pt-3">
         <div className="flex items-center gap-3">
-          <img
+          <ProfileAvatar
             src={doctor.image}
             alt={doctor.name}
-            onError={(e) => { e.currentTarget.src = defaultDoctorAvatar; }}
             className="h-12 w-12 shrink-0 rounded-full border-2 border-white/60 object-cover shadow-md"
           />
           <div className="min-w-0 flex-1">
@@ -688,10 +687,9 @@ function DoctorCards({ doctors, onBookDoctor }) {
         >
           {/* Gradient header with doctor image overlapping */}
           <div className="relative h-16 bg-linear-to-r from-[#05ADE8] to-[#6CCCC8]">
-            <img
+            <ProfileAvatar
               src={doctor.image}
               alt={doctor.name}
-              onError={(e) => { e.currentTarget.src = defaultDoctorAvatar; }}
               className="absolute -bottom-6 right-3 h-16 w-16 rounded-full border-[3px] border-white object-cover shadow-md dark:border-[#2A2A2A]"
             />
           </div>

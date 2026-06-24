@@ -27,7 +27,7 @@ import {
   listPatientsForDoctor,
 } from "../../services/medilinkApi";
 import { includesSearchText } from "../../utils/searchText";
-import patientImage from "../../assets/landingPage/admin.png";
+import ProfileAvatar from "../../components/ProfileAvatar";
 import cigaretteIcon from "../../assets/doctor departement/ph_cigarette.png";
 import bloodIcon from "../../assets/doctor departement/hugeicons_blood.png";
 import scaleIcon from "../../assets/doctor departement/ion_scale-outline.png";
@@ -185,7 +185,7 @@ function buildPatientFromUser(user) {
       user.image ||
       user.profileImage ||
       user.avatar ||
-      patientImage,
+      "",
     birthDate,
     registeredAt: user.createdAt || user.registrationDate || user.registeredAt || "",
     height: user.height ?? user.tall ?? "",
@@ -549,7 +549,7 @@ export default function DoctorPatientProfilePage({ startExam = false }) {
           gender: "",
           age: "",
           phone: "",
-          image: patientImage,
+          image: "",
           height: "",
           weight: "",
           bloodType: "",
@@ -931,7 +931,7 @@ function PatientIdentityCard({ patient }) {
     <article className="grid min-h-[338px] place-items-center rounded-[10px] bg-white px-6 py-[23px] text-center shadow-[0_5px_22px_rgba(0,0,0,0.10)] dark:bg-[#3d3d3d]">
       <div>
         <div className="mx-auto h-[205px] w-[205px] overflow-hidden rounded-full border-[7px] border-[#eeeeee] bg-[#f5f5f5] dark:border-[#555] dark:bg-[#454545]">
-          <img src={patient.image || patientImage} alt={patient.name} className="h-full w-full object-cover" />
+          <ProfileAvatar src={patient.image} alt={patient.name} className="h-full w-full object-cover" />
         </div>
 
         <h2 className="mt-[22px] text-[28px] font-bold leading-10 text-[#333] dark:text-white">
@@ -2175,7 +2175,7 @@ function PatientCard({ patient }) {
   return (
     <section className="grid min-h-[205px] gap-4 rounded-[10px] bg-white px-[18px] py-[18px] shadow-[0_5px_22px_rgba(0,0,0,0.09)] dark:bg-[#3d3d3d] sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:px-[24px] md:grid-cols-[190px_minmax(0,1fr)] md:px-[31px]">
       <div className="h-[120px] w-[120px] overflow-hidden rounded-full border-[5px] border-[#eeeeee] justify-self-center dark:border-[#555] sm:h-[132px] sm:w-[132px] sm:justify-self-start md:h-[144px] md:w-[144px]">
-        <img src={patient.image || patientImage} alt={patient.name} className="h-full w-full object-cover" />
+        <ProfileAvatar src={patient.image} alt={patient.name} className="h-full w-full object-cover" />
       </div>
 
       <div className="text-center sm:text-right">

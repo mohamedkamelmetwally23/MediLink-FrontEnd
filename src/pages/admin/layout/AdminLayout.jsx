@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import asideLogo from "../../../assets/aside.png";
-import defaultAdminAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import LogoutConfirmModal from "../../../components/LogoutConfirmModal";
 import { clearAuthSession } from "../../../services/authApi";
 import {
@@ -139,7 +139,7 @@ function Sidebar({ isOpen, onClose }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [user, setUser] = useState(() => getCurrentAuthUser() || {});
   const [profilePhoto, setProfilePhoto] = useState(
-    () => getAuthUserPhoto(getCurrentAuthUser()) || defaultAdminAvatar,
+    () => getAuthUserPhoto(getCurrentAuthUser()) || "",
   );
   const [photoUploading, setPhotoUploading] = useState(false);
   const { getUser } = useUsersStore();
@@ -155,12 +155,12 @@ function Sidebar({ isOpen, onClose }) {
 
         const nextUser = saveCurrentUserToSession(currentUser);
         setUser(nextUser);
-        setProfilePhoto(getAuthUserPhoto(nextUser) || defaultAdminAvatar);
+        setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       })
       .catch(() => {
         if (mounted) {
           setProfilePhoto(
-            getAuthUserPhoto(getCurrentAuthUser()) || defaultAdminAvatar,
+            getAuthUserPhoto(getCurrentAuthUser()) || "",
           );
         }
       });
@@ -168,7 +168,7 @@ function Sidebar({ isOpen, onClose }) {
     const handleUserUpdated = (event) => {
       const nextUser = event.detail || getCurrentAuthUser() || {};
       setUser(nextUser);
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultAdminAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
     };
 
     window.addEventListener("medilink-user-updated", handleUserUpdated);
@@ -207,10 +207,10 @@ function Sidebar({ isOpen, onClose }) {
       const nextUser = saveCurrentUserToSession(updatedUser);
 
       setUser(nextUser);
-      setProfilePhoto(getAuthUserPhoto(nextUser) || defaultAdminAvatar);
+      setProfilePhoto(getAuthUserPhoto(nextUser) || "");
       toast.success("تم تحديث الصورة بنجاح");
     } catch (error) {
-      setProfilePhoto(previousPhoto || defaultAdminAvatar);
+      setProfilePhoto(previousPhoto || "");
       toast.error(error.message || "تعذر تحديث الصورة");
     } finally {
       URL.revokeObjectURL(previewUrl);
@@ -250,7 +250,7 @@ function Sidebar({ isOpen, onClose }) {
 
         <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2">
           <div className="h-[128px] w-[128px] overflow-hidden rounded-full ring-[6px] ring-white dark:ring-[#3a3a3a]">
-            <img
+            <ProfileAvatar
               src={profilePhoto}
               alt={displayName}
               className="h-full w-full object-cover"
