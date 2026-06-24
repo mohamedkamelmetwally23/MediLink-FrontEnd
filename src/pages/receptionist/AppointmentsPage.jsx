@@ -437,16 +437,6 @@ function AppointmentRow({ appointment, onEdit }) {
       <div className="flex justify-center">
         <StatusBadge value={appointment.payment} labels={paymentStatusLabels} />
       </div>
-      <div className="flex items-center justify-center" dir="ltr">
-        <button
-          type="button"
-          aria-label="تعديل"
-          className="text-[#333] transition hover:text-[#24b9d6] dark:text-white"
-          onClick={onEdit}
-        >
-          <Pencil size={16} strokeWidth={1.7} />
-        </button>
-      </div>
     </div>
   );
 }
