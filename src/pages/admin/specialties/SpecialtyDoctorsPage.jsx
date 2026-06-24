@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Search, Star, X } from "lucide-react";
-import defaultDoctorAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
+import defaultProfileAvatar from "../../../assets/patient departement/default-patient-avatar.svg";
 import { includesSearchText } from "../../../utils/searchText";
 import { normalizeSpecialtyLabel } from "../users/usersData";
 import { useUsersStore } from "../users/useUsersStore";
@@ -33,17 +33,7 @@ export default function SpecialtyDoctorsPage() {
         id: doctor.id,
         name: `${doctor.firstName} ${doctor.lastName}`.replace("د.", "").trim(),
         rating: doctor.rating || "",
-        image:
-          doctor.image ||
-          doctor.photo ||
-          doctor.profileImage ||
-          doctor.raw?.image ||
-          doctor.raw?.photo ||
-          doctor.raw?.profileImage ||
-          doctor.raw?.user?.image ||
-          doctor.raw?.user?.photo ||
-          doctor.raw?.user?.profileImage ||
-          defaultDoctorAvatar,
+        image: getDoctorImage(doctor),
         to: `/admin/users/${doctor.id}/profile`,
       }));
   }, [decodedName, users]);
@@ -75,6 +65,28 @@ export default function SpecialtyDoctorsPage() {
         )}
       </main>
     </section>
+  );
+}
+
+function getDoctorImage(doctor) {
+  return (
+    doctor.image ||
+    doctor.photo ||
+    doctor.profileImage ||
+    doctor.avatar ||
+    doctor.raw?.image ||
+    doctor.raw?.photo ||
+    doctor.raw?.profileImage ||
+    doctor.raw?.doctor?.image ||
+    doctor.raw?.doctor?.photo ||
+    doctor.raw?.doctor?.profileImage ||
+    doctor.raw?.doctorProfile?.image ||
+    doctor.raw?.doctorProfile?.photo ||
+    doctor.raw?.doctorProfile?.profileImage ||
+    doctor.raw?.user?.image ||
+    doctor.raw?.user?.photo ||
+    doctor.raw?.user?.profileImage ||
+    defaultProfileAvatar
   );
 }
 
@@ -137,12 +149,9 @@ function DoctorCard({ doctor }) {
         <img
           src={doctor.image}
           alt={doctor.name}
-          className="h-full max-w-full object-cover"
+          className="h-full max-w-full object-contain"
           onError={(event) => {
-            if (event.currentTarget.dataset.fallbackApplied) return;
-
-            event.currentTarget.dataset.fallbackApplied = "true";
-            event.currentTarget.src = defaultDoctorAvatar;
+            event.currentTarget.src = defaultProfileAvatar;
           }}
         />
       </div>

@@ -46,6 +46,25 @@ function findArray(response, keys) {
   return [];
 }
 
+function findNestedArray(response, keys, depth = 0) {
+  if (!response || depth > 5) return [];
+  if (Array.isArray(response)) return response;
+  if (typeof response !== "object") return [];
+
+  for (const key of keys) {
+    const value = response[key];
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.data)) return value.data;
+  }
+
+  for (const value of Object.values(response)) {
+    const nestedArray = findNestedArray(value, keys, depth + 1);
+    if (nestedArray.length > 0) return nestedArray;
+  }
+
+  return [];
+}
+
 function findEntity(response, keys) {
   const roots = [
     response,
@@ -2158,12 +2177,38 @@ export async function deletePatient(id) {
 }
 
 export async function listReceptionists() {
-  const receptionists = await listFromPaths(
-    ["/receptionist?limit=500", "/receptionists?limit=500"],
-    ["receptionists", "receptionist", "reseptionists", "reseptionist", "users"],
-  );
-  const hydratedReceptionists = await withHydratedUsers(receptionists);
-  return hydratedReceptionists.map(normalizeReceptionist);
+  const response = await apiRequest("/users?role=receptionist");
+  const collectionKeys = [
+    "users",
+    "user",
+    "receptionists",
+    "receptionist",
+    "data",
+    "docs",
+    "documents",
+    "items",
+    "records",
+    "results",
+    "result",
+  ];
+  const directReceptionists = findArray(response, collectionKeys);
+  const receptionists =
+    directReceptionists.length > 0
+      ? directReceptionists
+      : findNestedArray(response, collectionKeys);
+
+  return receptionists.map((item) => {
+    const normalizedReceptionist = normalizeReceptionist(item);
+    const user = item.user || item.account || item;
+    const responseUserId =
+      getId(user) || getProfileUserId(item) || normalizedReceptionist.id;
+
+    return {
+      ...normalizedReceptionist,
+      id: responseUserId,
+      userId: responseUserId,
+    };
+  });
 }
 
 export async function getReceptionist(id) {
@@ -2329,6 +2374,7 @@ export async function toggleUserActiveStatus(user, options = {}) {
 
   if (user.role === "receptionist") {
     const receptionistId =
+      user.id ||
       user.userId ||
       getProfileUserId(user.raw) ||
       user.raw?.user?._id ||
@@ -2340,7 +2386,7 @@ export async function toggleUserActiveStatus(user, options = {}) {
 
     const response = await apiRequest(`/users/${receptionistId}`, {
       method: "PATCH",
-      body: statusPayload,
+      body: { notes: "" },
     });
 
     return {

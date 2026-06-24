@@ -761,7 +761,7 @@ export default function DoctorDashboard() {
 
   return (
     <section className="min-h-screen bg-[#f8fbfc] text-[#333333] dark:bg-[#2f2f2f] dark:text-white">
-      <Header doctorFirstName={doctor?.firstName} />
+      <Header doctorName={getDoctorName(doctor)} />
 
       <main className="space-y-[18px] px-4 py-[24px] sm:px-6 lg:px-[24px]">
         {error && (
@@ -863,7 +863,7 @@ export default function DoctorDashboard() {
   );
 }
 
-function Header({ doctorFirstName }) {
+function Header({ doctorName }) {
   return (
     <header className="flex min-h-[100px] flex-col gap-5 bg-white px-4 py-[22px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[24px]">
       <div className="ml-auto text-right">
