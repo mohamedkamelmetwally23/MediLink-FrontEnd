@@ -166,9 +166,8 @@ function formatShortWeekday(date) {
 function getDoctorName(doctor) {
   return (
     [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
-    doctor?.name ||
-    "دكتور ميديلينك"
-  );
+    doctor?.name ||"دكتور "
+ );
 }
 
 function getPatientName(appointment) {
@@ -641,25 +640,15 @@ export default function DoctorDashboard() {
     let mounted = true;
 
     async function loadDashboard() {
+      if (!mounted) return;
       setError("");
+      setActivitiesLoading(true);
 
       const todayIso = getIsoDate(new Date());
-      const doctorPromise = withFallback(getCurrentDoctorProfile(), null, 5000);
-      const todayAppointmentsPromise = withFallback(
-        listMyDoctorAppointments(todayIso),
-        [],
-        7000,
-      );
-      const currentIdAppointmentsPromise = withFallback(
-        loadDoctorAppointments(null),
-        [],
-        8000,
-      );
-      const doctorPatientsPromise = withFallback(
-        getDoctorPatientsPlanCount(),
-        null,
-        8000,
-      );
+      const doctorPromise = getCurrentDoctorProfile().catch(() => null);
+      const todayAppointmentsPromise = listMyDoctorAppointments(todayIso).catch(() => []);
+      const currentIdAppointmentsPromise = loadDoctorAppointments(null).catch(() => []);
+      const doctorPatientsPromise = getDoctorPatientsPlanCount().catch(() => null);
 
       doctorPromise.then((currentDoctor) => {
         if (mounted) setDoctor(currentDoctor);
@@ -703,28 +692,26 @@ export default function DoctorDashboard() {
         }
       });
 
-      todayAppointmentsPromise.then((todayAppointments) => {
+      todayAppointmentsPromise.then((todayAppointmentsResult) => {
         if (!mounted) return;
         setAppointments((current) =>
-          mergeDashboardAppointments(current, todayAppointments),
+          mergeDashboardAppointments(current, todayAppointmentsResult),
         );
       });
 
       Promise.all([currentIdAppointmentsPromise, todayAppointmentsPromise]).then(
-        ([allAppointments, todayAppointments]) => {
+        ([allAppointments, todayAppointmentsResult]) => {
           if (!mounted) return;
 
           setAppointments(
-            mergeDashboardAppointments(allAppointments, todayAppointments),
+            mergeDashboardAppointments(allAppointments, todayAppointmentsResult),
           );
         },
       );
 
       doctorPromise
         .then((currentDoctor) =>
-          currentDoctor
-            ? withFallback(loadDoctorAppointments(currentDoctor), [], 8000)
-            : [],
+          currentDoctor ? loadDoctorAppointments(currentDoctor).catch(() => []) : [],
         )
         .then((profileAppointments) => {
           if (!mounted) return;
@@ -736,20 +723,16 @@ export default function DoctorDashboard() {
 
       doctorPromise
         .then((currentDoctor) =>
-          withFallback(
-            loadDoctorAvailableSlots(currentDoctor),
-            [],
-            9000,
-          ),
+          loadDoctorAvailableSlots(currentDoctor).catch(() => []),
         )
         .then((slots) => {
           if (mounted) setAvailableSlotDays(slots);
         });
 
       Promise.all([doctorPromise, todayAppointmentsPromise]).then(
-        ([currentDoctor, todayAppointments]) => {
+        ([currentDoctor, todayAppointmentsResult]) => {
           if (!mounted) return;
-          if (!currentDoctor && todayAppointments.length === 0) {
+          if (!currentDoctor && todayAppointmentsResult.length === 0) {
             setError("تعذر تحميل بعض بيانات لوحة التحكم من قاعدة البيانات");
           }
         },
@@ -758,8 +741,21 @@ export default function DoctorDashboard() {
 
     loadDashboard();
 
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        setAppointments([]);
+        setDoctor(null);
+        setDoctorPatientsCount(null);
+        setActivities([]);
+        loadDashboard();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
       mounted = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
@@ -872,7 +868,7 @@ function Header({ doctorName }) {
     <header className="flex min-h-[100px] flex-col gap-5 bg-white px-4 py-[22px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[24px]">
       <div className="ml-auto text-right">
         <h1 className="text-[20px] font-bold leading-7 text-[#333] dark:text-white">
-          مرحبا {doctorName} 👋
+          مرحبا دكتور {doctorFirstName} 👋
         </h1>
         <p className="mt-1 text-[11px] leading-5 text-[#8a8a8a] dark:text-gray-300">
           إليك ملخص مواعيدك اليوم

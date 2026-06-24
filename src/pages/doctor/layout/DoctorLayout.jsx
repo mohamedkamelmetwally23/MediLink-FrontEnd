@@ -58,8 +58,7 @@ function formatTime(value) {
 function getDoctorName(doctor) {
   return (
     [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ").trim() ||
-    doctor?.name ||
-    "دكتور ميديلينك"
+    doctor?.name 
   );
 }
 
