@@ -868,7 +868,7 @@ function Header({ doctorFirstName }) {
     <header className="flex min-h-[100px] flex-col gap-5 bg-white px-4 py-[22px] shadow-[0_1px_8px_rgba(0,0,0,0.03)] dark:bg-[#3a3a3a] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-[24px]">
       <div className="ml-auto text-right">
         <h1 className="text-[20px] font-bold leading-7 text-[#333] dark:text-white">
-          مرحبا دكتور {doctorFirstName || "ميديلينك"} 👋
+          مرحبا دكتور {doctorFirstName} 👋
         </h1>
         <p className="mt-1 text-[11px] leading-5 text-[#8a8a8a] dark:text-gray-300">
           إليك ملخص مواعيدك اليوم
