@@ -86,7 +86,7 @@ function toArabicErrorMessage(message, fallback) {
 }
 
 async function request(path, body, options = {}) {
-  const { timeoutMs } = options;
+  const { method = "POST", timeoutMs } = options;
   let response;
   let timedOut = false;
   let timeoutId;
@@ -103,7 +103,7 @@ async function request(path, body, options = {}) {
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method,
       headers: {
         "Content-Type": "application/json",
       },
@@ -183,6 +183,21 @@ export function extractOtp(data) {
 
 export function verifyOtp(payload) {
   return request("/verifyOTP", payload);
+}
+
+export function forgetPassword(payload) {
+  return request("/forgetPassword", payload, { timeoutMs: 10000 });
+}
+
+export function verifyPasswordOtp(payload) {
+  return request("/verifyPasswordOTP", payload, { timeoutMs: 10000 });
+}
+
+export function resetPassword(payload) {
+  return request("/resetPassword", payload, {
+    method: "PATCH",
+    timeoutMs: 10000,
+  });
 }
 
 export function loginUser(payload) {

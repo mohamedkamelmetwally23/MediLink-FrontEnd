@@ -8,8 +8,9 @@ export default function ResetPasswordForm({ onOtpRequested }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [forceDisabled, setForceDisabled] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!phoneNumber.trim()) {
@@ -27,7 +28,18 @@ export default function ResetPasswordForm({ onOtpRequested }) {
     }
 
     setError("");
-    onOtpRequested?.(phoneNumber);
+    setIsSubmitting(true);
+    try {
+      await onOtpRequested?.(phoneNumber.trim());
+    } catch (requestError) {
+      const message =
+        requestError.message || "تعذر إرسال كود استعادة كلمة المرور";
+      setError(message);
+      toast.error(message);
+      setForceDisabled(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -79,6 +91,7 @@ export default function ResetPasswordForm({ onOtpRequested }) {
             onChange={(event) => {
               setPhoneNumber(event.target.value);
               setError("");
+              setForceDisabled(false);
             }}
             autoComplete="tel"
             error={error}
@@ -87,7 +100,7 @@ export default function ResetPasswordForm({ onOtpRequested }) {
         </div>
 
         <PrimaryButton
-          disabled={forceDisabled || phoneNumber.trim().length === 0}
+          disabled={isSubmitting || forceDisabled || phoneNumber.trim().length === 0}
         >
           إرسال كود التحقق
         </PrimaryButton>
