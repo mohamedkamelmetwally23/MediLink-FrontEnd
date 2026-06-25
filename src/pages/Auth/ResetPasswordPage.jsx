@@ -6,39 +6,40 @@ import NewPasswordForm from "../../components/Auth/NewPasswordForm";
 import OtpForm from "../../components/Auth/OtpForm";
 import ResetPasswordForm from "../../components/Auth/ResetPasswordForm";
 import ResetPasswordIllustrationPanel from "../../components/Auth/ResetPasswordIllustrationPanel";
-
-function createDemoOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
+import {
+  extractOtp,
+  forgetPassword,
+  verifyPasswordOtp,
+} from "../../services/authApi";
 
 export default function ResetPasswordPage() {
   const [step, setStep] = useState("form");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpHint, setOtpHint] = useState("");
 
-  const handleOtpRequested = (nextPhoneNumber) => {
-    const nextOtpHint = createDemoOtp();
-
+  const handleOtpRequested = async (nextPhoneNumber) => {
     setPhoneNumber(nextPhoneNumber);
-    setOtpHint(nextOtpHint);
     setStep("loading");
 
-    window.setTimeout(() => {
+    try {
+      const response = await forgetPassword({ phone: nextPhoneNumber });
+      setOtpHint(extractOtp(response));
       toast.info("تم إرسال كود الاستعادة");
       setStep("otp");
-    }, 700);
+    } catch (error) {
+      setStep("form");
+      throw error;
+    }
   };
 
-  const handleOtpResend = () => {
-    setOtpHint(createDemoOtp());
+  const handleOtpResend = async () => {
+    const response = await forgetPassword({ phone: phoneNumber });
+    setOtpHint(extractOtp(response));
     toast.info("تم إرسال كود جديد");
   };
 
-  const handleOtpVerified = (otp) => {
-    if (otp !== otpHint) {
-      throw new Error("كود التحقق غير صحيح");
-    }
-
+  const handleOtpVerified = async (otp) => {
+    await verifyPasswordOtp({ phone: phoneNumber, otp });
     setStep("new-password");
   };
 
@@ -68,7 +69,12 @@ export default function ResetPasswordPage() {
     }
 
     if (step === "new-password") {
-      return <NewPasswordForm onSuccess={() => setStep("success")} />;
+      return (
+        <NewPasswordForm
+          phoneNumber={phoneNumber}
+          onSuccess={() => setStep("success")}
+        />
+      );
     }
 
     if (step === "success") {
@@ -87,7 +93,7 @@ export default function ResetPasswordPage() {
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-[#D3E0E4] p-4 dark:bg-[#151515]">
-      <div className="flex w-full max-w-[1200px] flex-col items-stretch overflow-hidden rounded-[2rem] bg-white shadow-[0_25px_80px_-35px_rgba(0,0,0,0.25)] dark:bg-[#252525] lg:flex-row-reverse lg:min-h-[760px]">
+      <div className="flex w-full max-w-[1200px] flex-col items-stretch overflow-hidden rounded-[2rem] bg-white shadow-[0_25px_80px_-35px_rgba(0,0,0,0.25)] dark:bg-[#252525] lg:min-h-[760px] lg:flex-row-reverse">
         {step === "success" ? null : (
           <ResetPasswordIllustrationPanel
             onBack={step === "otp" ? handleBackToForm : undefined}

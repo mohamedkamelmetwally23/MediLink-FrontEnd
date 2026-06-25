@@ -2,10 +2,11 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import FormInput from "../ui/FormInput";
 import PrimaryButton from "../ui/PrimaryButton";
+import { resetPassword } from "../../services/authApi";
 import { validateStrongPassword } from "../../utils/passwordValidation";
 import { Link } from "react-router";
 
-export default function NewPasswordForm({ onSuccess }) {
+export default function NewPasswordForm({ phoneNumber, onSuccess }) {
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
@@ -25,11 +26,16 @@ export default function NewPasswordForm({ onSuccess }) {
     setForceDisabled(false);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const nextErrors = {};
+    const phone = String(phoneNumber || "").trim();
     const passwordError = validateStrongPassword(formData.password);
+
+    if (!phone) {
+      nextErrors.general = "رقم الهاتف غير متاح، ابدأ استعادة كلمة المرور من جديد";
+    }
 
     if (passwordError) {
       nextErrors.password = passwordError;
@@ -49,11 +55,19 @@ export default function NewPasswordForm({ onSuccess }) {
     }
 
     setIsSubmitting(true);
-    window.setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await resetPassword({
+        phone,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      });
       toast.success("تم تغيير كلمة المرور بنجاح");
       onSuccess?.();
-    }, 700);
+    } catch (error) {
+      toast.error(error.message || "تعذر تغيير كلمة المرور");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormFilled =
