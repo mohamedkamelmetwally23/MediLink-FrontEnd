@@ -16,7 +16,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="navbar mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
+    <header className="navbar mx-auto max-w-7xl px-2 sm:px-3 lg:px-8">
       <div className="navbar-start min-w-0">
         <div className="dropdown lg:hidden">
           <button
@@ -55,7 +55,7 @@ export default function Navbar() {
         </div>
 
         <Link to="/" className="block shrink-0" aria-label="MediLink">
-          <ThemeLogo className="h-auto w-[132px] object-contain sm:w-[160px]" />
+          <ThemeLogo className="h-auto w-[120px] object-contain sm:w-[160px]" />
         </Link>
       </div>
 
