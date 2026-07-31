@@ -1,6 +1,6 @@
 export const API_ORIGIN =
   import.meta.env.VITE_API_ORIGIN ||
-  "https://medilink-backend-production-4a7f.up.railway.app";
+  "https://medilink-backend-26.youssef-sheashia.deno.net";
 
 export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, "")}/api/v1`;
 
@@ -106,7 +106,9 @@ export function getStoredToken() {
     key,
     token: localStorage.getItem(key),
   })).filter((item) => item.token);
-  const requestedRole = normalizeTokenRole(localStorage.getItem("medilinkRole"));
+  const requestedRole = normalizeTokenRole(
+    localStorage.getItem("medilinkRole"),
+  );
 
   if (requestedRole) {
     const roleMatchedToken = storedTokens.find(({ token }) => {
@@ -150,7 +152,10 @@ function getErrorMessage(data, fallback) {
   return translateApiErrorMessage(message, fallback);
 }
 
-export function translateApiErrorMessage(message, fallback = "حدث خطأ، حاول مرة أخرى") {
+export function translateApiErrorMessage(
+  message,
+  fallback = "حدث خطأ، حاول مرة أخرى",
+) {
   if (!message) return fallback;
 
   const text = String(message).trim();
@@ -254,10 +259,7 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     return "كلمة المرور غير صحيحة";
   }
 
-  if (
-    normalized.includes("confirm") &&
-    normalized.includes("password")
-  ) {
+  if (normalized.includes("confirm") && normalized.includes("password")) {
     return "تأكيد كلمة المرور غير صحيح";
   }
 
@@ -307,10 +309,7 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     return "برجاء استكمال البيانات المطلوبة";
   }
 
-  if (
-    normalized.includes("invalid") ||
-    normalized.includes("not valid")
-  ) {
+  if (normalized.includes("invalid") || normalized.includes("not valid")) {
     return "برجاء مراجعة البيانات المدخلة والمحاولة مرة أخرى";
   }
 
@@ -339,10 +338,7 @@ export function translateApiErrorMessage(message, fallback = "حدث خطأ، ح
     return "تعذر الاتصال بالخادم، حاول مرة أخرى";
   }
 
-  if (
-    normalized.includes("timeout") ||
-    normalized.includes("timed out")
-  ) {
+  if (normalized.includes("timeout") || normalized.includes("timed out")) {
     return "انتهت مهلة الاتصال بالخادم، حاول مرة أخرى";
   }
 
@@ -371,18 +367,13 @@ async function parseResponse(response) {
 }
 
 export async function apiRequest(path, options = {}) {
-  const {
-    method = "GET",
-    body,
-    headers = {},
-    signal,
-    timeoutMs,
-  } = options;
+  const { method = "GET", body, headers = {}, signal, timeoutMs } = options;
   const token = getStoredToken();
   const requestHeaders = {
     ...headers,
   };
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   if (body !== undefined && !isFormData) {
     requestHeaders["Content-Type"] = "application/json";
@@ -416,7 +407,12 @@ export async function apiRequest(path, options = {}) {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers: requestHeaders,
-      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
       cache: "no-store",
       signal: requestSignal,
     });
