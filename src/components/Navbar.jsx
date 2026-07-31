@@ -19,7 +19,11 @@ export default function Navbar() {
     <header className="navbar mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
       <div className="navbar-start min-w-0">
         <div className="dropdown lg:hidden">
-          <button tabIndex={0} className="btn btn-ghost btn-square" aria-label="فتح القائمة">
+          <button
+            tabIndex={0}
+            className="btn btn-ghost btn-square"
+            aria-label="فتح القائمة"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -70,12 +74,15 @@ export default function Navbar() {
       <div className="navbar-end gap-2">
         <Link
           to="/register"
-          className="btn btn-sm border-none bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] text-white outline-none dark:text-black sm:px-5 md:btn-md"
+          className="btn btn-sm border-none bg-linear-to-r from-[#05ADE8] to-[#6CCCC8] px-2 text-white outline-none dark:text-black sm:px-5 md:btn-md"
         >
           حساب جديد
         </Link>
 
-        <Link to="/login" className="btn btn-outline btn-info btn-sm sm:px-5 md:btn-md">
+        <Link
+          to="/login"
+          className="btn btn-outline btn-info btn-sm px-2 sm:px-5 md:btn-md"
+        >
           تسجيل دخول
         </Link>
       </div>
